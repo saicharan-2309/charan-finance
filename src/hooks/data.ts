@@ -1,0 +1,157 @@
+/**
+ * React Query hooks — the only way screens read server data.
+ */
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
+import { useMemo, useSyncExternalStore } from 'react';
+
+import { useToast } from '@/components/ui/feedback';
+import { haptic } from '@/components/ui/controls';
+import { monthRange, todayISO, type ISODate } from '@/lib/dates';
+import { describeError, logError } from '@/lib/errors';
+import { offlineQueue } from '@/lib/offline-queue';
+import { invalidateFinancialData, qk } from '@/lib/query';
+import { fetchAccounts, fetchCategories, fetchMerchants, fetchProfile, fetchSettings } from '@/services/core';
+import {
+  fetchBudgets,
+  fetchBudgetStatus,
+  fetchContributions,
+  fetchGoals,
+  fetchNetWorthSnapshots,
+  fetchRecurring,
+} from '@/services/planning';
+import { fetchDashboard } from '@/services/reports';
+import {
+  fetchRecentTransactions,
+  fetchRecentUsage,
+  fetchTransaction,
+  fetchTransactionsPage,
+  type TransactionFilters,
+} from '@/services/transactions';
+import type { Category } from '@/types/domain';
+
+export const useProfile = () =>
+  useQuery({ queryKey: qk.profile, queryFn: fetchProfile, staleTime: 5 * 60_000 });
+export const useSettings = () =>
+  useQuery({ queryKey: qk.settings, queryFn: fetchSettings, staleTime: 5 * 60_000 });
+export const useAccounts = () => useQuery({ queryKey: qk.accounts, queryFn: fetchAccounts });
+export const useCategories = () =>
+  useQuery({ queryKey: qk.categories, queryFn: fetchCategories, staleTime: 5 * 60_000 });
+export const useMerchants = () => useQuery({ queryKey: qk.merchants, queryFn: fetchMerchants });
+export const useRecurring = () => useQuery({ queryKey: qk.recurring, queryFn: fetchRecurring });
+export const useBudgets = () => useQuery({ queryKey: qk.budgets, queryFn: fetchBudgets });
+export const useGoals = () => useQuery({ queryKey: qk.goals, queryFn: fetchGoals });
+export const useSnapshots = () => useQuery({ queryKey: qk.snapshots, queryFn: fetchNetWorthSnapshots });
+
+export const useContributions = (goalId?: string) =>
+  useQuery({ queryKey: qk.contributions(goalId), queryFn: () => fetchContributions(goalId) });
+
+export function useBudgetStatus(ref: ISODate = todayISO()) {
+  return useQuery({ queryKey: qk.budgetStatus(ref), queryFn: () => fetchBudgetStatus(ref) });
+}
+
+export function useDashboard() {
+  const month = monthRange();
+  return useQuery({
+    queryKey: qk.dashboard(month.start),
+    queryFn: () => fetchDashboard(month.start, month.end),
+  });
+}
+
+export function useRecentTransactions(limit = 8) {
+  return useQuery({
+    queryKey: [...qk.recentTransactions, limit],
+    queryFn: () => fetchRecentTransactions(limit),
+  });
+}
+
+export function useTransaction(id: string | undefined) {
+  return useQuery({
+    queryKey: qk.transaction(id ?? 'none'),
+    queryFn: () => fetchTransaction(id!),
+    enabled: !!id,
+  });
+}
+
+export function useRecentUsage(type: 'expense' | 'income') {
+  return useQuery({
+    queryKey: qk.recentUsage(type),
+    queryFn: () => fetchRecentUsage(type),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useTransactionsInfinite(filters: TransactionFilters) {
+  return useInfiniteQuery({
+    queryKey: qk.transactions(filters),
+    queryFn: ({ pageParam }) => fetchTransactionsPage(filters, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextPage,
+  });
+}
+
+/** Category helpers: lookup map plus ordered top-level/subcategory trees. */
+export function useCategoryIndex() {
+  const q = useCategories();
+  const index = useMemo(() => {
+    const all = q.data ?? [];
+    const byId = new Map(all.map((c) => [c.id, c]));
+    const children = new Map<string, Category[]>();
+    for (const c of all) {
+      if (c.parentId) children.set(c.parentId, [...(children.get(c.parentId) ?? []), c]);
+    }
+    const top = (kind: 'expense' | 'income', includeArchived = false) =>
+      all.filter((c) => c.parentId === null && c.kind === kind && (includeArchived || !c.isArchived));
+    return { all, byId, children, top };
+  }, [q.data]);
+  return { ...q, index };
+}
+
+/** Pending/failed offline writes (re-renders on change). */
+export function useOfflineQueue() {
+  return useSyncExternalStore(offlineQueue.subscribe, offlineQueue.getSnapshot, offlineQueue.getSnapshot);
+}
+
+/**
+ * Mutation wrapper: friendly error toasts, haptics, and cache invalidation.
+ * `invalidate: 'financial'` refreshes everything derived from transactions.
+ */
+export function useAppMutation<TVars, TResult = unknown>(
+  fn: (vars: TVars) => Promise<TResult>,
+  options: {
+    invalidate?: 'financial' | QueryKey[];
+    success?: string | ((r: TResult) => string | null);
+    onSuccess?: (r: TResult, vars: TVars) => void;
+    context: string;
+  },
+) {
+  const client = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: async (result, vars) => {
+      haptic.success();
+      if (options.invalidate === 'financial') await invalidateFinancialData();
+      else if (options.invalidate)
+        await Promise.all(options.invalidate.map((k) => client.invalidateQueries({ queryKey: k })));
+      const msg = typeof options.success === 'function' ? options.success(result) : options.success;
+      if (msg) toast.show(msg, 'success');
+      options.onSuccess?.(result, vars);
+    },
+    onError: (err) => {
+      haptic.error();
+      logError(options.context, err);
+      toast.show(describeError(err).message, 'error');
+    },
+  });
+}
+
+/** The user's display currency (profile default, INR until loaded). */
+export function useCurrency(): string {
+  return useProfile().data?.defaultCurrency ?? 'INR';
+}

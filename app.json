@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "Charan Finance",
+    "slug": "charan-finance",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "charanfinance",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.charan.finance",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "icon": "./assets/images/icon.png",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Charan Finance uses Face ID to keep your financial data private.",
+        "NSCameraUsageDescription": "Charan Finance uses the camera to photograph receipts you choose to attach to transactions.",
+        "NSPhotoLibraryUsageDescription": "Charan Finance lets you attach receipt photos from your library to transactions."
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "com.charan.finance",
+      "adaptiveIcon": {
+        "backgroundColor": "#C2410C",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 96,
+          "dark": { "backgroundColor": "#0C0C0D", "image": "./assets/images/splash-icon.png" }
+        }
+      ],
+      "expo-secure-store",
+      "expo-sharing",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "Charan Finance uses Face ID to keep your financial data private." }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Charan Finance lets you attach receipt photos from your library to transactions.",
+          "cameraPermission": "Charan Finance uses the camera to photograph receipts you choose to attach to transactions.",
+          "microphonePermission": false
+        }
+      ],
+      ["expo-notifications", { "color": "#C2410C" }]
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {}
+    }
+  }
+}

@@ -1,0 +1,322 @@
+/**
+ * Row → domain mappers. The only place snake_case database rows are touched.
+ * NUMERIC values become integer minor units here.
+ */
+import { toMinor, type Minor } from '@/lib/money';
+import type {
+  Account,
+  AccountTotal,
+  AppSettings,
+  Attachment,
+  Budget,
+  BudgetItem,
+  BudgetStatusRow,
+  Category,
+  CategoryTotal,
+  DashboardAccount,
+  DashboardData,
+  Goal,
+  GoalContribution,
+  Merchant,
+  MerchantTotal,
+  NetWorthSnapshot,
+  PeriodSummary,
+  Profile,
+  RecurringItem,
+  SeriesPoint,
+  Transaction,
+} from '@/types/domain';
+
+export type Row = Record<string, any>;
+
+const str = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v));
+const money = (v: unknown): Minor => toMinor(v as string | number | null);
+const moneyOrNull = (v: unknown): Minor | null =>
+  v === null || v === undefined ? null : toMinor(v as string | number);
+/** Dates may arrive as 'YYYY-MM-DD' or full timestamps; keep the calendar part. */
+const isoDate = (v: unknown): string | null => (v ? String(v).slice(0, 10) : null);
+
+export function mapProfile(r: Row): Profile {
+  return {
+    id: r.id,
+    displayName: str(r.display_name),
+    defaultCurrency: r.default_currency ?? 'INR',
+    timezone: r.timezone ?? 'Asia/Kolkata',
+  };
+}
+
+export function mapSettings(r: Row): AppSettings {
+  return {
+    weekStartsOn: num(r.week_starts_on),
+    budgetWarningPercent: num(r.budget_warning_percent),
+    notifyUpcomingBills: !!r.notify_upcoming_bills,
+    notifyBudgetWarnings: !!r.notify_budget_warnings,
+    notifyGoalReminders: !!r.notify_goal_reminders,
+    notifySubscriptionRenewals: !!r.notify_subscription_renewals,
+    notifyMonthlySummary: !!r.notify_monthly_summary,
+    billReminderDaysBefore: num(r.bill_reminder_days_before),
+  };
+}
+
+export function mapAccount(r: Row): Account {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    institution: str(r.institution),
+    last4: str(r.last4),
+    currency: r.currency,
+    openingBalance: money(r.opening_balance),
+    currentBalance: money(r.current_balance),
+    creditLimit: moneyOrNull(r.credit_limit),
+    isActive: !!r.is_active,
+    includeInNetWorth: !!r.include_in_net_worth,
+    color: str(r.color),
+    icon: str(r.icon),
+    notes: str(r.notes),
+    sortOrder: num(r.sort_order),
+  };
+}
+
+export function mapCategory(r: Row): Category {
+  return {
+    id: r.id,
+    parentId: str(r.parent_id),
+    name: r.name,
+    kind: r.kind,
+    classification: r.classification ?? null,
+    icon: str(r.icon),
+    color: str(r.color),
+    isArchived: !!r.is_archived,
+    sortOrder: num(r.sort_order),
+  };
+}
+
+export function mapMerchant(r: Row): Merchant {
+  return {
+    id: r.id,
+    name: r.name,
+    defaultCategoryId: str(r.default_category_id),
+    isArchived: !!r.is_archived,
+  };
+}
+
+export function mapTransaction(r: Row): Transaction {
+  return {
+    id: r.id,
+    type: r.type,
+    amount: money(r.amount),
+    currency: r.currency,
+    accountId: r.account_id,
+    accountName: r.account_name ?? '',
+    accountType: r.account_type,
+    toAccountId: str(r.to_account_id),
+    toAccountName: str(r.to_account_name),
+    categoryId: str(r.category_id),
+    categoryName: str(r.category_name),
+    categoryIcon: str(r.category_icon),
+    categoryColor: str(r.category_color),
+    subcategoryId: str(r.subcategory_id),
+    subcategoryName: str(r.subcategory_name),
+    merchantId: str(r.merchant_id),
+    merchantName: str(r.merchant_name),
+    occurredAt: r.occurred_at,
+    notes: str(r.notes),
+    recurringId: str(r.recurring_id),
+    tagNames: Array.isArray(r.tag_names) ? r.tag_names : [],
+    hasReceipt: !!r.has_receipt,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function mapRecurring(r: Row): RecurringItem {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    kind: r.kind,
+    amount: money(r.amount),
+    currency: r.currency,
+    accountId: r.account_id,
+    toAccountId: str(r.to_account_id),
+    categoryId: str(r.category_id),
+    subcategoryId: str(r.subcategory_id),
+    merchantId: str(r.merchant_id),
+    notes: str(r.notes),
+    frequency: r.frequency,
+    intervalCount: num(r.interval_count) || 1,
+    startDate: isoDate(r.start_date)!,
+    endDate: isoDate(r.end_date),
+    lastOccurrenceDate: isoDate(r.last_occurrence_date),
+    nextDueDate: isoDate(r.next_due_date),
+    autoPost: !!r.auto_post,
+    remindDaysBefore: num(r.remind_days_before),
+    isActive: !!r.is_active,
+  };
+}
+
+export function mapBudgetItem(r: Row): BudgetItem {
+  return { id: r.id, categoryId: str(r.category_id), amount: money(r.amount) };
+}
+
+export function mapBudget(r: Row): Budget {
+  return {
+    id: r.id,
+    name: r.name,
+    period: r.period,
+    startDate: isoDate(r.start_date)!,
+    endDate: isoDate(r.end_date),
+    currency: r.currency,
+    isActive: !!r.is_active,
+    items: Array.isArray(r.budget_items) ? r.budget_items.map(mapBudgetItem) : [],
+  };
+}
+
+export function mapBudgetStatus(r: Row): BudgetStatusRow {
+  return {
+    budgetId: r.budget_id,
+    budgetName: r.budget_name,
+    period: r.period,
+    periodStart: isoDate(r.period_start)!,
+    periodEnd: isoDate(r.period_end)!,
+    itemId: r.item_id,
+    categoryId: str(r.category_id),
+    categoryName: str(r.category_name),
+    categoryColor: str(r.category_color),
+    categoryIcon: str(r.category_icon),
+    amount: money(r.amount),
+    spent: money(r.spent),
+  };
+}
+
+export function mapGoal(r: Row): Goal {
+  return {
+    id: r.id,
+    name: r.name,
+    description: str(r.description),
+    targetAmount: money(r.target_amount),
+    initialAmount: money(r.initial_amount),
+    currentAmount: money(r.current_amount),
+    currency: r.currency,
+    targetDate: isoDate(r.target_date),
+    accountId: str(r.account_id),
+    icon: str(r.icon),
+    color: str(r.color),
+    isArchived: !!r.is_archived,
+    createdAt: r.created_at,
+  };
+}
+
+export function mapContribution(r: Row): GoalContribution {
+  return {
+    id: r.id,
+    goalId: r.goal_id,
+    amount: money(r.amount),
+    contributedOn: isoDate(r.contributed_on)!,
+    note: str(r.note),
+  };
+}
+
+export function mapSnapshot(r: Row): NetWorthSnapshot {
+  return {
+    id: r.id,
+    snapshotDate: isoDate(r.snapshot_date)!,
+    currency: r.currency,
+    assets: money(r.assets),
+    liabilities: money(r.liabilities),
+    netWorth: money(r.net_worth),
+  };
+}
+
+export function mapAttachment(r: Row): Attachment {
+  return {
+    id: r.id,
+    transactionId: str(r.transaction_id),
+    storagePath: r.storage_path,
+    mimeType: r.mime_type,
+    sizeBytes: num(r.size_bytes),
+    createdAt: r.created_at,
+  };
+}
+
+export function mapSummary(r: Row | null | undefined): PeriodSummary {
+  const x = r ?? {};
+  return {
+    income: money(x.income),
+    expense: money(x.expense),
+    net: money(x.net),
+    transactionCount: num(x.transaction_count),
+    expenseCount: num(x.expense_count),
+    recurringExpense: money(x.recurring_expense),
+    subscriptionExpense: money(x.subscription_expense),
+    essentialExpense: money(x.essential_expense),
+    discretionaryExpense: money(x.discretionary_expense),
+    dayCount: num(x.day_count),
+  };
+}
+
+export function mapCategoryTotal(r: Row): CategoryTotal {
+  return {
+    categoryId: str(r.category_id),
+    name: r.name ?? 'Uncategorised',
+    icon: str(r.icon),
+    color: str(r.color),
+    classification: r.classification ?? null,
+    total: money(r.total),
+    count: num(r.tx_count),
+  };
+}
+
+export function mapMerchantTotal(r: Row): MerchantTotal {
+  return {
+    merchantId: r.merchant_id,
+    name: r.name,
+    total: money(r.total),
+    count: num(r.tx_count),
+    average: money(r.average),
+    largest: money(r.largest),
+  };
+}
+
+export function mapAccountTotal(r: Row): AccountTotal {
+  return {
+    accountId: r.account_id,
+    name: r.name,
+    type: r.type,
+    expense: money(r.expense),
+    income: money(r.income),
+    count: num(r.tx_count),
+  };
+}
+
+export function mapSeries(r: Row): SeriesPoint {
+  return { bucket: isoDate(r.bucket)!, income: money(r.income), expense: money(r.expense) };
+}
+
+function mapDashboardAccount(r: Row): DashboardAccount {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    currency: r.currency,
+    currentBalance: money(r.current_balance),
+    creditLimit: moneyOrNull(r.credit_limit),
+    includeInNetWorth: !!r.include_in_net_worth,
+    color: str(r.color),
+    icon: str(r.icon),
+  };
+}
+
+export function mapDashboard(r: Row): DashboardData {
+  return {
+    currency: r.currency ?? 'INR',
+    current: mapSummary(r.current),
+    previous: mapSummary(r.previous),
+    categories: (r.categories ?? []).map(mapCategoryTotal),
+    previousCategories: (r.previous_categories ?? []).map(mapCategoryTotal),
+    merchants: (r.merchants ?? []).map(mapMerchantTotal),
+    trend: (r.trend ?? []).map(mapSeries),
+    accounts: (r.accounts ?? []).map(mapDashboardAccount),
+  };
+}

@@ -1,0 +1,33 @@
+# Supabase CLI project configuration (used by `supabase link`, `supabase db push`
+# and `supabase functions deploy`). Only the settings this project relies on are
+# listed; everything else uses CLI defaults.
+project_id = "charan-finance"
+
+[api]
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+major_version = 15
+
+[auth]
+site_url = "charanfinance://"
+additional_redirect_urls = ["charanfinance://reset-password", "charanfinance://**"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+secure_password_change = true
+
+[storage]
+file_size_limit = "10MiB"
+
+[functions.receipt-ocr]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
