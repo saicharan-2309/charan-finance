@@ -2,9 +2,17 @@
  * Design tokens. One source of truth for colour, type, spacing, radius and
  * elevation. Components read these through `useTheme()` — never hard-code.
  *
- * Identity: warm, calm neutrals with a deep saffron ("marigold") brand accent.
- * Money semantics use green/red but are always paired with a sign or label,
- * never colour alone.
+ * Identity: a warm, quiet surface — warm whites and soft greys — with a muted
+ * clay accent and soft greens, blues, lavenders and ambers used to carry
+ * meaning rather than decoration. No gradients, no neon, nothing heavy.
+ *
+ * Colour never carries meaning alone: money is always paired with a sign or a
+ * label, and chart series are always labelled.
+ *
+ * Every text colour here clears WCAG AA against its own surface (checked:
+ * primary 14.9:1, secondary 5.4:1, brand 5.3:1, positive 5.1:1, negative
+ * 5.9:1 on light; all ≥ 6.5:1 on dark). `textTertiary` sits at 3.4:1 and is
+ * used only for de-emphasised captions that repeat information shown nearby.
  */
 import { Platform, type TextStyle } from 'react-native';
 
@@ -39,63 +47,67 @@ export interface Palette {
 }
 
 export const lightPalette: Palette = {
-  background: '#FFFFFF',
+  // Warm white page, pure white cards — the card lifts without a heavy border.
+  background: '#FBFAF8',
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
-  surfaceMuted: '#F6F5F3',
-  border: '#ECEAE6',
-  borderStrong: '#D9D6D0',
-  text: '#1C1B19',
-  textSecondary: '#6B6862',
-  textTertiary: '#9A968F',
+  surfaceMuted: '#F4F2EE',
+  border: '#EDEAE4',
+  borderStrong: '#DCD8D0',
+  text: '#26241F',
+  textSecondary: '#6B675F',
+  textTertiary: '#8F8A81',
   textInverse: '#FFFFFF',
-  brand: '#C2410C',
-  brandPressed: '#9A3412',
-  brandSoft: '#FFF1E8',
+  // Muted clay — warm and calm, not the saturated orange of a bank app.
+  brand: '#A4563A',
+  brandPressed: '#8A4730',
+  brandSoft: '#F7EDE8',
   onBrand: '#FFFFFF',
-  positive: '#15803D',
-  positiveSoft: '#E8F6EC',
-  negative: '#C62828',
-  negativeSoft: '#FDECEC',
-  warning: '#B45309',
-  warningSoft: '#FEF3E2',
-  info: '#1D4ED8',
-  infoSoft: '#EAF0FE',
-  overlay: 'rgba(20, 18, 16, 0.45)',
-  skeleton: '#EFEDE9',
-  chartGrid: '#EFEDE9',
-  transfer: '#5B6472',
+  positive: '#3F7A55',
+  positiveSoft: '#EBF3ED',
+  negative: '#A8453C',
+  negativeSoft: '#F8EBEA',
+  warning: '#8A6520',
+  warningSoft: '#F8F1E3',
+  info: '#3A5F9E',
+  infoSoft: '#ECF0F8',
+  overlay: 'rgba(38, 36, 31, 0.38)',
+  skeleton: '#F0EEE9',
+  chartGrid: '#F0EEE9',
+  transfer: '#5F6670',
 };
 
 export const darkPalette: Palette = {
-  background: '#0C0C0D',
-  surface: '#161617',
-  surfaceElevated: '#1D1D1F',
-  surfaceMuted: '#1A1A1C',
-  border: '#28282B',
-  borderStrong: '#3A3A3E',
-  text: '#F4F3F1',
-  textSecondary: '#A9A6A0',
-  textTertiary: '#77746F',
-  textInverse: '#141414',
-  brand: '#F97316',
-  brandPressed: '#EA580C',
-  brandSoft: '#2A1A10',
-  onBrand: '#141414',
-  positive: '#4ADE80',
-  positiveSoft: '#12261A',
-  negative: '#F87171',
-  negativeSoft: '#2C1515',
-  warning: '#FBBF24',
-  warningSoft: '#2B2210',
-  info: '#93B4FD',
-  infoSoft: '#141E33',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-  skeleton: '#232325',
-  chartGrid: '#232325',
-  transfer: '#A0A8B6',
+  // Soft charcoal rather than black: calm at night, still clearly dark.
+  background: '#131316',
+  surface: '#1B1B1F',
+  surfaceElevated: '#212126',
+  surfaceMuted: '#1F1F24',
+  border: '#2B2B31',
+  borderStrong: '#3C3C44',
+  text: '#F2F0EC',
+  textSecondary: '#A8A49C',
+  textTertiary: '#7D7974',
+  textInverse: '#1C1A18',
+  brand: '#E0896A',
+  brandPressed: '#C9755A',
+  brandSoft: '#2A1E19',
+  onBrand: '#1C1A18',
+  positive: '#73C08F',
+  positiveSoft: '#16241B',
+  negative: '#E58A80',
+  negativeSoft: '#2A1A18',
+  warning: '#D6A861',
+  warningSoft: '#262016',
+  info: '#8FAFE0',
+  infoSoft: '#171E2A',
+  overlay: 'rgba(0, 0, 0, 0.55)',
+  skeleton: '#242429',
+  chartGrid: '#242429',
+  transfer: '#A3A8B2',
 };
 
+/** Generous by default: the 4-point scale with room to breathe. */
 export const spacing = {
   xxs: 2,
   xs: 4,
@@ -103,9 +115,9 @@ export const spacing = {
   md: 12,
   lg: 16,
   xl: 20,
-  xxl: 24,
-  xxxl: 32,
-  huge: 48,
+  xxl: 28,
+  xxxl: 36,
+  huge: 52,
 } as const;
 
 /** Standard horizontal page gutter. */
@@ -123,6 +135,10 @@ export const radius = {
 const fontFamily = Platform.select({ ios: 'System', default: undefined });
 const tabular: TextStyle['fontVariant'] = ['tabular-nums'];
 
+/**
+ * A deliberately wide hierarchy: a headline figure is more than twice the size
+ * of the label under it, so the eye lands on the number first.
+ */
 export const typography = {
   display: {
     fontFamily,
@@ -145,8 +161,8 @@ export const typography = {
     fontFamily,
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    fontWeight: '600',
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
   },
   amount: { fontFamily, fontSize: 16, lineHeight: 22, fontWeight: '600', fontVariant: tabular },
@@ -162,24 +178,25 @@ export const typography = {
 
 export type TypographyVariant = keyof typeof typography;
 
+/** Shadows stay soft and low-contrast: a card should lift, not float. */
 export const elevation = {
   card: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOpacity: 0.06,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 6 },
+      shadowColor: '#2A2218',
+      shadowOpacity: 0.05,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 4 },
     },
-    default: { elevation: 2 },
+    default: { elevation: 1 },
   }),
   floating: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOpacity: 0.18,
+      shadowColor: '#2A2218',
+      shadowOpacity: 0.14,
       shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
     },
-    default: { elevation: 8 },
+    default: { elevation: 6 },
   }),
 };
 
@@ -191,28 +208,40 @@ export const motion = {
 
 /**
  * Categorical chart colours, assigned in fixed order (never cycled past the
- * end — extra series fold into "Other"). Validated with the dataviz palette
- * checker: lightness band, chroma, CVD separation ≥ 12 ΔE and normal-vision
- * separation ≥ 21 ΔE on both surfaces. Slot 7 sits just under 3:1 contrast on
- * white, so charts always pair colour with visible labels.
+ * end — extra series fold into "Other").
+ *
+ * These are a step stronger than the muted colours used for category avatars
+ * and badges, because a chart segment has to hold its own. Checked with a
+ * palette validator on the real surfaces (#FBFAF8 and #FFFFFF light, #17171A
+ * dark), not eyeballed: OKLCH lightness band, chroma floor ≥ 0.10,
+ * adjacent-pair separation ≥ 8 ΔE under simulated protanopia and
+ * deuteranopia, normal-vision separation ≥ 15 ΔE, and WCAG contrast ≥ 3:1
+ * against the surface — all passing in both modes.
+ *
+ * Order matters, and the checks are on *adjacent* slots, which is what the
+ * rings and stacks actually need, since neighbouring segments are the ones
+ * that touch. Across all pairs, green/teal and indigo/lavender are close,
+ * so nothing in the UI asks the reader to match a distant legend swatch to a
+ * segment by colour: every series is named next to its own value, category
+ * rows carry a labelled bar, and tapping a row opens that category.
  */
 export const chartColorsLight = [
-  '#EA580C',
-  '#2563EB',
-  '#16A34A',
-  '#9333EA',
-  '#DC2626',
-  '#0D9488',
-  '#CA8A04',
-  '#DB2777',
+  '#C65D3B', // clay
+  '#3F6FB5', // soft blue
+  '#2F8757', // muted green
+  '#8A5EA8', // lavender
+  '#0A8468', // teal
+  '#B07A1E', // muted amber
+  '#5B5FA8', // indigo
+  '#C04A6E', // soft rose
 ];
 export const chartColorsDark = [
-  '#EA580C',
-  '#3B82F6',
-  '#16A34A',
-  '#A855F7',
-  '#EF4444',
-  '#0D9488',
-  '#B7791F',
-  '#DB2777',
+  '#CE714E',
+  '#5A84C2',
+  '#369161',
+  '#9373BA',
+  '#269980',
+  '#B8882F',
+  '#7479C0',
+  '#C8667E',
 ];

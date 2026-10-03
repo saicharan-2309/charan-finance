@@ -307,6 +307,12 @@ export function SegmentedControl<T extends string>({
 // ---------------------------------------------------------------------------
 // Chip
 // ---------------------------------------------------------------------------
+/**
+ * A chip. Selection is shown with a soft tint of the chip's own colour rather
+ * than a heavy dark fill, so a row of chips stays calm; the tint is paired
+ * with a stronger border and bolder text, so selection never rests on colour
+ * alone.
+ */
 export function Chip({
   label,
   selected,
@@ -321,6 +327,7 @@ export function Chip({
   color?: string | null;
 }) {
   const { colors } = useTheme();
+  const tint = color ?? colors.brand;
   return (
     <Pressable
       accessibilityRole="button"
@@ -334,17 +341,19 @@ export function Chip({
         alignItems: 'center',
         gap: 6,
         paddingHorizontal: spacing.md,
-        height: 36,
+        height: 38,
         borderRadius: radius.pill,
         borderWidth: 1,
-        borderColor: selected ? colors.text : colors.border,
-        backgroundColor: selected ? colors.text : pressed ? colors.surfaceMuted : colors.surface,
+        borderColor: selected ? tint : colors.border,
+        backgroundColor: selected ? `${tint}1A` : pressed ? colors.surfaceMuted : colors.surface,
       })}
     >
-      {icon ? (
-        <Icon name={icon} size={16} color={selected ? colors.background : (color ?? colors.textSecondary)} />
-      ) : null}
-      <Text variant="subhead" style={{ color: selected ? colors.background : colors.text }} numberOfLines={1}>
+      {icon ? <Icon name={icon} size={16} color={selected ? tint : (color ?? colors.textSecondary)} /> : null}
+      <Text
+        variant={selected ? 'bodyStrong' : 'subhead'}
+        style={{ color: selected ? tint : colors.text, fontSize: 14 }}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </Pressable>

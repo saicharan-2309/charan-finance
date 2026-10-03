@@ -25,6 +25,7 @@ import {
   fetchNetWorthSnapshots,
   fetchRecurring,
 } from '@/services/planning';
+import { fetchCardCycle, fetchLoans } from '@/services/loans';
 import { fetchDashboard } from '@/services/reports';
 import {
   fetchRecentTransactions,
@@ -44,12 +45,22 @@ export const useCategories = () =>
   useQuery({ queryKey: qk.categories, queryFn: fetchCategories, staleTime: 5 * 60_000 });
 export const useMerchants = () => useQuery({ queryKey: qk.merchants, queryFn: fetchMerchants });
 export const useRecurring = () => useQuery({ queryKey: qk.recurring, queryFn: fetchRecurring });
+export const useLoans = () => useQuery({ queryKey: qk.loans, queryFn: fetchLoans });
 export const useBudgets = () => useQuery({ queryKey: qk.budgets, queryFn: fetchBudgets });
 export const useGoals = () => useQuery({ queryKey: qk.goals, queryFn: fetchGoals });
 export const useSnapshots = () => useQuery({ queryKey: qk.snapshots, queryFn: fetchNetWorthSnapshots });
 
 export const useContributions = (goalId?: string) =>
   useQuery({ queryKey: qk.contributions(goalId), queryFn: () => fetchContributions(goalId) });
+
+/** The open billing cycle of a credit card. Only queried for card accounts. */
+export function useCardCycle(accountId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: qk.cardCycle(accountId ?? 'none'),
+    queryFn: () => fetchCardCycle(accountId!),
+    enabled: !!accountId && enabled,
+  });
+}
 
 export function useBudgetStatus(ref: ISODate = todayISO()) {
   return useQuery({ queryKey: qk.budgetStatus(ref), queryFn: () => fetchBudgetStatus(ref) });

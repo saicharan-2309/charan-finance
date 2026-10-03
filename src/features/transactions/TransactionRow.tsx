@@ -2,16 +2,25 @@ import { router } from 'expo-router';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { Icon, IconBadge, MoneyText, Text } from '@/components/ui/primitives';
+import { CategoryAvatar } from '@/components/CategoryAvatar';
+import { Icon, MoneyText, Text } from '@/components/ui/primitives';
 import { formatTime } from '@/lib/dates';
+import { FLOW_ICONS, FLOW_LABELS, transactionFlow } from '@/lib/payment-methods';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
 import type { Transaction } from '@/types/domain';
 
 export function transactionTitle(
-  t: Pick<Transaction, 'type' | 'merchantName' | 'categoryName' | 'notes' | 'accountName' | 'toAccountName'>,
+  t: Pick<
+    Transaction,
+    'type' | 'merchantName' | 'categoryName' | 'notes' | 'accountName' | 'toAccountName' | 'toAccountType'
+  >,
 ): string {
-  if (t.type === 'transfer') return `${t.accountName} → ${t.toAccountName ?? ''}`;
+  if (t.type === 'transfer') {
+    return transactionFlow(t) === 'card_payment'
+      ? `${t.toAccountName ?? 'Card'} payment`
+      : `${t.accountName} → ${t.toAccountName ?? ''}`;
+  }
   if (t.type === 'adjustment') return 'Balance adjustment';
   return t.merchantName ?? t.categoryName ?? t.notes ?? 'Transaction';
 }
@@ -33,9 +42,11 @@ export const TransactionRow = memo(function TransactionRow({
 }) {
   const { colors } = useTheme();
   const title = transactionTitle(t);
+  const flow = transactionFlow(t);
   const subtitleParts =
     t.type === 'transfer'
-      ? ['Transfer']
+      ? // Where the money came from matters most on a card payment.
+        [FLOW_LABELS[flow], t.accountName]
       : t.type === 'adjustment'
         ? [t.accountName]
         : [t.subcategoryName ? `${t.categoryName} · ${t.subcategoryName}` : t.categoryName, t.accountName];
@@ -48,12 +59,7 @@ export const TransactionRow = memo(function TransactionRow({
     .filter(Boolean)
     .join(' · ');
 
-  const icon =
-    t.type === 'transfer'
-      ? 'swap-horizontal'
-      : t.type === 'adjustment'
-        ? 'construct-outline'
-        : t.categoryIcon;
+  const icon = t.type === 'transfer' || t.type === 'adjustment' ? FLOW_ICONS[flow] : t.categoryIcon;
   const color = t.type === 'transfer' || t.type === 'adjustment' ? colors.transfer : t.categoryColor;
   const amount = signedAmount(t);
   const tone = t.type === 'income' ? 'positive' : t.type === 'transfer' ? 'transfer' : 'primary';
@@ -74,7 +80,7 @@ export const TransactionRow = memo(function TransactionRow({
         opacity: t.pending ? 0.7 : 1,
       })}
     >
-      <IconBadge icon={icon} color={color} size={42} />
+      <CategoryAvatar icon={icon} color={color} size={42} animateOnMount />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>

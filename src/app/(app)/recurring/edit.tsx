@@ -8,10 +8,10 @@ import { Screen, Section } from '@/components/ui/layout';
 import { DateTimeField, SelectField, SelectSheet, type SelectOption } from '@/components/ui/pickers';
 import { Card, Divider, Text } from '@/components/ui/primitives';
 import { useAccounts, useAppMutation, useCategoryIndex, useMerchants, useRecurring } from '@/hooks/data';
-import { ACCOUNT_TYPE_ICONS } from '@/lib/accounts';
+import { accountVisual, balanceDisplay } from '@/lib/payment-methods';
 import { fromISODate, toISODate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
-import { minorToInput, parseAmountInput, sanitizeAmountKeystrokes } from '@/lib/money';
+import { formatMoney, minorToInput, parseAmountInput, sanitizeAmountKeystrokes } from '@/lib/money';
 import { invalidateFinancialData } from '@/lib/query';
 import { describeFrequency, FREQUENCY_LABELS, nextDueDate, type Frequency } from '@/lib/recurrence';
 import { createRecurring, deleteRecurring, updateRecurring } from '@/services/planning';
@@ -80,12 +80,19 @@ function RecurringForm({
         .filter((s) => !s.isArchived)
         .map((s) => ({ value: s.id, label: s.name, icon: s.icon, color: s.color, depth: 1 })),
     ]);
-  const accountOptions: SelectOption[] = accounts.map((a) => ({
-    value: a.id,
-    label: a.name,
-    icon: a.icon ?? ACCOUNT_TYPE_ICONS[a.type],
-    color: a.color,
-  }));
+  const accountOptions: SelectOption[] = accounts.map((a) => {
+    const visual = accountVisual(a);
+    const display = balanceDisplay(a);
+    return {
+      value: a.id,
+      label: a.name,
+      subtitle: `${formatMoney(display.amount, a.currency, { decimals: 'never' })}${
+        display.caption ? ` ${display.caption}` : ''
+      }`,
+      icon: visual.icon,
+      color: visual.color,
+    };
+  });
 
   const save = useAppMutation(
     () => {
@@ -229,7 +236,7 @@ function RecurringForm({
           helper="For variable bills, use a typical amount — you can change it when recording each payment."
         />
         <SelectField
-          label={type === 'transfer' ? 'From' : type === 'income' ? 'Into account' : 'Paid from'}
+          label={type === 'transfer' ? 'From' : type === 'income' ? 'Received in' : 'Payment method'}
           value={account?.name ?? null}
           placeholder="Choose account"
           onPress={() => setPicker('account')}

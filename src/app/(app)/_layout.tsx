@@ -21,12 +21,18 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="add"
+        options={{ presentation: 'formSheet', headerShown: false, sheetAllowedDetents: [0.6, 1] }}
+      />
       <Stack.Screen name="transaction/new" options={{ presentation: 'modal', title: 'New transaction' }} />
       <Stack.Screen name="transaction/[id]" options={{ title: 'Transaction' }} />
       <Stack.Screen name="receipt-scan" options={{ presentation: 'modal', title: 'Scan receipt' }} />
-      <Stack.Screen name="accounts/index" options={{ title: 'Accounts' }} />
+      <Stack.Screen name="accounts/index" options={{ title: 'Accounts & methods' }} />
       <Stack.Screen name="accounts/[id]" options={{ title: 'Account' }} />
-      <Stack.Screen name="accounts/edit" options={{ presentation: 'modal', title: 'Account' }} />
+      <Stack.Screen name="accounts/edit" options={{ presentation: 'modal', title: 'Payment method' }} />
+      <Stack.Screen name="emi/index" options={{ title: 'Loans & EMIs' }} />
+      <Stack.Screen name="emi/edit" options={{ presentation: 'modal', title: 'EMI' }} />
       <Stack.Screen name="categories/index" options={{ title: 'Categories' }} />
       <Stack.Screen name="categories/edit" options={{ presentation: 'modal', title: 'Category' }} />
       <Stack.Screen name="merchants/index" options={{ title: 'Merchants' }} />

@@ -21,8 +21,11 @@ set search_path = ''
 as $$
 declare
   bank uuid;
+  savings uuid;
   cash uuid;
+  upi uuid;
   card uuid;
+  emi_schedule uuid;
   cat record;
   cats jsonb := '{}'::jsonb;
   m_names text[] := array['Swiggy', 'Zomato', 'Amazon', 'Flipkart', 'Uber', 'BigBasket', 'Netflix', 'Spotify', 'Nike', 'Cult.fit'];
@@ -47,14 +50,28 @@ begin
     cats := cats || jsonb_build_object(cat.name, cat.id);
   end loop;
 
-  insert into public.accounts (user_id, name, type, institution, last4, opening_balance, sort_order, color, icon)
-  values (p_user_id, 'HDFC Bank', 'bank', 'HDFC Bank', '4821', 60000, 1, '#2563EB', 'business-outline')
+  -- A realistic mix of payment methods: two bank accounts, cash, a UPI app and
+  -- a credit card with a billing cycle. Nothing here is special-cased.
+  insert into public.accounts (user_id, name, type, institution, provider, last4, opening_balance,
+                               sort_order, color, icon)
+  values (p_user_id, 'HDFC Salary', 'bank', 'HDFC Bank', 'hdfc', '4821', 60000, 1, '#5B87C4',
+          'business-outline')
   returning id into bank;
+  insert into public.accounts (user_id, name, type, institution, provider, last4, opening_balance,
+                               sort_order, color, icon)
+  values (p_user_id, 'SBI Savings', 'savings', 'State Bank of India', 'sbi', '9182', 42800, 2, '#7C8FC0',
+          'business-outline')
+  returning id into savings;
   insert into public.accounts (user_id, name, type, opening_balance, sort_order, color, icon)
-  values (p_user_id, 'Cash', 'cash', 4000, 2, '#16A34A', 'cash-outline')
+  values (p_user_id, 'Cash', 'cash', 4000, 3, '#4F9A6A', 'cash-outline')
   returning id into cash;
-  insert into public.accounts (user_id, name, type, institution, last4, opening_balance, credit_limit, sort_order, color, icon)
-  values (p_user_id, 'HDFC Credit Card', 'credit_card', 'HDFC Bank', '9034', 0, 200000, 3, '#DC2626', 'card-outline')
+  insert into public.accounts (user_id, name, type, provider, opening_balance, sort_order, color, icon)
+  values (p_user_id, 'Google Pay', 'wallet', 'gpay', 2300, 4, '#5B87C4', 'logo-google')
+  returning id into upi;
+  insert into public.accounts (user_id, name, type, institution, provider, last4, opening_balance,
+                               credit_limit, statement_day, due_day, minimum_due, sort_order, color, icon)
+  values (p_user_id, 'HDFC Credit Card', 'credit_card', 'HDFC Bank', 'hdfc', '9034', 0, 200000, 28, 12,
+          5000, 5, '#C97A86', 'card-outline')
   returning id into card;
 
   for i in 1 .. array_length(m_names, 1) loop
@@ -73,7 +90,14 @@ begin
     values (p_user_id, 'expense', 25000, 'INR', bank, (cats ->> 'Rent')::uuid, day + 4 + time '10:00', 'Rent');
     for i in 1 .. 18 loop
       idx := 1 + ((i * 7 + d * 3) % array_length(m_names, 1));
-      acct := case when i % 3 = 0 then cash when i % 3 = 1 then card else bank end;
+      -- Spread spending across every payment method, not just the card.
+      acct := case (i % 5)
+                when 0 then cash
+                when 1 then card
+                when 2 then upi
+                when 3 then savings
+                else bank
+              end;
       if day + (i * 1.6)::integer <= current_date then
         insert into public.transactions (user_id, type, amount, currency, account_id, category_id, merchant_id, occurred_at)
         values (p_user_id, 'expense', round((150 + ((i * 97 + d * 131) % 2400))::numeric, 2), 'INR', acct,
@@ -104,7 +128,35 @@ begin
   where b.user_id = p_user_id;
 
   insert into public.savings_goals (user_id, name, target_amount, initial_amount, target_date, icon, color)
-  values (p_user_id, 'MacBook', 120000, 72000, current_date + 150, 'laptop-outline', '#6366F1');
+  values (p_user_id, 'MacBook', 120000, 72000, current_date + 150, 'laptop-outline', '#7C83C6');
+
+  -- A car loan paid from the salary account, and a phone EMI on the credit
+  -- card: the same model, two different payment methods.
+  insert into public.recurring_transactions
+    (user_id, name, type, kind, amount, account_id, category_id, frequency, start_date, remind_days_before)
+  values (p_user_id, 'Car Loan', 'expense', 'bill', 18500, bank,
+          coalesce((cats ->> 'Loans & EMI')::uuid, (cats ->> 'Other')::uuid), 'monthly',
+          (date_trunc('month', current_date) + interval '14 days')::date, 3)
+  returning id into emi_schedule;
+  insert into public.loans (user_id, name, lender, principal_amount, emi_amount, interest_rate,
+                            tenure_months, start_date, account_id, category_id, recurring_id, icon, color)
+  values (p_user_id, 'Car Loan', 'HDFC Bank', 900000, 18500, 9.5, 60,
+          (current_date - interval '8 months')::date, bank,
+          coalesce((cats ->> 'Loans & EMI')::uuid, (cats ->> 'Other')::uuid), emi_schedule,
+          'car-outline', '#7C77C6');
+
+  insert into public.recurring_transactions
+    (user_id, name, type, kind, amount, account_id, category_id, frequency, start_date, remind_days_before)
+  values (p_user_id, 'Phone EMI', 'expense', 'bill', 4200, card,
+          coalesce((cats ->> 'Loans & EMI')::uuid, (cats ->> 'Other')::uuid), 'monthly',
+          (date_trunc('month', current_date) + interval '7 days')::date, 3)
+  returning id into emi_schedule;
+  insert into public.loans (user_id, name, lender, principal_amount, emi_amount, interest_rate,
+                            tenure_months, start_date, account_id, category_id, recurring_id, icon, color)
+  values (p_user_id, 'Phone EMI', 'ICICI Bank', 50400, 4200, 13.0, 12,
+          (current_date - interval '3 months')::date, card,
+          coalesce((cats ->> 'Loans & EMI')::uuid, (cats ->> 'Other')::uuid), emi_schedule,
+          'phone-portrait-outline', '#A97BB5');
 
   return 'Seeded demo data for ' || p_user_id;
 end;

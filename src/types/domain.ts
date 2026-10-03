@@ -60,6 +60,63 @@ export interface Account {
   icon: string | null;
   notes: string | null;
   sortOrder: number;
+  /** Provider key (gpay, hdfc…) — display identity only, never credentials. */
+  provider: string | null;
+  /** Credit cards: day of month the statement is generated. */
+  statementDay: number | null;
+  /** Credit cards: day of month the payment is due. */
+  dueDay: number | null;
+  /** Credit cards: minimum amount due, as printed on the statement. */
+  minimumDue: Minor | null;
+}
+
+/**
+ * A loan or EMI agreement. The instalments are posted by the linked recurring
+ * transaction, which can charge any payment method — bank, card, UPI or cash.
+ * Progress figures come from instalments actually recorded, never estimated.
+ */
+export interface Loan {
+  id: UUID;
+  name: string;
+  lender: string | null;
+  principalAmount: Minor;
+  emiAmount: Minor;
+  interestRate: number | null;
+  tenureMonths: number | null;
+  currency: string;
+  startDate: ISODate;
+  accountId: UUID;
+  accountName: string;
+  accountType: AccountType;
+  categoryId: UUID | null;
+  categoryName: string | null;
+  categoryIcon: string | null;
+  categoryColor: string | null;
+  recurringId: UUID | null;
+  nextPaymentDate: ISODate | null;
+  endDate: ISODate | null;
+  scheduleActive: boolean;
+  autoPost: boolean;
+  notes: string | null;
+  color: string | null;
+  icon: string | null;
+  isClosed: boolean;
+  paidAmount: Minor;
+  paidCount: number;
+  /** emi × tenure, exact; null when the tenure is unknown. */
+  scheduledTotal: Minor | null;
+  paymentsRemaining: number | null;
+  amountRemaining: Minor | null;
+}
+
+/** An open credit-card billing cycle, computed by the database. */
+export interface CardCycle {
+  cycleStart: ISODate;
+  cycleEnd: ISODate;
+  statementDate: ISODate;
+  dueDate: ISODate | null;
+  spend: Minor;
+  payments: Minor;
 }
 
 export interface Category {
@@ -91,6 +148,8 @@ export interface Transaction {
   accountType: AccountType;
   toAccountId: UUID | null;
   toAccountName: string | null;
+  toAccountType: AccountType | null;
+  accountProvider: string | null;
   categoryId: UUID | null;
   categoryName: string | null;
   categoryIcon: string | null;

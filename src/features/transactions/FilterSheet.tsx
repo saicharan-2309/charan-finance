@@ -1,6 +1,6 @@
 /**
  * Full filter panel for the Transactions screen: type, date range, category,
- * account, merchant, amount range and sort order.
+ * payment method, merchant, amount range and sort order.
  */
 import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
@@ -12,6 +12,7 @@ import { Text } from '@/components/ui/primitives';
 import { useAccounts, useCategoryIndex, useMerchants } from '@/hooks/data';
 import { RANGE_PRESET_LABELS, rangeForPreset, type RangePreset } from '@/lib/dates';
 import { minorToInput, parseAmountInput, sanitizeAmountKeystrokes } from '@/lib/money';
+import { accountVisual, GROUP_LABELS, groupAccounts } from '@/lib/payment-methods';
 import type { TransactionFilters, TransactionSort } from '@/services/transactions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, spacing } from '@/theme/tokens';
@@ -149,7 +150,7 @@ export function FilterSheet({
             {(['expense', 'income', 'transfer', 'adjustment'] as TxnType[]).map((t) => (
               <Chip
                 key={t}
-                label={t[0].toUpperCase() + t.slice(1)}
+                label={t === 'transfer' ? 'Transfer & card payment' : t[0].toUpperCase() + t.slice(1)}
                 selected={draft.types?.includes(t)}
                 onPress={() => setDraft((d) => ({ ...d, types: toggle(d.types, t) }))}
               />
@@ -185,16 +186,24 @@ export function FilterSheet({
             ))}
           </FilterGroup>
 
-          <FilterGroup title="Account">
-            {accounts.map((a) => (
-              <Chip
-                key={a.id}
-                label={a.name}
-                selected={draft.accountIds?.includes(a.id)}
-                onPress={() => setDraft((d) => ({ ...d, accountIds: toggle(d.accountIds, a.id) }))}
-              />
-            ))}
-          </FilterGroup>
+          {/* Payment method — grouped so cards, cash and banks are easy to spot. */}
+          {groupAccounts(accounts).map(({ group, items }) => (
+            <FilterGroup key={group} title={GROUP_LABELS[group]}>
+              {items.map((a) => {
+                const visual = accountVisual(a);
+                return (
+                  <Chip
+                    key={a.id}
+                    label={a.name}
+                    icon={visual.icon}
+                    color={visual.color}
+                    selected={draft.accountIds?.includes(a.id)}
+                    onPress={() => setDraft((d) => ({ ...d, accountIds: toggle(d.accountIds, a.id) }))}
+                  />
+                );
+              })}
+            </FilterGroup>
+          ))}
 
           <FilterGroup title="Merchant">
             {(draft.merchantIds ?? []).map((id) => (

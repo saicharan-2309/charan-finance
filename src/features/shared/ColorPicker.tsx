@@ -4,19 +4,24 @@ import { Icon } from '@/components/ui/primitives';
 import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/tokens';
 
+/**
+ * Muted swatches, the same family the default categories use: soft coral,
+ * rose, lavender, indigo, blues, teals, greens, amber and warm grey. Chosen
+ * to read as a quiet accent behind an icon rather than a block of colour.
+ */
 export const SWATCHES = [
-  '#EA580C',
-  '#DC2626',
-  '#DB2777',
-  '#9333EA',
-  '#4F46E5',
-  '#2563EB',
-  '#0284C7',
-  '#0D9488',
-  '#16A34A',
-  '#65A30D',
-  '#CA8A04',
-  '#64748B',
+  '#D97757',
+  '#C97A86',
+  '#A97BB5',
+  '#7C77C6',
+  '#5B87C4',
+  '#4A8DA8',
+  '#4F9690',
+  '#4F9A6A',
+  '#52977F',
+  '#C09A5B',
+  '#B8923F',
+  '#8C8782',
 ];
 
 export function ColorPicker({ value, onChange }: { value: string | null; onChange: (c: string) => void }) {

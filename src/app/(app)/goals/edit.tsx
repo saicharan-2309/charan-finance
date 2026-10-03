@@ -41,7 +41,7 @@ function GoalForm({ existing }: { existing: Goal | null }) {
   const [today] = useState(() => new Date());
   const [accountId, setAccountId] = useState<string | null>(existing?.accountId ?? null);
   const [icon, setIcon] = useState<string | null>(existing?.icon ?? 'flag-outline');
-  const [color, setColor] = useState<string | null>(existing?.color ?? '#16A34A');
+  const [color, setColor] = useState<string | null>(existing?.color ?? '#4F9A6A');
   const [picker, setPicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 

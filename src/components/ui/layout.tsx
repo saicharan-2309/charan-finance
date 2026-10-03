@@ -56,15 +56,17 @@ export function Screen({
         gap: spacing.md,
       }}
     >
-      <View style={{ flex: 1 }}>
+      {/* Title first, then the subtitle beneath it: the name of the thing
+          leads, the qualifier follows. */}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="largeTitle" accessibilityRole="header">
+          {title}
+        </Text>
         {subtitle ? (
           <Text variant="subhead" tone="secondary">
             {subtitle}
           </Text>
         ) : null}
-        <Text variant="largeTitle" accessibilityRole="header">
-          {title}
-        </Text>
       </View>
       {headerRight}
     </View>

@@ -82,7 +82,7 @@ export default function SubscriptionsScreen() {
                 key: cid,
                 label: c?.name ?? 'Uncategorised',
                 value: v,
-                color: seriesColor(i, c?.color),
+                color: seriesColor(i),
               };
             });
           const upcoming = [...active]

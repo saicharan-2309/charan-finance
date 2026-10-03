@@ -8,7 +8,8 @@ import { Skeleton } from '@/components/ui/feedback';
 import { Screen, Section, Stat } from '@/components/ui/layout';
 import { Card, Divider, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { useAccounts, useAppMutation, useCurrency, useSnapshots } from '@/hooks/data';
-import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS, computeNetWorth, isLiability } from '@/lib/accounts';
+import { ACCOUNT_TYPE_LABELS, computeNetWorth, isLiability } from '@/lib/accounts';
+import { accountVisual } from '@/lib/payment-methods';
 import { addDaysISO, formatShortDate, todayISO } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import { qk } from '@/lib/query';
@@ -162,7 +163,7 @@ function BalanceList({
               accessibilityRole="button"
             >
               <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
-                <IconBadge icon={a.icon ?? ACCOUNT_TYPE_ICONS[a.type]} color={a.color} size={38} />
+                <IconBadge icon={accountVisual(a).icon} color={accountVisual(a).color} size={38} />
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyStrong">{a.name}</Text>
                   <Text variant="footnote" tone="secondary">

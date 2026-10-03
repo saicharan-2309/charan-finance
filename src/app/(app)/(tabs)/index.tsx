@@ -1,10 +1,12 @@
 /**
- * Home — answers at a glance: How much do I have? What did I spend and save?
- * Where did it go? Am I within budget? What's coming up? How are my goals and
- * net worth doing? Every number comes from the database.
+ * Home — the financial situation, not a transaction log.
+ *
+ * Order: greeting → this month at a glance → the accounts money sits in →
+ * what is coming up → where it went → budgets, goals and trend → recent
+ * activity. Every number comes from the database; nothing is illustrative.
  */
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { BarChart } from '@/components/charts';
@@ -12,19 +14,21 @@ import { AnimatedMoney, EmptyState, ErrorState, ProgressBar, Skeleton } from '@/
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import {
+  AccountStrip,
   BudgetRow,
   CategoryBreakdown,
   InsightCard,
   SavingsRatePill,
-  UpcomingRow,
 } from '@/features/dashboard/widgets';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { PendingTransactions, SyncBanner } from '@/features/transactions/SyncStatus';
 import {
   useAccounts,
   useBudgetStatus,
+  useCategoryIndex,
   useDashboard,
   useGoals,
+  useLoans,
   useProfile,
   useRecentTransactions,
   useRecurring,
@@ -35,6 +39,7 @@ import { availableBalance, liquidDelta, upcomingItems } from '@/lib/cashflow';
 import { addDaysISO, formatMonthLabel, fromISODate, monthRange, todayISO } from '@/lib/dates';
 import { generateInsights, savingsRate } from '@/lib/insights';
 import { formatMoney, type Minor } from '@/lib/money';
+import { cardDates, cardStanding } from '@/lib/payment-methods';
 import { notifyBudgetThresholds } from '@/lib/notifications';
 import { invalidateFinancialData } from '@/lib/query';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -51,10 +56,12 @@ export default function HomeScreen() {
   const dashboard = useDashboard();
   const accounts = useAccounts();
   const recurring = useRecurring();
+  const loans = useLoans();
   const budgets = useBudgetStatus();
   const goals = useGoals();
   const recent = useRecentTransactions(6);
   const settings = useSettings();
+  const { index: cats } = useCategoryIndex();
   const [refreshing, setRefreshing] = useState(false);
 
   const today = todayISO();
@@ -90,6 +97,67 @@ export default function HomeScreen() {
     return { liquid, dues, items, available, committed, nw, insights };
   })();
 
+  /**
+   * Upcoming, in one list: recurring bills and subscriptions, EMI instalments,
+   * and credit-card bills due. Card dues are shown as what is owed, with the
+   * card's own due date — they are payments, not new spending.
+   */
+  const upcoming = useMemo(() => {
+    const rows: {
+      key: string;
+      title: string;
+      subtitle: string;
+      amount: Minor;
+      date: string;
+      icon: string;
+      color: string | null;
+      onPress: () => void;
+      overdue: boolean;
+    }[] = [];
+
+    // One row per commitment: when several occurrences of the same bill are
+    // outstanding, the earliest stands for it rather than filling the list.
+    const seen = new Set<string>();
+    for (const i of derived?.items ?? []) {
+      if (seen.has(i.recurringId)) continue;
+      seen.add(i.recurringId);
+      const cat = i.categoryId ? cats.byId.get(i.categoryId) : null;
+      rows.push({
+        key: i.key,
+        title: i.name,
+        subtitle: i.type === 'income' ? 'Expected' : (cat?.name ?? 'Recurring'),
+        amount: i.amount,
+        date: i.date,
+        icon: cat?.icon ?? (i.kind === 'subscription' ? 'repeat' : 'receipt-outline'),
+        color: cat?.color ?? null,
+        onPress: () => router.push('/recurring'),
+        overdue: i.overdue,
+      });
+    }
+
+    for (const a of accounts.data ?? []) {
+      if (!a.isActive || a.type !== 'credit_card') continue;
+      const standing = cardStanding(a);
+      if (standing.used <= 0) continue;
+      const due = cardDates(a, today).nextDue;
+      rows.push({
+        key: `card-${a.id}`,
+        title: a.name,
+        subtitle: a.dueDay ? 'Card bill due' : 'Card balance outstanding',
+        amount: standing.used,
+        date: due ?? addDaysISO(today, 31),
+        icon: 'card-outline',
+        color: a.color,
+        onPress: () => router.push({ pathname: '/accounts/[id]', params: { id: a.id } }),
+        overdue: false,
+      });
+    }
+
+    return rows.sort((x, y) => x.date.localeCompare(y.date)).slice(0, 5);
+  }, [accounts.data, cats, derived?.items, today]);
+
+  const emis = (loans.data ?? []).filter((l) => !l.isClosed);
+
   // One-time local alerts when a budget crosses its threshold (deduplicated per period).
   useEffect(() => {
     if (budgets.data && settings.data) void notifyBudgetThresholds(budgets.data, settings.data);
@@ -109,7 +177,7 @@ export default function HomeScreen() {
       safeTop
       tabBarInset
       title={name ? `${greeting()}, ${name}` : greeting()}
-      subtitle={formatMonthLabel(today)}
+      subtitle={`${formatMonthLabel(today)} overview`}
       refreshing={refreshing}
       onRefresh={refresh}
       headerRight={
@@ -130,9 +198,9 @@ export default function HomeScreen() {
           <EmptyState
             compact
             icon="wallet-outline"
-            title="Add your first account"
-            message="Start with your bank account, cash or a credit card. Balances update automatically as you add transactions."
-            actionLabel="Add account"
+            title="Add your first payment method"
+            message="Start with wherever your money sits — a bank account, cash, a UPI app or a card. Balances update themselves as you record transactions."
+            actionLabel="Add payment method"
             onAction={() => router.push('/accounts/edit')}
           />
         </Card>
@@ -142,47 +210,47 @@ export default function HomeScreen() {
         <ErrorState error={dashboard.error} onRetry={() => void dashboard.refetch()} />
       ) : null}
 
-      {/* Hero */}
-      <Card variant="elevated" style={{ marginBottom: spacing.xl, padding: spacing.xl, gap: spacing.lg }}>
-        <View style={{ gap: 4 }}>
+      {/* This month at a glance */}
+      <Card variant="elevated" style={{ marginBottom: spacing.xxl, padding: spacing.xl, gap: spacing.lg }}>
+        <View style={{ gap: 2 }}>
           <Text variant="overline" tone="secondary">
-            Total balance
+            Spent this month
           </Text>
-          {derived ? (
-            <AnimatedMoney minor={derived.liquid} currency={currency} variant="display" />
+          {d ? (
+            <AnimatedMoney minor={d.current.expense} currency={currency} variant="display" />
           ) : (
             <Skeleton width={200} height={42} />
           )}
+        </View>
+
+        <Divider />
+
+        <Row gap={spacing.md} align="flex-start">
+          <HeroStat label="Income" value={d?.current.income} currency={currency} tone="positive" />
+          <HeroStat
+            label="Left over"
+            value={d?.current.net}
+            currency={currency}
+            tone={d && d.current.net < 0 ? 'negative' : 'primary'}
+          />
+          <HeroStat label="In accounts" value={derived?.liquid} currency={currency} />
+        </Row>
+
+        <Row justify="space-between">
+          <SavingsRatePill rate={d ? savingsRate(d.current) : null} />
           {derived ? (
-            <Pressable onPress={() => router.push('/net-worth')} accessibilityRole="link">
-              <Text variant="footnote" tone="secondary">
+            <Pressable onPress={() => router.push('/net-worth')} accessibilityRole="link" hitSlop={6}>
+              <Text variant="caption" tone="secondary">
                 Net worth{' '}
-                <Text variant="footnote" style={{ fontWeight: '600' }}>
+                <Text variant="caption" style={{ fontWeight: '700' }}>
                   {formatShort(derived.nw.netWorth, currency)}
                 </Text>{' '}
                 ›
               </Text>
             </Pressable>
           ) : null}
-        </View>
+        </Row>
 
-        <Divider />
-        <Row gap={spacing.md} align="flex-start">
-          <HeroStat label="Income" value={d?.current.income} currency={currency} tone="positive" />
-          <HeroStat label="Expenses" value={d?.current.expense} currency={currency} />
-          <HeroStat
-            label="Saved"
-            value={d?.current.net}
-            currency={currency}
-            tone={d && d.current.net < 0 ? 'negative' : 'primary'}
-          />
-        </Row>
-        <Row justify="space-between">
-          <SavingsRatePill rate={d ? savingsRate(d.current) : null} />
-          <Text variant="caption" tone="tertiary">
-            This month
-          </Text>
-        </Row>
         {derived && (derived.dues > 0 || derived.committed > 0) ? (
           <Pressable
             onPress={() => router.push('/calendar')}
@@ -205,37 +273,131 @@ export default function HomeScreen() {
               />
             </Row>
             <Text variant="caption" tone="secondary">
-              After card dues and recurring payments due by month end (projection).
+              After card dues and payments due by month end (projection).
             </Text>
           </Pressable>
         ) : null}
       </Card>
 
-      {/* Quick actions */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginHorizontal: -20, marginBottom: spacing.xxl }}
-        contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: 20 }}
-      >
-        <QuickAction
-          icon="remove-circle-outline"
-          label="Expense"
-          onPress={() => router.push('/transaction/new')}
-        />
-        <QuickAction
-          icon="add-circle-outline"
-          label="Income"
-          onPress={() => router.push({ pathname: '/transaction/new', params: { type: 'income' } })}
-        />
-        <QuickAction
-          icon="swap-horizontal"
-          label="Transfer"
-          onPress={() => router.push({ pathname: '/transaction/new', params: { type: 'transfer' } })}
-        />
-        <QuickAction icon="scan-outline" label="Scan receipt" onPress={() => router.push('/receipt-scan')} />
-        <QuickAction icon="calendar-outline" label="Calendar" onPress={() => router.push('/calendar')} />
-      </ScrollView>
+      {/* Accounts */}
+      {accounts.data?.length ? (
+        <Section title="Accounts" action="Manage" onAction={() => router.push('/accounts')}>
+          <AccountStrip accounts={accounts.data} />
+        </Section>
+      ) : null}
+
+      {/* Upcoming */}
+      <Section title="Upcoming" action="Calendar" onAction={() => router.push('/calendar')}>
+        {upcoming.length > 0 ? (
+          <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
+            {upcoming.map((u, idx) => (
+              <View key={u.key}>
+                {idx > 0 ? <Divider inset={50} /> : null}
+                <UpcomingItem {...u} currency={currency} />
+              </View>
+            ))}
+          </Card>
+        ) : (
+          <Card onPress={() => router.push('/recurring/edit')}>
+            <Row gap={spacing.md}>
+              <IconBadge icon="repeat" color={colors.info} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyStrong">Nothing due in the next 30 days</Text>
+                <Text variant="footnote" tone="secondary">
+                  Add rent, bills, subscriptions, an EMI or your salary to see what’s coming.
+                </Text>
+              </View>
+            </Row>
+          </Card>
+        )}
+      </Section>
+
+      {/* EMIs */}
+      {emis.length ? (
+        <Section title="Loans & EMIs" action="All" onAction={() => router.push('/emi')}>
+          <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
+            {emis.slice(0, 3).map((l, i) => (
+              <View key={l.id}>
+                {i > 0 ? <Divider inset={50} /> : null}
+                <Pressable
+                  onPress={() => router.push({ pathname: '/emi/edit', params: { id: l.id } })}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                >
+                  <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
+                    <IconBadge
+                      icon={l.icon ?? 'calendar-number-outline'}
+                      color={l.color ?? l.categoryColor}
+                      size={38}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="bodyStrong" numberOfLines={1}>
+                        {l.name}
+                      </Text>
+                      <Text variant="footnote" tone="secondary" numberOfLines={1}>
+                        {l.accountName}
+                        {l.tenureMonths ? ` · ${l.paidCount}/${l.tenureMonths} paid` : ''}
+                      </Text>
+                    </View>
+                    <MoneyText minor={l.emiAmount} currency={l.currency} options={{ decimals: 'never' }} />
+                  </Row>
+                </Pressable>
+              </View>
+            ))}
+          </Card>
+        </Section>
+      ) : null}
+
+      {/* Spending */}
+      <Section title="Spending" action="Reports" onAction={() => router.push('/reports')}>
+        <Card>
+          {!d ? (
+            <Skeleton height={220} />
+          ) : d.categories.length === 0 ? (
+            <EmptyState
+              compact
+              icon="pie-chart-outline"
+              title="No spending yet this month"
+              message="Your category breakdown appears as you add expenses."
+            />
+          ) : (
+            <CategoryBreakdown
+              categories={d.categories}
+              currency={currency}
+              max={6}
+              onPressCategory={(c) =>
+                router.push({
+                  pathname: '/report-detail',
+                  params: { categoryId: c.categoryId!, start: month.start, end: month.end },
+                })
+              }
+            />
+          )}
+        </Card>
+      </Section>
+
+      {/* Recent transactions */}
+      <Section title="Recent transactions" action="See all" onAction={() => router.push('/transactions')}>
+        <PendingTransactions />
+        {recent.data === undefined ? (
+          <Skeleton height={160} rounded={radius.xl} />
+        ) : recent.data.length === 0 ? (
+          <Card>
+            <EmptyState
+              compact
+              icon="receipt-outline"
+              title="No transactions yet"
+              message="Tap + to record an expense, income or transfer."
+            />
+          </Card>
+        ) : (
+          <View>
+            {recent.data.map((t) => (
+              <TransactionRow key={t.id} t={t} showDate />
+            ))}
+          </View>
+        )}
+      </Section>
 
       {/* Insights */}
       {derived && derived.insights.length > 0 ? (
@@ -275,7 +437,7 @@ export default function HomeScreen() {
             </Row>
           </Card>
         ) : (
-          <Card style={{ gap: spacing.lg }}>
+          <Card style={{ gap: spacing.xl }}>
             {budgets.data.slice(0, 4).map((r) => (
               <BudgetRow
                 key={r.itemId}
@@ -286,60 +448,6 @@ export default function HomeScreen() {
             ))}
           </Card>
         )}
-      </Section>
-
-      {/* Upcoming */}
-      <Section title="Upcoming payments" action="Calendar" onAction={() => router.push('/calendar')}>
-        {derived && derived.items.length > 0 ? (
-          <Card style={{ paddingVertical: spacing.sm }}>
-            {derived.items.slice(0, 4).map((i, idx) => (
-              <View key={i.key}>
-                {idx > 0 ? <Divider inset={50} /> : null}
-                <UpcomingRow item={i} currency={currency} onPress={() => router.push('/recurring')} />
-              </View>
-            ))}
-          </Card>
-        ) : (
-          <Card onPress={() => router.push('/recurring/edit')}>
-            <Row gap={spacing.md}>
-              <IconBadge icon="repeat" color={colors.info} />
-              <View style={{ flex: 1 }}>
-                <Text variant="bodyStrong">Nothing due in the next 30 days</Text>
-                <Text variant="footnote" tone="secondary">
-                  Add rent, bills, subscriptions or salary to see what’s coming.
-                </Text>
-              </View>
-            </Row>
-          </Card>
-        )}
-      </Section>
-
-      {/* Where the money went */}
-      <Section title="Where your money went" action="Reports" onAction={() => router.push('/reports')}>
-        <Card>
-          {!d ? (
-            <Skeleton height={220} />
-          ) : d.categories.length === 0 ? (
-            <EmptyState
-              compact
-              icon="pie-chart-outline"
-              title="No spending yet this month"
-              message="Your category breakdown appears as you add expenses."
-            />
-          ) : (
-            <CategoryBreakdown
-              categories={d.categories}
-              currency={currency}
-              max={6}
-              onPressCategory={(c) =>
-                router.push({
-                  pathname: '/report-detail',
-                  params: { categoryId: c.categoryId!, start: month.start, end: month.end },
-                })
-              }
-            />
-          )}
-        </Card>
       </Section>
 
       {/* Trend */}
@@ -368,46 +476,6 @@ export default function HomeScreen() {
         </Card>
       </Section>
 
-      {/* Top merchants */}
-      {d && d.merchants.length > 0 ? (
-        <Section title="Top merchants" action="All" onAction={() => router.push('/merchants')}>
-          <Card style={{ paddingVertical: spacing.sm }}>
-            {d.merchants.map((m, i) => (
-              <Pressable
-                key={m.merchantId}
-                onPress={() => router.push({ pathname: '/merchants/[id]', params: { id: m.merchantId } })}
-                accessibilityRole="button"
-              >
-                {i > 0 ? <Divider inset={48} /> : null}
-                <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 12,
-                      backgroundColor: colors.surfaceMuted,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text variant="bodyStrong">{m.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="bodyStrong" numberOfLines={1}>
-                      {m.name}
-                    </Text>
-                    <Text variant="footnote" tone="secondary">
-                      {m.count} {m.count === 1 ? 'transaction' : 'transactions'}
-                    </Text>
-                  </View>
-                  <MoneyText minor={m.total} currency={currency} options={{ decimals: 'never' }} />
-                </Row>
-              </Pressable>
-            ))}
-          </Card>
-        </Section>
-      ) : null}
-
       {/* Goals */}
       <Section
         title="Savings goals"
@@ -415,7 +483,7 @@ export default function HomeScreen() {
         onAction={() => router.push('/goals')}
       >
         {goals.data && goals.data.filter((g) => !g.isArchived).length > 0 ? (
-          <Card style={{ gap: spacing.lg }}>
+          <Card style={{ gap: spacing.xl }}>
             {goals.data
               .filter((g) => !g.isArchived)
               .slice(0, 3)
@@ -457,29 +525,6 @@ export default function HomeScreen() {
               </View>
             </Row>
           </Card>
-        )}
-      </Section>
-
-      {/* Recent */}
-      <Section title="Recent transactions" action="See all" onAction={() => router.push('/transactions')}>
-        <PendingTransactions />
-        {recent.data === undefined ? (
-          <Skeleton height={160} rounded={radius.xl} />
-        ) : recent.data.length === 0 ? (
-          <Card>
-            <EmptyState
-              compact
-              icon="receipt-outline"
-              title="No transactions yet"
-              message="Tap + to add your first expense."
-            />
-          </Card>
-        ) : (
-          <View>
-            {recent.data.map((t) => (
-              <TransactionRow key={t.id} t={t} showDate />
-            ))}
-          </View>
         )}
       </Section>
     </Screen>
@@ -531,25 +576,56 @@ function HeroStat({
   );
 }
 
-function QuickAction({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
-  const { colors } = useTheme();
+/** One row of the Upcoming list — a recurring item, an EMI or a card bill. */
+function UpcomingItem({
+  title,
+  subtitle,
+  amount,
+  date,
+  icon,
+  color,
+  currency,
+  overdue,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  amount: Minor;
+  date: string;
+  icon: string;
+  color: string | null;
+  currency: string;
+  overdue: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        height: 44,
-        paddingHorizontal: spacing.lg,
-        borderRadius: radius.pill,
-        backgroundColor: pressed ? colors.border : colors.surfaceMuted,
-      })}
+      accessibilityLabel={`${title}, ${formatMoney(amount, currency)}, ${subtitle}`}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
     >
-      <Icon name={icon} size={18} />
-      <Text variant="subhead">{label}</Text>
+      <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
+        <IconBadge icon={icon} color={color} size={38} />
+        <View style={{ flex: 1 }}>
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {title}
+          </Text>
+          <Text variant="footnote" tone="secondary" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <MoneyText minor={amount} currency={currency} options={{ decimals: 'never' }} />
+          <Text variant="caption" tone={overdue ? 'negative' : 'secondary'}>
+            {overdue ? 'Overdue' : shortDate(date)}
+          </Text>
+        </View>
+      </Row>
     </Pressable>
   );
+}
+
+function shortDate(iso: string) {
+  return fromISODate(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }

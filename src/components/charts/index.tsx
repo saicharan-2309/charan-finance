@@ -9,15 +9,9 @@
  *  - one y-axis only.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  Animated,
-  Easing,
-  PanResponder,
-  Pressable,
-  useAnimatedValue,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { Animated, Easing, PanResponder, Pressable, View, type LayoutChangeEvent } from 'react-native';
+
+import { useAnimatedValue } from '@/lib/animation';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { formatMoney } from '@/lib/money';

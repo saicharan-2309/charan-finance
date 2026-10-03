@@ -11,12 +11,14 @@ import type {
   Budget,
   BudgetItem,
   BudgetStatusRow,
+  CardCycle,
   Category,
   CategoryTotal,
   DashboardAccount,
   DashboardData,
   Goal,
   GoalContribution,
+  Loan,
   Merchant,
   MerchantTotal,
   NetWorthSnapshot,
@@ -76,6 +78,58 @@ export function mapAccount(r: Row): Account {
     icon: str(r.icon),
     notes: str(r.notes),
     sortOrder: num(r.sort_order),
+    provider: str(r.provider),
+    statementDay: r.statement_day === null || r.statement_day === undefined ? null : num(r.statement_day),
+    dueDay: r.due_day === null || r.due_day === undefined ? null : num(r.due_day),
+    minimumDue: moneyOrNull(r.minimum_due),
+  };
+}
+
+export function mapLoan(r: Row): Loan {
+  return {
+    id: r.id,
+    name: r.name,
+    lender: str(r.lender),
+    principalAmount: money(r.principal_amount),
+    emiAmount: money(r.emi_amount),
+    interestRate: r.interest_rate === null || r.interest_rate === undefined ? null : Number(r.interest_rate),
+    tenureMonths: r.tenure_months === null || r.tenure_months === undefined ? null : num(r.tenure_months),
+    currency: r.currency ?? 'INR',
+    startDate: isoDate(r.start_date)!,
+    accountId: r.account_id,
+    accountName: r.account_name ?? '',
+    accountType: r.account_type,
+    categoryId: str(r.category_id),
+    categoryName: str(r.category_name),
+    categoryIcon: str(r.category_icon),
+    categoryColor: str(r.category_color),
+    recurringId: str(r.recurring_id),
+    nextPaymentDate: isoDate(r.next_payment_date),
+    endDate: isoDate(r.end_date),
+    scheduleActive:
+      r.schedule_active === null || r.schedule_active === undefined ? false : !!r.schedule_active,
+    autoPost: !!r.auto_post,
+    notes: str(r.notes),
+    color: str(r.color),
+    icon: str(r.icon),
+    isClosed: !!r.is_closed,
+    paidAmount: money(r.paid_amount),
+    paidCount: num(r.paid_count),
+    scheduledTotal: moneyOrNull(r.scheduled_total),
+    paymentsRemaining:
+      r.payments_remaining === null || r.payments_remaining === undefined ? null : num(r.payments_remaining),
+    amountRemaining: moneyOrNull(r.amount_remaining),
+  };
+}
+
+export function mapCardCycle(r: Row): CardCycle {
+  return {
+    cycleStart: isoDate(r.cycle_start)!,
+    cycleEnd: isoDate(r.cycle_end)!,
+    statementDate: isoDate(r.statement_date)!,
+    dueDate: isoDate(r.due_date),
+    spend: money(r.spend),
+    payments: money(r.payments),
   };
 }
 
@@ -113,6 +167,8 @@ export function mapTransaction(r: Row): Transaction {
     accountType: r.account_type,
     toAccountId: str(r.to_account_id),
     toAccountName: str(r.to_account_name),
+    toAccountType: (str(r.to_account_type) as Transaction['toAccountType']) ?? null,
+    accountProvider: str(r.account_provider),
     categoryId: str(r.category_id),
     categoryName: str(r.category_name),
     categoryIcon: str(r.category_icon),

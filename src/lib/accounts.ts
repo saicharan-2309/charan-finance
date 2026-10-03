@@ -1,8 +1,12 @@
 /**
- * Account classification, balance effects and net worth. The effect rules are
- * identical to the database trigger `apply_transaction_effect`; the app uses
- * them for optimistic offline updates and they are unit-tested against the
- * same scenarios as the SQL tests.
+ * Account classification, balance effects and net worth.
+ *
+ * The effect rules are identical to the database trigger
+ * `apply_transaction_effect`; the app uses them for optimistic offline updates
+ * and they are unit-tested against the same scenarios as the SQL tests.
+ *
+ * Icons, providers, per-type field rules and the display helpers built on top
+ * of these live in `payment-methods.ts`.
  */
 import type { Minor } from './money';
 import type { AccountType, TxnType, UUID } from '@/types/domain';
@@ -13,24 +17,11 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   cash: 'Cash',
   credit_card: 'Credit card',
   debit_card: 'Debit card',
-  wallet: 'Wallet',
+  wallet: 'UPI or wallet',
   investment: 'Investment',
   loan: 'Loan',
   other_asset: 'Other asset',
   other_liability: 'Other liability',
-};
-
-export const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
-  bank: 'business-outline',
-  savings: 'wallet-outline',
-  cash: 'cash-outline',
-  credit_card: 'card-outline',
-  debit_card: 'card-outline',
-  wallet: 'phone-portrait-outline',
-  investment: 'trending-up-outline',
-  loan: 'document-text-outline',
-  other_asset: 'diamond-outline',
-  other_liability: 'alert-circle-outline',
 };
 
 const LIABILITIES: ReadonlySet<AccountType> = new Set(['credit_card', 'loan', 'other_liability']);
@@ -38,8 +29,6 @@ const LIQUID: ReadonlySet<AccountType> = new Set(['bank', 'savings', 'cash', 'wa
 
 export const isLiability = (t: AccountType) => LIABILITIES.has(t);
 export const isLiquid = (t: AccountType) => LIQUID.has(t);
-export const supportsLast4 = (t: AccountType) =>
-  t === 'bank' || t === 'savings' || t === 'credit_card' || t === 'debit_card' || t === 'loan';
 
 export interface EffectInput {
   type: TxnType;

@@ -1,12 +1,13 @@
 /**
- * Bottom tab bar with a prominent centre "Add" button — one tap from anywhere
- * to the Add Expense sheet. Long-press the button for other quick actions.
+ * Bottom tab bar with a prominent centre "Add" button. A tap opens the add
+ * sheet (expense, income, transfer, EMI, payment method); a long press goes
+ * straight to Add Expense, which is still the most common thing to record.
  */
 import type { Tabs } from 'expo-router/js-tabs';
 import type { ComponentProps } from 'react';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import { ActionSheetIOS, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/ThemeProvider';
@@ -24,24 +25,6 @@ const ICONS: Record<string, [string, string]> = {
   goals: ['flag-outline', 'flag'],
   more: ['grid-outline', 'grid'],
 };
-
-function openQuickActions() {
-  haptic.light();
-  const actions: [string, () => void][] = [
-    ['Add expense', () => router.push('/transaction/new')],
-    ['Add income', () => router.push({ pathname: '/transaction/new', params: { type: 'income' } })],
-    ['Transfer', () => router.push({ pathname: '/transaction/new', params: { type: 'transfer' } })],
-    ['Scan receipt', () => router.push('/receipt-scan')],
-  ];
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions(
-      { options: [...actions.map((a) => a[0]), 'Cancel'], cancelButtonIndex: actions.length },
-      (i) => actions[i]?.[1](),
-    );
-  } else {
-    actions[0][1]();
-  }
-}
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors, scheme } = useTheme();
@@ -86,13 +69,16 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     <View key="add" style={styles.item}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Add expense"
-        accessibilityHint="Long press for income, transfer or receipt scan"
+        accessibilityLabel="Add"
+        accessibilityHint="Choose expense, income, transfer, EMI or a new payment method. Long press to add an expense straight away."
         onPress={() => {
+          haptic.light();
+          router.push('/add');
+        }}
+        onLongPress={() => {
           haptic.light();
           router.push('/transaction/new');
         }}
-        onLongPress={openQuickActions}
         style={({ pressed }) => [
           styles.add,
           {

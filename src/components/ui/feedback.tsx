@@ -17,12 +17,13 @@ import {
   Easing,
   Pressable,
   StyleSheet,
-  useAnimatedValue,
   View,
   type DimensionValue,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+
+import { useAnimatedValue } from '@/lib/animation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 

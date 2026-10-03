@@ -17,7 +17,8 @@ import { BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
 import { defaultRange, RangePicker, type RangeValue } from '@/features/reports/RangePicker';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { useBudgetStatus, useCurrency, useSettings, useSnapshots } from '@/hooks/data';
-import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS } from '@/lib/accounts';
+import { ACCOUNT_TYPE_LABELS } from '@/lib/accounts';
+import { METHOD_ICONS } from '@/lib/payment-methods';
 import {
   daysBetweenInclusive,
   elapsedDays,
@@ -466,7 +467,7 @@ export default function ReportsScreen() {
                     style={{ gap: 6 }}
                   >
                     <Row gap={spacing.md}>
-                      <IconBadge icon={ACCOUNT_TYPE_ICONS[a.type]} size={32} />
+                      <IconBadge icon={METHOD_ICONS[a.type]} size={32} />
                       <View style={{ flex: 1 }}>
                         <Text variant="bodyStrong">{a.name}</Text>
                         <Text variant="caption" tone="secondary">

@@ -7,6 +7,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "charanfinance",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "bundleIdentifier": "com.charan.finance",
       "buildNumber": "1",
@@ -32,7 +40,7 @@
     "android": {
       "package": "com.charan.finance",
       "adaptiveIcon": {
-        "backgroundColor": "#C2410C",
+        "backgroundColor": "#A4563A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -48,10 +56,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#FBFAF8",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 96,
-          "dark": { "backgroundColor": "#0C0C0D", "image": "./assets/images/splash-icon.png" }
+          "dark": {
+            "backgroundColor": "#131316",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
       ],
       "expo-secure-store",
@@ -59,7 +70,9 @@
       "@react-native-community/datetimepicker",
       [
         "expo-local-authentication",
-        { "faceIDPermission": "Charan Finance uses Face ID to keep your financial data private." }
+        {
+          "faceIDPermission": "Charan Finance uses Face ID to keep your financial data private."
+        }
       ],
       [
         "expo-image-picker",
@@ -69,7 +82,12 @@
           "microphonePermission": false
         }
       ],
-      ["expo-notifications", { "color": "#C2410C" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#A4563A"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,

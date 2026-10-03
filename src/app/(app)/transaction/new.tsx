@@ -28,7 +28,7 @@ import {
   useRecentUsage,
   useTransaction,
 } from '@/hooks/data';
-import { ACCOUNT_TYPE_ICONS } from '@/lib/accounts';
+import { accountVisual, balanceDisplay, canSpendFrom, cardStanding } from '@/lib/payment-methods';
 import { combineDateTime, isISODate } from '@/lib/dates';
 import { describeError, logError } from '@/lib/errors';
 import {
@@ -58,6 +58,7 @@ type Params = {
   categoryId?: string;
   attachmentId?: string;
   accountId?: string;
+  toAccountId?: string;
 };
 
 export default function TransactionFormScreen() {
@@ -116,7 +117,9 @@ function TransactionForm({
   const [chosenAccountId, setChosenAccountId] = useState<string | null>(
     source?.accountId ?? params.accountId ?? null,
   );
-  const [toAccountId, setToAccountId] = useState<string | null>(source?.toAccountId ?? null);
+  const [toAccountId, setToAccountId] = useState<string | null>(
+    source?.toAccountId ?? params.toAccountId ?? null,
+  );
   const [date, setDate] = useState<Date>(() => {
     if (mode === 'update' && source) return new Date(source.occurredAt);
     if (params.date && isISODate(params.date)) return combineDateTime(params.date, '12:00');
@@ -141,7 +144,7 @@ function TransactionForm({
   const defaultAccountId =
     lastUsed && accounts.some((a) => a.id === lastUsed && a.isActive)
       ? lastUsed
-      : (accounts.find((a) => a.isActive)?.id ?? null);
+      : (accounts.find(canSpendFrom)?.id ?? accounts.find((a) => a.isActive)?.id ?? null);
   const accountId = chosenAccountId ?? defaultAccountId;
   const setAccountId = setChosenAccountId;
 
@@ -205,13 +208,31 @@ function TransactionForm({
     ];
   }, [accounts, usage.data?.accountIds]);
 
-  const accountOptions: SelectOption[] = orderedAccounts.map((a) => ({
-    value: a.id,
-    label: a.name,
-    subtitle: `${formatMoney(a.currentBalance, a.currency)}${a.last4 ? ` · ••${a.last4}` : ''}`,
-    icon: a.icon ?? ACCOUNT_TYPE_ICONS[a.type],
-    color: a.color,
-  }));
+  // Each method shows what it holds (or, for a card, what is used and what is
+  // left) so the choice can be made without leaving the form.
+  const accountOptions: SelectOption[] = orderedAccounts.map((a) => {
+    const visual = accountVisual(a);
+    const display = balanceDisplay(a);
+    const card = a.type === 'credit_card' ? cardStanding(a) : null;
+    const money = `${formatMoney(display.amount, a.currency, { decimals: 'never' })}${
+      display.caption ? ` ${display.caption}` : ''
+    }`;
+    return {
+      value: a.id,
+      label: a.name,
+      subtitle: [
+        money,
+        card?.available != null
+          ? `${formatMoney(card.available, a.currency, { decimals: 'never' })} available`
+          : null,
+        a.last4 ? `•••• ${a.last4}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      icon: visual.icon,
+      color: visual.color,
+    };
+  });
 
   const categoryOptions: SelectOption[] = topCategories.flatMap((c) => [
     { value: c.id, label: c.name, icon: c.icon, color: c.color },
@@ -519,24 +540,42 @@ function TransactionForm({
         {/* Accounts */}
         <View style={{ marginTop: spacing.xl, gap: spacing.lg }}>
           <SelectField
-            label={type === 'transfer' ? 'From' : type === 'income' ? 'To account' : 'Paid from'}
+            label={type === 'transfer' ? 'From' : type === 'income' ? 'Received in' : 'Payment method'}
             value={account ? account.name : null}
-            placeholder={accounts.length ? 'Choose account' : 'Add an account first'}
-            icon={account ? (account.icon ?? ACCOUNT_TYPE_ICONS[account.type]) : undefined}
-            color={account?.color}
-            onPress={() => (accounts.length ? setPicker('account') : router.push('/accounts/edit'))}
+            placeholder={accounts.length ? 'Choose payment method' : 'Add a payment method first'}
+            icon={account ? accountVisual(account).icon : undefined}
+            color={account ? accountVisual(account).color : undefined}
+            onPress={() =>
+              accounts.length
+                ? setPicker('account')
+                : router.push({ pathname: '/accounts/edit', params: { returnTo: 'expense' } })
+            }
             error={errors.account}
           />
+          {account ? (
+            <Text variant="caption" tone="tertiary" style={{ marginTop: -spacing.sm }}>
+              {type === 'expense'
+                ? 'How it was paid. The category above says what it was for.'
+                : type === 'income'
+                  ? 'Where the money landed.'
+                  : ''}
+            </Text>
+          ) : null}
           {type === 'transfer' ? (
             <SelectField
               label="To"
               value={toAccount ? toAccount.name : null}
               placeholder="Choose account"
-              icon={toAccount ? (toAccount.icon ?? ACCOUNT_TYPE_ICONS[toAccount.type]) : undefined}
-              color={toAccount?.color}
+              icon={toAccount ? accountVisual(toAccount).icon : undefined}
+              color={toAccount ? accountVisual(toAccount).color : undefined}
               onPress={() => setPicker('toAccount')}
               error={errors.toAccount}
             />
+          ) : null}
+          {type === 'transfer' && toAccount?.type === 'credit_card' ? (
+            <Text variant="footnote" tone="secondary" style={{ marginTop: -spacing.sm }}>
+              This is a credit card payment. It reduces what you owe and is not counted as spending.
+            </Text>
           ) : null}
         </View>
 
@@ -655,9 +694,14 @@ function TransactionForm({
       />
       <SelectSheet
         visible={picker === 'account' || picker === 'toAccount'}
-        title={picker === 'toAccount' ? 'To account' : 'Account'}
+        title={picker === 'toAccount' ? 'To account' : type === 'expense' ? 'Payment method' : 'Account'}
         options={accountOptions}
         selected={picker === 'toAccount' ? toAccountId : accountId}
+        searchable={accountOptions.length > 8}
+        addAction={{
+          label: 'Add new payment method',
+          onPress: () => router.push({ pathname: '/accounts/edit', params: { returnTo: 'expense' } }),
+        }}
         onClose={() => setPicker(null)}
         onSelect={(v) => {
           if (picker === 'toAccount') setToAccountId(v);

@@ -926,3 +926,293 @@ describe('reports & merchants', () => {
     assert.equal(stats.largest, '1200.00');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Payment methods, credit-card cycles and loans/EMIs
+// ---------------------------------------------------------------------------
+describe('payment methods', () => {
+  it('stores many payment method types side by side, each with only its own fields', async () => {
+    const jay = await createUser(db, 'jay@example.com');
+    const ids: Record<string, string> = {};
+    for (const [name, type, opening] of [
+      ['HDFC Savings', 'savings', '84250'],
+      ['SBI Salary', 'bank', '42800'],
+      ['Cash', 'cash', '4500'],
+      ['Google Pay', 'wallet', '2300'],
+      ['HDFC Debit', 'debit_card', '0'],
+    ] as const) {
+      ids[name] = await createAccount(jay, name, type, opening);
+    }
+    // A UPI wallet carries provider identity but no card fields.
+    await asUser(db, jay, (q) =>
+      q(`update accounts set provider = 'gpay' where id = $1 returning id`, [ids['Google Pay']]),
+    );
+    // A credit card carries limit, statement and due day.
+    const card = await createAccount(jay, 'HDFC Credit Card', 'credit_card', '0');
+    await asUser(db, jay, (q) =>
+      q(
+        `update accounts set credit_limit = 100000, statement_day = 28, due_day = 12,
+           minimum_due = 5000, provider = 'hdfc' where id = $1 returning id`,
+        [card],
+      ),
+    );
+
+    const rows = await asUser(db, jay, (q) =>
+      q<{ name: string; type: string; provider: string | null; current_balance: string }>(
+        `select name, type, provider, current_balance from accounts order by name`,
+      ),
+    );
+    assert.equal(rows.length, 6);
+    assert.equal(rows.find((r) => r.name === 'Google Pay')?.provider, 'gpay');
+    assert.equal(rows.find((r) => r.name === 'Cash')?.current_balance, '4500.00');
+
+    // Expenses work from every payment method, with no credit card involved.
+    const food = await categoryId(jay, 'Food');
+    for (const name of ['HDFC Savings', 'SBI Salary', 'Cash', 'Google Pay', 'HDFC Debit']) {
+      await save(jay, { type: 'expense', amount: '100', account_id: ids[name], category_id: food });
+    }
+    assert.equal(await balance(jay, ids['Cash']), '4400.00');
+    assert.equal(await balance(jay, ids['Google Pay']), '2200.00');
+    assert.equal(await balance(jay, ids['HDFC Savings']), '84150.00');
+    assert.equal(await balance(jay, card), '0.00'); // untouched
+
+    // Day-of-month clamping for billing dates.
+    const [clamped] = await asUser(db, jay, (q) =>
+      q<{ a: string; b: string }>(
+        `select to_char(day_in_month('2026-02-10', 31), 'YYYY-MM-DD') as a,
+                to_char(day_in_month('2026-03-10', 31), 'YYYY-MM-DD') as b`,
+      ),
+    );
+    assert.equal(clamped.a, '2026-02-28');
+    assert.equal(clamped.b, '2026-03-31');
+
+    // Statement/due days are validated.
+    await expectError(
+      asUser(db, jay, (q) => q(`update accounts set statement_day = 32 where id = $1`, [card])),
+      /statement_day/,
+    );
+    // Derived balance stays server-owned even with the new columns in place.
+    await expectError(
+      asUser(db, jay, (q) => q(`update accounts set current_balance = 999999 where id = $1`, [card])),
+      /permission denied|column .*current_balance/,
+    );
+  });
+
+  it('computes the open credit-card cycle and never counts a card payment as spending', async () => {
+    const kim = await createUser(db, 'kim@example.com');
+    const bank = await createAccount(kim, 'Bank', 'bank', '100000');
+    const card = await createAccount(kim, 'Card', 'credit_card', '0');
+    await asUser(db, kim, (q) =>
+      q(`update accounts set credit_limit = 100000, statement_day = 28, due_day = 12 where id = $1`, [card]),
+    );
+    const shopping = await categoryId(kim, 'Shopping');
+    const food = await categoryId(kim, 'Food');
+
+    // Pin "today" so the cycle is deterministic: 2026-09-15 sits inside the
+    // cycle that opened on 2026-08-29 and closes on 2026-09-28.
+    await asUser(db, kim, (q) => q(`update profiles set timezone = 'Asia/Kolkata' where id = $1`, [kim]));
+    const cycle = async () =>
+      (
+        await asUser(db, kim, (q) =>
+          q<Row>(
+            `select to_char(cycle_start, 'YYYY-MM-DD') as cycle_start,
+                    to_char(cycle_end, 'YYYY-MM-DD') as cycle_end,
+                    to_char(due_date, 'YYYY-MM-DD') as due_date,
+                    spend, payments
+             from credit_card_cycle($1)`,
+            [card],
+          ),
+        )
+      )[0];
+
+    await save(kim, {
+      type: 'expense',
+      amount: '10000',
+      account_id: card,
+      category_id: shopping,
+      occurred_at: `${new Date().toISOString().slice(0, 8)}01T10:00:00+05:30`,
+    });
+    assert.equal(await balance(kim, card), '-10000.00'); // ₹10,000 owed
+
+    // Paying the bill from the bank account is a transfer: the card debt drops,
+    // the bank balance drops, and total expenses do NOT increase again.
+    await save(kim, {
+      type: 'transfer',
+      amount: '10000',
+      account_id: bank,
+      to_account_id: card,
+      occurred_at: `${new Date().toISOString().slice(0, 8)}02T10:00:00+05:30`,
+    });
+    assert.equal(await balance(kim, card), '0.00');
+    assert.equal(await balance(kim, bank), '90000.00');
+
+    const [summary] = await asUser(db, kim, (q) =>
+      q<Row>(`select * from report_summary(user_today() - 60, user_today() + 1)`),
+    );
+    assert.equal(summary.expense, '10000.00', 'the card payment must not double-count as an expense');
+    assert.equal(Number(summary.income), 0);
+
+    const c = await cycle();
+    assert.ok(Number(c.spend) >= 0 && Number(c.payments) >= 0);
+    assert.ok(String(c.cycle_start) < String(c.cycle_end));
+    assert.equal(String(c.due_date).slice(-2), '12');
+
+    // A cash expense of the same size is still counted once.
+    await save(kim, { type: 'expense', amount: '500', account_id: bank, category_id: food });
+    const [after2] = await asUser(db, kim, (q) =>
+      q<Row>(`select * from report_summary(user_today() - 60, user_today() + 1)`),
+    );
+    assert.equal(after2.expense, '10500.00');
+
+    // The view labels the destination type so the UI can call it a card payment.
+    const [tv] = await asUser(db, kim, (q) =>
+      q<Row>(`select type, to_account_type from transactions_view where type = 'transfer'`),
+    );
+    assert.equal(tv.to_account_type, 'credit_card');
+  });
+
+  it('tracks an EMI against any payment method and reports progress from real payments', async () => {
+    const leo = await createUser(db, 'leo@example.com');
+    const bank = await createAccount(leo, 'HDFC Savings', 'bank', '500000');
+    const card = await createAccount(leo, 'ICICI Card', 'credit_card', '0');
+    const emiCat = await categoryId(leo, 'Loans & EMI');
+
+    const mkLoan = async (name: string, account: string, emi: string, principal: string, tenure: number) => {
+      const [r] = await asUser(db, leo, (q) =>
+        q<{ id: string }>(
+          `insert into recurring_transactions
+             (name, type, kind, amount, account_id, category_id, frequency, start_date, remind_days_before)
+           values ($1, 'expense', 'bill', $2, $3, $4, 'monthly', '2026-07-15', 3) returning id`,
+          [name, emi, account, emiCat],
+        ),
+      );
+      const [l] = await asUser(db, leo, (q) =>
+        q<{ id: string }>(
+          `insert into loans (name, principal_amount, emi_amount, interest_rate, tenure_months,
+                              start_date, account_id, category_id, recurring_id)
+           values ($1, $2, $3, 9.5, $4, '2026-07-15', $5, $6, $7) returning id`,
+          [name, principal, emi, tenure, account, emiCat, r.id],
+        ),
+      );
+      return { loanId: l.id, recurringId: r.id };
+    };
+
+    const carLoan = await mkLoan('Car Loan', bank, '18500', '900000', 60);
+    const phoneEmi = await mkLoan('Phone EMI', card, '4200', '50400', 12);
+
+    // Two instalments of the car loan are actually paid.
+    await asUser(db, leo, (q) =>
+      q(`select post_recurring_occurrence($1, '2026-07-15')`, [carLoan.recurringId]),
+    );
+    await asUser(db, leo, (q) =>
+      q(`select post_recurring_occurrence($1, '2026-08-15')`, [carLoan.recurringId]),
+    );
+
+    const rows = await asUser(db, leo, (q) =>
+      q<Row>(
+        `select name, account_name, account_type, emi_amount, paid_amount, paid_count,
+                scheduled_total, payments_remaining, amount_remaining,
+                to_char(next_payment_date, 'YYYY-MM-DD') as next_payment_date
+         from loan_status order by name`,
+      ),
+    );
+    const car = rows.find((r) => r.name === 'Car Loan')!;
+    const phone = rows.find((r) => r.name === 'Phone EMI')!;
+
+    assert.equal(car.account_name, 'HDFC Savings');
+    assert.equal(car.account_type, 'bank');
+    assert.equal(car.paid_count, '2');
+    assert.equal(car.paid_amount, '37000.00');
+    assert.equal(car.scheduled_total, '1110000.00'); // 18500 × 60, exact
+    assert.equal(Number(car.payments_remaining), 58);
+    assert.equal(car.amount_remaining, '1073000.00');
+    assert.equal(car.next_payment_date, '2026-09-15');
+
+    // An EMI charged to a credit card is just as valid, and starts at zero paid.
+    assert.equal(phone.account_type, 'credit_card');
+    assert.equal(phone.paid_count, '0');
+    assert.equal(phone.amount_remaining, '50400.00');
+
+    // The two paid instalments moved the bank balance and nothing else.
+    assert.equal(await balance(leo, bank), '463000.00');
+    assert.equal(await balance(leo, card), '0.00');
+
+    // Deleting the schedule keeps the loan record (history is never silently lost).
+    await asUser(db, leo, (q) =>
+      q(`delete from recurring_transactions where id = $1`, [phoneEmi.recurringId]),
+    );
+    const [orphan] = await asUser(db, leo, (q) =>
+      q<Row>(`select recurring_id, next_payment_date from loan_status where id = $1`, [phoneEmi.loanId]),
+    );
+    assert.equal(orphan.recurring_id, null);
+    assert.equal(orphan.next_payment_date, null);
+
+    // Loans reject nonsense amounts and out-of-range rates.
+    await expectError(
+      asUser(db, leo, (q) =>
+        q(
+          `insert into loans (name, principal_amount, emi_amount, start_date, account_id)
+           values ('Bad', 0, 100, '2026-01-01', $1)`,
+          [bank],
+        ),
+      ),
+      /principal_amount/,
+    );
+    await expectError(
+      asUser(db, leo, (q) =>
+        q(
+          `insert into loans (name, principal_amount, emi_amount, interest_rate, start_date, account_id)
+           values ('Bad', 100, 10, 150, '2026-01-01', $1)`,
+          [bank],
+        ),
+      ),
+      /interest_rate/,
+    );
+  });
+
+  it('keeps loans private and unreferenceable across users', async () => {
+    const mia = await createUser(db, 'mia@example.com');
+    const nick = await createUser(db, 'nick@example.com');
+    const miaAcc = await createAccount(mia, 'Mia Bank', 'bank', '1000');
+    const nickAcc = await createAccount(nick, 'Nick Bank', 'bank', '1000');
+    await asUser(db, mia, (q) =>
+      q(
+        `insert into loans (name, principal_amount, emi_amount, start_date, account_id)
+         values ('Mia Loan', 100000, 5000, '2026-01-01', $1)`,
+        [miaAcc],
+      ),
+    );
+
+    for (const t of ['loans', 'loan_status']) {
+      const rows = await asUser(db, nick, (q) => q(`select * from ${t} where user_id = $1`, [mia]));
+      assert.equal(rows.length, 0, `nick can see mia's ${t}`);
+    }
+    // Nick cannot attach a loan of his own to Mia's account.
+    await expectError(
+      asUser(db, nick, (q) =>
+        q(
+          `insert into loans (name, principal_amount, emi_amount, start_date, account_id)
+           values ('Steal', 100, 10, '2026-01-01', $1)`,
+          [miaAcc],
+        ),
+      ),
+      /foreign key|row-level security/,
+    );
+    // Nick cannot forge a loan owned by Mia.
+    await expectError(
+      asUser(db, nick, (q) =>
+        q(
+          `insert into loans (user_id, name, principal_amount, emi_amount, start_date, account_id)
+           values ($1, 'Forged', 100, 10, '2026-01-01', $2)`,
+          [mia, nickAcc],
+        ),
+      ),
+      /row-level security|foreign key/,
+    );
+    // And cannot read them anonymously.
+    await expectError(
+      asUser(db, null, (q) => q(`select * from loans`)),
+      /permission denied/,
+    );
+  });
+});

@@ -12,7 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatShortDate, formatTime } from '@/lib/dates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, radius, spacing } from '@/theme/tokens';
-import { Divider, Icon, IconBadge, Text } from './primitives';
+import { CategoryAvatar } from '@/components/CategoryAvatar';
+import { Divider, Icon, Text } from './primitives';
 import { TextField } from './controls';
 
 export interface SelectOption<T extends string = string> {
@@ -35,6 +36,7 @@ export function SelectSheet<T extends string>({
   searchable,
   noneLabel,
   footerAction,
+  addAction,
 }: {
   visible: boolean;
   title: string;
@@ -46,6 +48,11 @@ export function SelectSheet<T extends string>({
   /** Adds a "none" row that selects null. */
   noneLabel?: string;
   footerAction?: { label: string; onPress: (query: string) => void };
+  /**
+   * An always-visible action at the end of the list — used to create the thing
+   * being picked ("Add new payment method") without leaving the flow.
+   */
+  addAction?: { label: string; icon?: string; onPress: () => void };
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -114,28 +121,52 @@ export function SelectSheet<T extends string>({
             ) : null
           }
           ListFooterComponent={
-            footerAction &&
-            query.trim() &&
-            !options.some((o) => o.label.toLowerCase() === query.trim().toLowerCase()) ? (
-              <Pressable
-                onPress={() => {
-                  footerAction.onPress(query.trim());
-                  close();
-                }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: spacing.md,
-                  paddingVertical: spacing.lg,
-                }}
-                accessibilityRole="button"
-              >
-                <Icon name="add-circle" size={24} tone="brand" />
-                <Text variant="bodyStrong" tone="brand">
-                  {footerAction.label} “{query.trim()}”
-                </Text>
-              </Pressable>
-            ) : null
+            <>
+              {footerAction &&
+              query.trim() &&
+              !options.some((o) => o.label.toLowerCase() === query.trim().toLowerCase()) ? (
+                <Pressable
+                  onPress={() => {
+                    footerAction.onPress(query.trim());
+                    close();
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.md,
+                    paddingVertical: spacing.lg,
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Icon name="add-circle" size={24} tone="brand" />
+                  <Text variant="bodyStrong" tone="brand">
+                    {footerAction.label} “{query.trim()}”
+                  </Text>
+                </Pressable>
+              ) : null}
+              {addAction ? (
+                <Pressable
+                  onPress={() => {
+                    close();
+                    addAction.onPress();
+                  }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.md,
+                    paddingVertical: spacing.lg,
+                    marginTop: spacing.xs,
+                    opacity: pressed ? 0.6 : 1,
+                  })}
+                  accessibilityRole="button"
+                >
+                  <Icon name={addAction.icon ?? 'add-circle-outline'} size={24} tone="brand" />
+                  <Text variant="bodyStrong" tone="brand">
+                    {addAction.label}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
           }
           ListEmptyComponent={
             !footerAction ? (
@@ -195,7 +226,9 @@ function OptionRow({
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      {icon !== undefined ? <IconBadge icon={icon} color={color} size={depth ? 30 : 38} /> : null}
+      {icon !== undefined ? (
+        <CategoryAvatar icon={icon} color={color} size={depth ? 30 : 38} active={selected} />
+      ) : null}
       <View style={{ flex: 1 }}>
         <Text variant={depth ? 'callout' : 'body'}>{label}</Text>
         {subtitle ? (
@@ -249,7 +282,7 @@ export function SelectField({
           gap: spacing.md,
         })}
       >
-        {icon ? <IconBadge icon={icon} color={color} size={30} /> : null}
+        {icon ? <CategoryAvatar icon={icon} color={color} size={30} /> : null}
         <Text variant="body" tone={value ? 'primary' : 'tertiary'} style={{ flex: 1 }} numberOfLines={1}>
           {value ?? placeholder}
         </Text>

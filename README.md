@@ -16,6 +16,8 @@ You develop it on **Windows** and build it for iOS **in the cloud with EAS**. Yo
 6. [Local development](#6-local-development)
 7. [EAS setup & iOS builds](#7-eas-setup--ios-builds)
 8. [TestFlight deployment](#8-testflight-deployment)
+   - [8a. Running without a dev server, for free](#8a-running-without-a-dev-server-for-free)
+   - [8b. Upgrading an app that is already running](#8b-upgrading-an-app-that-is-already-running)
 9. [Receipt OCR (optional)](#9-receipt-ocr-optional)
 10. [Testing & quality checks](#10-testing--quality-checks)
 11. [Development seed data](#11-development-seed-data)
@@ -27,28 +29,29 @@ You develop it on **Windows** and build it for iOS **in the cloud with EAS**. Yo
 
 ## 1. What's inside
 
-| Area                | Features                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Home**            | Total (liquid) balance, net worth, income / expenses / saved this month, savings rate, available balance after card dues and upcoming bills, insights, budgets, upcoming payments, category donut, 6-month trend, top merchants, goals, recent transactions                                                                                                              |
-| **Transactions**    | Expense / income / transfer; category + subcategory, merchant, account, date & time, notes, tags, receipts; create / edit / duplicate / delete; global search (merchant, notes, category, account, tags, amount); filters by type, date, category, account, merchant and amount range; sort; day grouping; incremental loading (40 rows per page)                        |
-| **Add expense**     | Opens straight into the amount field. Recent categories, merchants and accounts are one tap away. The last-used account is preselected, and a known merchant fills in its usual category. Floating **+** on every tab; long-press it for income, transfer or a receipt scan                                                                                              |
-| **Accounts**        | Bank, savings, cash, credit/debit cards, wallets, investments, loans, other assets/liabilities. Last 4 digits only. Opening/current balance, credit limit and utilisation, archive, reconcile to a real balance (recorded as an auditable adjustment)                                                                                                                    |
-| **Categories**      | 28 defaults (20 expense, 8 income) with subcategories. Create, rename, recolour, re-icon, classify as essential/discretionary, archive. Deletion is blocked by the database when history exists                                                                                                                                                                          |
-| **Merchants**       | Auto-created from transactions (case-insensitive). Lifetime total, count, average, largest, monthly chart, category mix, history. Rename, merge, archive                                                                                                                                                                                                                 |
-| **Budgets**         | Weekly / monthly / yearly / custom periods with any start day (for example salary-to-salary). Overall and per-category limits. Spent, remaining, % used, projected spend, a time-elapsed marker on each bar, warnings                                                                                                                                                    |
-| **Goals**           | Target, starting amount, contributions and withdrawals, target date, linked account. Remaining, required monthly/weekly saving, recent pace, projected completion, on-track status                                                                                                                                                                                       |
-| **Recurring**       | Income, bills, subscriptions, transfers (for example SIPs). Daily to yearly, every N periods, start/end dates. Templates are stored separately from transactions. Mark paid (or a different amount), skip, or auto-record. An occurrence can never be posted twice                                                                                                       |
-| **Subscriptions**   | Monthly and annual cost, breakdown by category, upcoming renewals, active/inactive toggle                                                                                                                                                                                                                                                                                |
-| **Calendar**        | Month grid of actual daily activity plus **projected** recurring items. Projected month-end and lowest balance, 30+ day projected-balance chart (always labelled as a projection)                                                                                                                                                                                        |
-| **Reports**         | Any range (this/last month, 3/6 months, this/last year, custom). Income vs expenses, cumulative cash flow, savings rate, average per day and per month, previous-period and year-over-year comparison, categories (drill-down), merchants, accounts, essential vs discretionary, recurring and subscription share, largest expenses, budget performance, net worth trend |
-| **Net worth**       | Assets − liabilities from real balances. A daily snapshot is taken automatically. Trend chart; investment values are never invented                                                                                                                                                                                                                                      |
-| **Insights**        | Descriptive statements computed from your data only (no advice)                                                                                                                                                                                                                                                                                                          |
-| **Receipts**        | Camera, photo library or PDF. Images are compressed, stored in a private bucket under `<user_id>/…`, viewed through 5-minute signed links. OCR suggests merchant, amount, date, currency and category; **you confirm before anything is saved**                                                                                                                          |
-| **Import / export** | CSV import with full validation and preview. Rows with errors are listed and nothing is imported silently, and an interrupted import can be resumed without duplicates. CSV export and a full JSON backup                                                                                                                                                                |
-| **Notifications**   | Local reminders for bills, subscription renewals, budget thresholds (once per period), goal check-in and the monthly summary, each with its own toggle. Amounts never appear on the lock screen                                                                                                                                                                          |
-| **Security**        | Face ID / Touch ID / passcode app lock. The screen is hidden in the app switcher. The session is stored in the Keychain. Account deletion is available in-app                                                                                                                                                                                                            |
-| **Offline**         | Cached data shows instantly. New transactions, edits and deletes made offline are queued durably and synced later; conflicts are detected, and rejected writes are kept for you to review rather than dropped                                                                                                                                                            |
-| **Design**          | Light, dark and automatic themes, a token-based design system, Dynamic Type, VoiceOver labels, reduced-motion support, skeleton/empty/error states                                                                                                                                                                                                                       |
+| Area                | Features                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**            | Total (liquid) balance, net worth, income / expenses / saved this month, savings rate, available balance after card dues and upcoming bills, insights, budgets, upcoming payments, category donut, 6-month trend, top merchants, goals, recent transactions                                                                                                                                                                                                                                              |
+| **Transactions**    | Expense / income / transfer, with a transfer into a credit card shown as a **card payment** — it reduces what you owe and is never counted as spending; category + subcategory, merchant, account, date & time, notes, tags, receipts; create / edit / duplicate / delete; global search (merchant, notes, category, account, tags, amount); filters by type, date, category, account, merchant and amount range; sort; day grouping; incremental loading (40 rows per page)                             |
+| **Add expense**     | Opens straight into the amount field. Recent categories, merchants and payment methods are one tap away, the payment-method picker shows each balance (and what is used and left on a card), and a new method can be added without leaving the form. The last-used method is preselected, and a known merchant fills in its usual category. The **+** button offers expense, income, transfer or card payment, EMI, a new payment method, or a receipt scan; long-press it to go straight to Add Expense |
+| **Payment methods** | Bank and savings accounts, credit and debit cards, cash, UPI apps (Google Pay, PhonePe, Paytm, Amazon Pay, other), investments, loans, other assets/liabilities — grouped by kind, each asking only for the fields its own type needs. Last 4 digits only. Opening/current balance; for a card, credit limit, **calculated** available credit, statement day, due day and minimum due. Archive, or reconcile to a real balance (recorded as an auditable adjustment)                                     |
+| **EMIs & loans**    | Total loan amount, monthly instalment, interest rate, tenure, lender, start date — paid from **any** payment method, bank or card or UPI or cash. Each EMI drives a monthly schedule, so it appears in Upcoming, the calendar and reminders. Progress (paid, remaining, instalments left) is counted from instalments actually recorded, never estimated                                                                                                                                                 |
+| **Categories**      | 28 defaults (20 expense, 8 income) with subcategories. Create, rename, recolour, re-icon, classify as essential/discretionary, archive. Deletion is blocked by the database when history exists                                                                                                                                                                                                                                                                                                          |
+| **Merchants**       | Auto-created from transactions (case-insensitive). Lifetime total, count, average, largest, monthly chart, category mix, history. Rename, merge, archive                                                                                                                                                                                                                                                                                                                                                 |
+| **Budgets**         | Weekly / monthly / yearly / custom periods with any start day (for example salary-to-salary). Overall and per-category limits. Spent, remaining, % used, projected spend, a time-elapsed marker on each bar, warnings                                                                                                                                                                                                                                                                                    |
+| **Goals**           | Target, starting amount, contributions and withdrawals, target date, linked account. Remaining, required monthly/weekly saving, recent pace, projected completion, on-track status                                                                                                                                                                                                                                                                                                                       |
+| **Recurring**       | Income, bills, subscriptions, transfers (for example SIPs). Daily to yearly, every N periods, start/end dates. Templates are stored separately from transactions. Mark paid (or a different amount), skip, or auto-record. An occurrence can never be posted twice                                                                                                                                                                                                                                       |
+| **Subscriptions**   | Monthly and annual cost, breakdown by category, upcoming renewals, active/inactive toggle                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Calendar**        | Month grid of actual daily activity plus **projected** recurring items. Projected month-end and lowest balance, 30+ day projected-balance chart (always labelled as a projection)                                                                                                                                                                                                                                                                                                                        |
+| **Reports**         | Any range (this/last month, 3/6 months, this/last year, custom). Income vs expenses, cumulative cash flow, savings rate, average per day and per month, previous-period and year-over-year comparison, categories (drill-down), merchants, accounts, essential vs discretionary, recurring and subscription share, largest expenses, budget performance, net worth trend                                                                                                                                 |
+| **Net worth**       | Assets − liabilities from real balances. A daily snapshot is taken automatically. Trend chart; investment values are never invented                                                                                                                                                                                                                                                                                                                                                                      |
+| **Insights**        | Descriptive statements computed from your data only (no advice)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Receipts**        | Camera, photo library or PDF. Images are compressed, stored in a private bucket under `<user_id>/…`, viewed through 5-minute signed links. OCR suggests merchant, amount, date, currency and category; **you confirm before anything is saved**                                                                                                                                                                                                                                                          |
+| **Import / export** | CSV import with full validation and preview. Rows with errors are listed and nothing is imported silently, and an interrupted import can be resumed without duplicates. CSV export and a full JSON backup                                                                                                                                                                                                                                                                                                |
+| **Notifications**   | Local reminders for bills, subscription renewals, budget thresholds (once per period), goal check-in and the monthly summary, each with its own toggle. Amounts never appear on the lock screen                                                                                                                                                                                                                                                                                                          |
+| **Security**        | Face ID / Touch ID / passcode app lock. The screen is hidden in the app switcher. The session is stored in the Keychain. Account deletion is available in-app                                                                                                                                                                                                                                                                                                                                            |
+| **Offline**         | Cached data shows instantly. New transactions, edits and deletes made offline are queued durably and synced later; conflicts are detected, and rejected writes are kept for you to review rather than dropped                                                                                                                                                                                                                                                                                            |
+| **Design**          | A soft, warm palette (warm whites, soft greys, muted greens, blues, lavenders, ambers and corals) with colour used to carry meaning rather than decoration. Light, dark and automatic themes, a token-based design system, animated category avatars, Dynamic Type, VoiceOver labels, reduced-motion support, skeleton/empty/error states                                                                                                                                                                |
 
 ---
 
@@ -64,8 +67,9 @@ src/
   components/          UI kit (primitives, controls, feedback, layout, pickers), charts, tab bar
   features/            feature-specific components (dashboard widgets, filters, recurring, receipts…)
   hooks/               React Query hooks, session bootstrap
-  lib/                 pure, tested business logic: money, dates, recurrence, budgets, goals,
-                       cash-flow projection, insights, CSV, receipt parser, errors, offline queue
+  lib/                 pure, tested business logic: money, dates, recurrence, payment methods,
+                       budgets, goals, cash-flow projection, insights, CSV, receipt parser,
+                       errors, offline queue
   providers/           Auth, App lock
   services/            Supabase data access (the only place that talks to the backend)
   theme/               design tokens + theme provider
@@ -84,6 +88,10 @@ tests/                 Jest unit tests
 - **Balances are kept by the database.** Triggers update `accounts.current_balance` atomically with every insert, update and delete, and clients have no write privilege on that column. A transfer debits one account and credits the other, and is excluded from income/expense everywhere. `verify_account_balances()` recomputes everything from scratch, and the app exposes this under Security → Verify.
 - **Atomic, idempotent writes.** `save_transaction` creates or updates a transaction, resolves the merchant and syncs tags in one database transaction. Creates are keyed by a client UUID, so a replay from the offline queue is a no-op, and edits carry `expectedUpdatedAt` for conflict detection.
 - **Defence in depth for isolation.** RLS on every table, **composite foreign keys** `(id, user_id)` so a user can't reference someone else's account or category even by guessing a UUID, column-level grants for derived values, and no anon access at all.
+- **One table for every way money moves.** A bank account, a card, cash and a UPI app are all rows in `accounts`, and a transaction points at one of them. Nothing in the app is special-cased for credit cards: a card is a type with three extra fields. `lib/payment-methods.ts` decides which fields a type needs, so a Cash account is never asked for a credit limit, and available credit is always **derived** from the limit and the balance rather than stored.
+- **Category tells you why, payment method tells you how.** They are separate columns, separate pickers and separate filters, all the way from the schema to the UI.
+- **A card payment is a transfer, not an expense.** Paying a bill from a bank account moves money between two of your own accounts: the debt falls, the bank balance falls, and reported spending does not change. The destination account's type is what makes it a "card payment", so the label stays right for transactions recorded before the feature existed.
+- **An EMI is an agreement plus a schedule.** `loans` holds the principal, rate and tenure; a normal recurring transaction posts the instalments, charged to whichever payment method you chose. That means EMIs reuse the existing due-date, reminder, calendar and posting machinery instead of a second copy of it, and progress is counted from instalments actually recorded. Totals shown (instalment × tenure, and that minus the principal) are exact arithmetic, never an amortisation guess.
 - **Recurring = templates.** Occurrences are computed (`recurrence_occurrences`, mirrored exactly in TypeScript), never pre-generated. Posting is idempotent through a `unique(recurring_id, recurring_occurrence)` constraint.
 - **Reports are SQL.** Aggregations run in PostgreSQL in the user's timezone, so the phone never loads thousands of rows.
 
@@ -144,9 +152,19 @@ Open **SQL Editor → New query**, then paste and run each file in `supabase/mig
 20261001000400_views_and_reports.sql
 20261001000500_row_level_security.sql
 20261001000600_storage_receipts.sql
+20261003000100_payment_methods_and_loans.sql
 ```
 
-The last file creates the private `receipts` bucket (10 MB limit; images and PDFs only) and its storage policies.
+`20261001000600` creates the private `receipts` bucket (10 MB limit; images and PDFs only) and its storage policies.
+
+`20261003000100` adds payment-method identity (UPI/wallet provider), credit-card
+billing and due dates, the `loans` table behind EMIs, and the softer default
+category colours. It is **additive and safe to run on a database that already
+holds your data**: no column is dropped or retyped, no row is deleted, and a
+category colour is refreshed only where it still holds the exact factory
+default — any colour you changed yourself is left alone. Run it the same way as
+the others; if you are already using the app, this is the only file you need to
+apply.
 
 Verify: **Table Editor** should show the tables with RLS enabled, and **Storage** should show a private `receipts` bucket.
 
@@ -307,7 +325,54 @@ When a build finishes, EAS shows a link and QR code. Open it on your iPhone to i
 3. In App Store Connect, open the build under **TestFlight**. Once processing finishes (10–30 minutes), add yourself as an internal tester. Install the **TestFlight** app on your iPhone and accept the invite.
 4. Before an App Store review: complete _App Privacy_ (data linked to the user: email, financial info, photos for receipts; no tracking) and give the reviewers a demo account.
 
-Over-the-air JS updates (optional): `npx eas-cli@latest update --channel production` ships JS-only changes without a new build.
+Over-the-air JS updates: `npx eas-cli@latest update --channel production` ships JavaScript-only changes without a new build. `expo-updates` is installed and `runtimeVersion` uses the `sdkVersion` policy, so published updates also load in Expo Go — see §8a.
+
+---
+
+## 8a. Running without a dev server, for free
+
+No Apple Developer membership and no laptop. Publish the JavaScript to Expo's servers and open it in Expo Go:
+
+```powershell
+npx eas-cli@latest login
+npx eas-cli@latest init                 # once, if you have not already
+npx eas-cli@latest update:configure     # once: writes updates.url into app.json
+npx eas-cli@latest update --branch main --message "first publish"
+```
+
+The last command prints a QR code and a link. Scan it once with your iPhone camera and the project appears under **Recently opened** in Expo Go, loading from Expo's CDN rather than your PC. Your laptop can be off.
+
+Each later change is one command:
+
+```powershell
+npx eas-cli@latest update --branch main --message "what changed"
+```
+
+Expo Go picks it up on the next cold start. The `sdkVersion` runtime policy is what makes this work — it pins the bundle to Expo SDK 57, which is the runtime Expo Go provides. Native changes (a new module, anything in `app.json`) still need a real build.
+
+Trade-offs against a native build: you launch through Expo Go rather than your own icon, Expo Go has to stay installed, and startup is a second or two slower. Everything else — your data, offline queue, reminders, receipts — behaves the same.
+
+---
+
+## 8b. Upgrading an app that is already running
+
+If the app is already on your phone, this is the whole upgrade:
+
+1. **Apply the new migration.** In Supabase, run `supabase db push`, or paste
+   `supabase/migrations/20261003000100_payment_methods_and_loans.sql` into the
+   SQL Editor. It only adds things — your accounts, transactions and balances
+   are untouched, and the existing credit card keeps working exactly as before,
+   now with optional billing and due dates you can fill in by editing it.
+2. **Publish the new JavaScript.**
+   ```powershell
+   npx eas-cli@latest update --branch main --message "payment methods, EMIs, redesign"
+   ```
+   Choose the **preview** environment when asked.
+3. **Reopen the app** (fully close it first). It fetches the new bundle on launch.
+
+Do them in that order: the new screens read the new columns, so the migration
+goes first. If you publish first, the app will show errors until the migration
+is applied.
 
 ---
 
@@ -329,14 +394,15 @@ Without the key, scanning still attaches the receipt and asks you to type the de
 ## 10. Testing & quality checks
 
 ```powershell
-npm run verify        # TypeScript strict + ESLint + 58 Jest tests
-npm run test:db       # 27 SQL tests (needs a local, disposable PostgreSQL 15+)
+npm run verify        # TypeScript strict + ESLint + 75 Jest tests
+npm run test:db       # 36 SQL tests (needs a local, disposable PostgreSQL 15+)
+npm run verify:all    # both of the above
 npm run bundle:ios    # Metro production bundle for iOS
 ```
 
-**Unit tests (`tests/`)** cover money parsing, formatting and paise precision; dates and range presets; recurrence (month-end clamping, leap years, intervals, end dates); budget periods and projections; goal maths; net worth; balance effects for create, edit, delete and transfers; cash-flow projection and available balance; insights; CSV parsing, writing and import validation; the receipt parser; error mapping; authentication route guards; and the offline queue (durability, ordering, retry, conflicts, per-user isolation).
+**Unit tests (`tests/`)** cover money parsing, formatting and paise precision; dates and range presets; recurrence (month-end clamping, leap years, intervals, end dates); budget periods and projections; goal maths; net worth; balance effects for create, edit, delete and transfers; cash-flow projection and available balance; insights; CSV parsing, writing and import validation; the receipt parser; error mapping; authentication route guards; the offline queue (durability, ordering, retry, conflicts, per-user isolation); and payment methods — credit-card standing (used, available, utilisation, overpaid), which fields each type needs, grouping, billing-date clamping (the same cases as the SQL `day_in_month`), and card-payment detection.
 
-**SQL tests (`supabase/tests/database.test.ts`)** create a fresh database, apply a small Supabase shim (auth/storage schemas and roles) plus every migration, then run statements **as real users through the `authenticated` role**. They cover:
+**SQL tests (`supabase/tests/`)** create a fresh database, apply a small Supabase shim (auth/storage schemas and roles) plus every migration, then run statements **as real users through the `authenticated` role**. They cover:
 
 - new-user bootstrap (profile, settings, default categories; no demo data);
 - balance maintenance on create, edit, account change and delete; opening-balance changes; reconciliation;
@@ -344,7 +410,10 @@ npm run bundle:ios    # Metro production bundle for iOS
 - idempotent creates, edit-conflict detection, merchant resolution, tag sync, category validation;
 - **RLS isolation across all 15 tables**, blocked cross-user references, no anon access, no forged snapshots or goal amounts, storage folder isolation, attachment path and MIME checks;
 - the recurring engine (month-end, weekly, leap-year; post/skip/no duplicates; auto-post idempotency; history kept after template deletion);
-- budget periods and timezone-correct sums, goal contributions, net-worth snapshots, dashboard and reports, merchant merge.
+- budget periods and timezone-correct sums, goal contributions, net-worth snapshots, dashboard and reports, merchant merge;
+- **payment methods**: five types side by side with only their own fields populated, an expense from each one, statement/due-day validation, `current_balance` still unwritable with the new columns in place, billing-cycle computation, and the proof that paying a card bill from a bank account does **not** increase reported spending;
+- **EMIs**: a loan paid from a bank account and another from a credit card, progress counted from posted instalments, exact `instalment × tenure`, the loan record surviving deletion of its schedule, amount and rate validation, and loan isolation between users;
+- the development seed (`seed.test.ts`): it applies against the real schema, spends from every payment method, leaves no balance drift, and refuses to run over real data.
 
 Running the SQL tests on Windows: install PostgreSQL 16 from <https://www.postgresql.org/download/windows/> (or use Docker Desktop: `docker run -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16`), then:
 
@@ -404,8 +473,10 @@ This creates HDFC Bank, Cash and HDFC Credit Card; six months of salary, rent, e
 ## 14. Known limitations
 
 - **No Mac, so no iOS Simulator.** You test on a real iPhone through Expo Go, a development build or TestFlight. Every native iOS build runs on EAS's macOS servers, and the free EAS plan has a queue and a monthly build quota.
-- **Apple Developer membership is required** for anything beyond Expo Go: development builds on your own phone, TestFlight and the App Store.
-- **Face ID** can only be tested in a development, preview or TestFlight build.
+- **Apple Developer membership ($99/year) is required** for any app installed as its own icon on an iPhone: development builds, preview builds, TestFlight and the App Store. Apple issues provisioning profiles for physical devices only to paid members, and the free alternative (personal-team signing) needs Xcode on a Mac. The free way to run without a dev server is Expo Go plus a published update (§8a). One membership covers up to 100 devices, so a family shares one.
+- **Face ID app lock** is untested in Expo Go. `expo-local-authentication` is bundled there, so the toggle under More → Security may well work; if it is greyed out, it needs a development build. It is verified to work in a development build.
+- **Interest is not amortised.** An EMI shows the instalment, how much has been paid, how many payments are left and the exact difference between `instalment × tenure` and the loan amount. It does not split each payment into principal and interest, and it does not track a declining outstanding principal — those need the lender's own schedule, and inventing them would put wrong numbers in front of you.
+- **Android is untested.** Every iOS-only API in the app sits behind a platform check with an Android branch, and `app.json` carries Android config, but the app has only ever been run on iOS. Android needs a test pass before trusting it. An Android APK built through EAS needs no developer account and no fee.
 - **Multi-currency.** Accounts can use any currency, and each is tracked exactly. Dashboard, report and net-worth totals include only accounts in your default currency; no exchange rates are invented. Transfers between currencies aren't supported yet. The schema is ready for a `currency_rates` table.
 - **Investments** are valued manually (Reconcile on the account). No market data is fetched.
 - **OCR** needs a Google Cloud Vision key (§9). PDFs are attached but not text-scanned.

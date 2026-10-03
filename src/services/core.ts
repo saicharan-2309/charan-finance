@@ -76,9 +76,17 @@ export interface AccountInput {
   color: string | null;
   icon: string | null;
   notes: string | null;
+  /** Provider key for UPI apps and bank brands. Display identity only. */
+  provider: string | null;
+  statementDay: number | null;
+  dueDay: number | null;
+  minimumDue: Minor | null;
 }
 
 function accountBody(input: AccountInput): Row {
+  // Fields that do not apply to the chosen type are written as NULL rather
+  // than carried over, so a card converted to cash keeps no billing dates.
+  const isCard = input.type === 'credit_card';
   return {
     name: input.name.trim(),
     type: input.type,
@@ -86,11 +94,15 @@ function accountBody(input: AccountInput): Row {
     last4: input.last4?.trim() || null,
     currency: input.currency,
     opening_balance: toDecimalString(input.openingBalance),
-    credit_limit: input.creditLimit === null ? null : toDecimalString(input.creditLimit),
+    credit_limit: isCard && input.creditLimit !== null ? toDecimalString(input.creditLimit) : null,
     include_in_net_worth: input.includeInNetWorth,
     color: input.color,
     icon: input.icon,
     notes: input.notes?.trim() || null,
+    provider: input.provider?.trim() || null,
+    statement_day: isCard ? input.statementDay : null,
+    due_day: isCard ? input.dueDay : null,
+    minimum_due: isCard && input.minimumDue !== null ? toDecimalString(input.minimumDue) : null,
   };
 }
 

@@ -5,7 +5,8 @@ import { Pressable, View } from 'react-native';
 import { SegmentedControl } from '@/components/ui/controls';
 import { QueryState } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
-import { Card, Divider, Icon, IconBadge, Row, Text } from '@/components/ui/primitives';
+import { CategoryAvatar } from '@/components/CategoryAvatar';
+import { Card, Divider, Icon, Row, Text } from '@/components/ui/primitives';
 import { useCategoryIndex } from '@/hooks/data';
 import { spacing } from '@/theme/tokens';
 import type { Category, CategoryKind } from '@/types/domain';
@@ -92,7 +93,7 @@ function CategoryItem({ c, subs, first }: { c: Category; subs: Category[]; first
         accessibilityRole="button"
       >
         <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
-          <IconBadge icon={c.icon} color={c.color} size={38} />
+          <CategoryAvatar icon={c.icon} color={c.color} size={38} animateOnMount />
           <View style={{ flex: 1 }}>
             <Text variant="bodyStrong">{c.name}</Text>
             <Text variant="footnote" tone="secondary" numberOfLines={1}>

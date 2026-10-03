@@ -2,25 +2,37 @@
  * Reusable dashboard/report building blocks.
  */
 import { router } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
+import { CategoryAvatar } from '@/components/CategoryAvatar';
 import { DonutChart, ShareBar } from '@/components/charts';
 import { ProgressBar } from '@/components/ui/feedback';
 import { Card, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
+import { ACCOUNT_TYPE_LABELS } from '@/lib/accounts';
 import { budgetProgress } from '@/lib/budget';
 import type { ProjectedItem } from '@/lib/cashflow';
 import { formatDayLabel, todayISO } from '@/lib/dates';
 import type { Insight } from '@/lib/insights';
 import { formatMoney, percentOf } from '@/lib/money';
+import { accountVisual, balanceDisplay, cardStanding } from '@/lib/payment-methods';
 import { useTheme } from '@/theme/ThemeProvider';
-import { chartColorsDark, chartColorsLight, radius, spacing } from '@/theme/tokens';
-import type { BudgetStatusRow, CategoryTotal } from '@/types/domain';
+import { chartColorsDark, chartColorsLight, GUTTER, radius, spacing } from '@/theme/tokens';
+import type { Account, BudgetStatusRow, CategoryTotal } from '@/types/domain';
 
-/** Category colour if set, otherwise the fixed categorical order (never cycled). */
+/**
+ * Chart series colour: the validated categorical palette, in fixed order and
+ * never cycled past the end.
+ *
+ * A category's own colour is deliberately NOT used here. Those colours are
+ * muted on purpose — right for an avatar or a badge beside its name, but too
+ * close together to tell two chart segments apart, especially with colour
+ * vision deficiency. The chart palette is checked for exactly that. Legends
+ * always use the same colour as the segment, so the two still agree.
+ */
 export function useSeriesColor() {
   const { scheme, colors } = useTheme();
   const palette = scheme === 'dark' ? chartColorsDark : chartColorsLight;
-  return (index: number, own?: string | null) => own ?? palette[index] ?? colors.textTertiary;
+  return (index: number) => palette[index] ?? colors.textTertiary;
 }
 
 /** Folds categories beyond `max` into "Other" so no hue is ever generated. */
@@ -59,8 +71,7 @@ export function CategoryBreakdown({
   const total = folded.reduce((s, c) => s + c.total, 0);
   const colored = folded.map((c, i) => ({
     ...c,
-    color:
-      c.categoryId === null && c.name.startsWith('Other') ? colors.textTertiary : seriesColor(i, c.color),
+    color: c.categoryId === null && c.name.startsWith('Other') ? colors.textTertiary : seriesColor(i),
   }));
 
   return (
@@ -170,7 +181,7 @@ export function BudgetRow({
     >
       <Row justify="space-between">
         <Row gap={spacing.sm} style={{ flex: 1 }}>
-          <IconBadge icon={row.categoryIcon ?? 'wallet-outline'} color={row.categoryColor} size={30} />
+          <CategoryAvatar icon={row.categoryIcon ?? 'wallet-outline'} color={row.categoryColor} size={30} />
           <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
             {row.categoryName ?? 'Overall spending'}
           </Text>
@@ -209,10 +220,13 @@ export function UpcomingRow({
   item,
   currency,
   onPress,
+  color,
 }: {
   item: ProjectedItem;
   currency: string;
   onPress?: () => void;
+  /** Category tint, when the caller knows it. */
+  color?: string | null;
 }) {
   const icon =
     item.kind === 'subscription'
@@ -224,7 +238,7 @@ export function UpcomingRow({
           : 'receipt-outline';
   const content = (
     <Row gap={spacing.md} style={{ paddingVertical: spacing.sm }}>
-      <IconBadge icon={icon} size={38} />
+      <CategoryAvatar icon={icon} color={color ?? null} size={38} animateOnMount />
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong" numberOfLines={1}>
           {item.name}
@@ -312,4 +326,86 @@ export function SeeAll({ href, label = 'See all' }: { href: string; label?: stri
 
 export function percentLabel(part: number, whole: number) {
   return `${Math.round(percentOf(part, whole))}%`;
+}
+
+/**
+ * Horizontal strip of payment methods. A card shows what is used and what is
+ * still available; everything else shows its balance. Tapping opens that
+ * method; the last card adds a new one.
+ */
+export function AccountStrip({ accounts }: { accounts: Account[] }) {
+  const { colors } = useTheme();
+  const active = accounts.filter((a) => a.isActive);
+  if (active.length === 0) return null;
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginHorizontal: -GUTTER }}
+      contentContainerStyle={{ gap: spacing.md, paddingHorizontal: GUTTER }}
+    >
+      {active.map((a) => {
+        const visual = accountVisual(a);
+        const display = balanceDisplay(a);
+        const card = a.type === 'credit_card' ? cardStanding(a) : null;
+        return (
+          <Pressable
+            key={a.id}
+            onPress={() => router.push({ pathname: '/accounts/[id]', params: { id: a.id } })}
+            accessibilityRole="button"
+            accessibilityLabel={`${a.name}, ${formatMoney(display.amount, a.currency)} ${display.caption ?? ''}`}
+            style={({ pressed }) => ({
+              width: 168,
+              padding: spacing.lg,
+              gap: spacing.sm,
+              borderRadius: radius.xl,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+            })}
+          >
+            <IconBadge icon={visual.icon} color={visual.color} size={34} />
+            <Text variant="footnote" tone="secondary" numberOfLines={1}>
+              {a.name}
+            </Text>
+            <MoneyText
+              minor={display.amount}
+              currency={a.currency}
+              variant="amount"
+              options={{ decimals: 'never' }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            />
+            <Text variant="caption" tone="tertiary" numberOfLines={1}>
+              {card?.available != null
+                ? `${formatMoney(card.available, a.currency, { decimals: 'never' })} available`
+                : (display.caption ?? ACCOUNT_TYPE_LABELS[a.type])}
+            </Text>
+          </Pressable>
+        );
+      })}
+      <Pressable
+        onPress={() => router.push('/accounts/edit')}
+        accessibilityRole="button"
+        accessibilityLabel="Add payment method"
+        style={({ pressed }) => ({
+          width: 132,
+          padding: spacing.lg,
+          gap: spacing.sm,
+          justifyContent: 'center',
+          borderRadius: radius.xl,
+          borderWidth: 1,
+          borderStyle: 'dashed',
+          borderColor: colors.borderStrong,
+          backgroundColor: pressed ? colors.surfaceMuted : 'transparent',
+        })}
+      >
+        <IconBadge icon="add" color={colors.brand} size={34} />
+        <Text variant="footnote" tone="brand">
+          Add method
+        </Text>
+      </Pressable>
+    </ScrollView>
+  );
 }

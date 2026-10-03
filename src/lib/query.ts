@@ -34,7 +34,7 @@ export const queryPersister = createAsyncStoragePersister({
 });
 
 /** Bump to invalidate persisted caches after incompatible data-shape changes. */
-export const CACHE_BUSTER = '2026-10-01';
+export const CACHE_BUSTER = '2026-10-03';
 
 let wired = false;
 export function wireReactQueryToPlatform(): void {
@@ -57,6 +57,8 @@ export const qk = {
   categories: ['categories'] as const,
   merchants: ['merchants'] as const,
   recurring: ['recurring'] as const,
+  loans: ['loans'] as const,
+  cardCycle: (accountId: string) => ['card-cycle', accountId] as const,
   budgets: ['budgets'] as const,
   budgetStatus: (ref: string) => ['budget-status', ref] as const,
   goals: ['goals'] as const,
@@ -83,6 +85,8 @@ export const FINANCIAL_QUERY_ROOTS = [
   'merchant-stats',
   'recent-usage',
   'recurring',
+  'loans',
+  'card-cycle',
   'merchants',
   'net-worth-snapshots',
   'goals',

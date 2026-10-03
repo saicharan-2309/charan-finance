@@ -57,7 +57,7 @@ function CategoryForm({
     existing?.classification ?? parent?.classification ?? 'none',
   );
   const [icon, setIcon] = useState<string | null>(existing?.icon ?? parent?.icon ?? 'pricetag-outline');
-  const [color, setColor] = useState<string | null>(existing?.color ?? parent?.color ?? '#EA580C');
+  const [color, setColor] = useState<string | null>(existing?.color ?? parent?.color ?? '#D97757');
   const [error, setError] = useState<string | null>(null);
 
   const save = useAppMutation(
