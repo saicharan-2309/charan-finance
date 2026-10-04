@@ -79,7 +79,9 @@ export default function BankSyncScreen() {
     setTesting(false);
   };
 
-  const missingDigits = (accounts.data ?? []).filter((a) => a.isActive && NEEDS_DIGITS.has(a.type) && !a.last4);
+  const missingDigits = (accounts.data ?? []).filter(
+    (a) => a.isActive && NEEDS_DIGITS.has(a.type) && !a.last4,
+  );
   const preview = useMemo(
     () => (sample.trim() ? parseBankSms({ body: sample, receivedAt: new Date().toISOString() }) : null),
     [sample],
@@ -99,7 +101,9 @@ export default function BankSyncScreen() {
                   size={44}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text variant="headline">{s.connected ? 'Bank sync is on' : 'Add transactions automatically'}</Text>
+                  <Text variant="headline">
+                    {s.connected ? 'Bank sync is on' : 'Add transactions automatically'}
+                  </Text>
                   <Text variant="footnote" tone="secondary">
                     {s.connected
                       ? s.lastMessageAt
@@ -163,7 +167,11 @@ export default function BankSyncScreen() {
               <>
                 <Section title="Your Shortcut details">
                   <Card style={{ gap: spacing.lg }}>
-                    <CopyField label="Address" value={INGEST_URL} onCopy={() => copy(INGEST_URL, 'Address')} />
+                    <CopyField
+                      label="Address"
+                      value={INGEST_URL}
+                      onCopy={() => copy(INGEST_URL, 'Address')}
+                    />
                     <Divider />
                     {key ? (
                       <CopyField
@@ -171,7 +179,11 @@ export default function BankSyncScreen() {
                         value={showKey ? key : `${key.slice(0, 10)}${'•'.repeat(18)}${key.slice(-4)}`}
                         onCopy={() => copy(key, 'Sync key')}
                         trailing={
-                          <Pressable onPress={() => setShowKey((v) => !v)} hitSlop={8} accessibilityRole="button">
+                          <Pressable
+                            onPress={() => setShowKey((v) => !v)}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                          >
                             <Text variant="subhead" tone="brand">
                               {showKey ? 'Hide' : 'Show'}
                             </Text>
@@ -181,8 +193,8 @@ export default function BankSyncScreen() {
                     ) : (
                       <View style={{ gap: spacing.sm }}>
                         <Text variant="footnote" tone="secondary">
-                          This phone doesn’t have the sync key (it was set up on another device or reinstalled). Make
-                          a new key — the Shortcut will need the new one.
+                          This phone doesn’t have the sync key (it was set up on another device or
+                          reinstalled). Make a new key — the Shortcut will need the new one.
                         </Text>
                         <Button
                           title="Make a new key"
@@ -210,7 +222,11 @@ export default function BankSyncScreen() {
                               size={18}
                               tone={test.ok ? 'positive' : 'negative'}
                             />
-                            <Text variant="footnote" tone={test.ok ? 'positive' : 'negative'} style={{ flex: 1 }}>
+                            <Text
+                              variant="footnote"
+                              tone={test.ok ? 'positive' : 'negative'}
+                              style={{ flex: 1 }}
+                            >
                               {test.message}
                             </Text>
                           </Row>
@@ -247,10 +263,16 @@ export default function BankSyncScreen() {
                         </View>
                       </Row>
                     ))}
-                    <View style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: spacing.md }}>
+                    <View
+                      style={{
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: radius.md,
+                        padding: spacing.md,
+                      }}
+                    >
                       <Text variant="footnote" tone="secondary">
-                        Every text passes through your own server for a moment, but only bank alerts are kept. OTPs,
-                        promotions and personal messages are discarded on arrival and never saved.
+                        Every text passes through your own server for a moment, but only bank alerts are kept.
+                        OTPs, promotions and personal messages are discarded on arrival and never saved.
                       </Text>
                     </View>
                   </Card>
@@ -275,7 +297,11 @@ export default function BankSyncScreen() {
             </Section>
 
             <Card padded={false} style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.xxl }}>
-              <LinkRow icon="file-tray-full-outline" title="Review inbox" onPress={() => router.push('/review')} />
+              <LinkRow
+                icon="file-tray-full-outline"
+                title="Review inbox"
+                onPress={() => router.push('/review')}
+              />
               <Divider inset={40} />
               <LinkRow
                 icon="chatbox-ellipses-outline"
@@ -283,7 +309,11 @@ export default function BankSyncScreen() {
                 onPress={() => router.push('/bank-sync/messages')}
               />
               <Divider inset={40} />
-              <LinkRow icon="git-branch-outline" title="Auto-categorise rules" onPress={() => router.push('/rules')} />
+              <LinkRow
+                icon="git-branch-outline"
+                title="Auto-categorise rules"
+                onPress={() => router.push('/rules')}
+              />
             </Card>
 
             {s.connected ? (
@@ -365,7 +395,12 @@ function CopyField({
         </Text>
         <Row gap={spacing.lg}>
           {trailing}
-          <Pressable onPress={onCopy} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Copy ${label}`}>
+          <Pressable
+            onPress={onCopy}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Copy ${label}`}
+          >
             <Text variant="subhead" tone="brand">
               Copy
             </Text>
@@ -410,7 +445,14 @@ function ParsePreview({ preview }: { preview: ReturnType<typeof parseBankSms> })
     );
   }
   const rows: [string, string | null][] = [
-    ['What', preview.isCardPaymentReceived ? 'Card bill payment' : preview.direction === 'debit' ? 'Money out' : 'Money in'],
+    [
+      'What',
+      preview.isCardPaymentReceived
+        ? 'Card bill payment'
+        : preview.direction === 'debit'
+          ? 'Money out'
+          : 'Money in',
+    ],
     ['Amount', `₹${preview.amount}`],
     ['Merchant', preview.merchant],
     [
@@ -423,10 +465,15 @@ function ParsePreview({ preview }: { preview: ReturnType<typeof parseBankSms> })
     ],
     ['Bank', preview.bank?.toUpperCase() ?? null],
     ['Reference', preview.reference],
-    ['Balance shown', preview.balance ? `₹${preview.balance}${preview.balanceKind === 'limit' ? ' available' : ''}` : null],
+    [
+      'Balance shown',
+      preview.balance ? `₹${preview.balance}${preview.balanceKind === 'limit' ? ' available' : ''}` : null,
+    ],
   ];
   return (
-    <View style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: spacing.md, gap: 6 }}>
+    <View
+      style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: spacing.md, gap: 6 }}
+    >
       {rows
         .filter(([, v]) => v)
         .map(([k, v]) => (

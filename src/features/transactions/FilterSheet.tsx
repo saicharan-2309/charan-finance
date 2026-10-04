@@ -30,6 +30,7 @@ export function countActiveFilters(f: FilterState): number {
     (f.merchantIds?.length ? 1 : 0) +
     (f.minAmount != null || f.maxAmount != null ? 1 : 0) +
     (f.rangePreset ? 1 : 0) +
+    (f.reviewOnly || f.source ? 1 : 0) +
     (f.sort && f.sort !== 'date_desc' ? 1 : 0)
   );
 }
@@ -155,6 +156,30 @@ export function FilterSheet({
                 onPress={() => setDraft((d) => ({ ...d, types: toggle(d.types, t) }))}
               />
             ))}
+          </FilterGroup>
+
+          <FilterGroup title="Added by">
+            <Chip
+              label="Anyone"
+              selected={!draft.source && !draft.reviewOnly}
+              onPress={() => setDraft((d) => ({ ...d, source: null, reviewOnly: false }))}
+            />
+            <Chip
+              label="Bank SMS"
+              icon="chatbox-ellipses-outline"
+              selected={draft.source === 'sms' && !draft.reviewOnly}
+              onPress={() => setDraft((d) => ({ ...d, source: 'sms', reviewOnly: false }))}
+            />
+            <Chip
+              label="Not checked yet"
+              selected={!!draft.reviewOnly}
+              onPress={() => setDraft((d) => ({ ...d, reviewOnly: !d.reviewOnly, source: null }))}
+            />
+            <Chip
+              label="Entered by me"
+              selected={draft.source === 'manual'}
+              onPress={() => setDraft((d) => ({ ...d, source: 'manual', reviewOnly: false }))}
+            />
           </FilterGroup>
 
           <FilterGroup title="Date">

@@ -15,8 +15,9 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-BRAND = (164, 86, 58)  # #A4563A — brand clay
+BRAND = (24, 33, 63)     # #18213F — banknote ink
 WHITE = (255, 255, 255)
+MARIGOLD = (242, 180, 65)  # #F2B441 — the one accent: the dot
 OUT = Path(__file__).resolve().parent.parent / "assets" / "images"
 
 S = 1024          # master size
@@ -46,7 +47,7 @@ def bezier_points(pts, steps=240):
     return out
 
 
-def draw_mark(size, background, foreground, rounded=True, alpha_bar=0.35):
+def draw_mark(size, background, foreground, rounded=True, alpha_bar=0.35, dot=None):
     """Draws the mark at `size`, supersampled then reduced."""
     big = size * SS
     scale = big / S
@@ -67,7 +68,7 @@ def draw_mark(size, background, foreground, rounded=True, alpha_bar=0.35):
         d.ellipse([x - r, y - r, x + r, y + r], fill=foreground)
 
     cx, cy, cr = (v * scale for v in DOT)
-    d.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=foreground)
+    d.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=dot or foreground)
 
     if alpha_bar:
         bar = Image.new("RGBA", (big, big), (0, 0, 0, 0))
@@ -84,14 +85,14 @@ def main():
 
     # iOS / web launcher icon: a full-bleed opaque square — iOS applies its own
     # corner mask, and a pre-rounded icon would show black corners.
-    draw_mark(S, BRAND, WHITE, rounded=False).convert("RGB").save(OUT / "icon.png")
+    draw_mark(S, BRAND, WHITE, rounded=False, dot=MARIGOLD).convert("RGB").save(OUT / "icon.png")
 
     # Android adaptive icon: flat background layer + transparent foreground.
     # The foreground is inset so the system's mask cannot clip the mark.
     Image.new("RGB", (S, S), BRAND).save(OUT / "android-icon-background.png")
 
     fg = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    mark = draw_mark(int(S * 0.62), None, WHITE, rounded=False)
+    mark = draw_mark(int(S * 0.62), None, WHITE, rounded=False, dot=MARIGOLD)
     off = (S - mark.width) // 2
     fg.paste(mark, (off, off), mark)
     fg.save(OUT / "android-icon-foreground.png")
@@ -101,10 +102,11 @@ def main():
     mono.paste(mark_mono, (off, off), mark_mono)
     mono.save(OUT / "android-icon-monochrome.png")
 
-    # Splash: transparent background, the splash screen supplies the colour.
-    draw_mark(512, None, BRAND, rounded=False, alpha_bar=0).save(OUT / "splash-icon.png")
+    # Splash: the full rounded tile, so it reads on both the light and the dark
+    # splash background.
+    draw_mark(512, BRAND, WHITE, rounded=True, dot=MARIGOLD).save(OUT / "splash-icon.png")
 
-    draw_mark(48, BRAND, WHITE, rounded=True).save(OUT / "favicon.png")  # rounded: shown as-is in a tab
+    draw_mark(48, BRAND, WHITE, rounded=True, dot=MARIGOLD).save(OUT / "favicon.png")  # rounded: shown as-is in a tab
 
     print("Wrote icon.png, android-icon-{background,foreground,monochrome}.png, splash-icon.png, favicon.png")
 

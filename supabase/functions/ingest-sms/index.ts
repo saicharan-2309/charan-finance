@@ -67,7 +67,15 @@ Deno.serve(async (req) => {
   }
   const keyHash = await sha256Hex(key);
 
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  // Injected by Supabase into every Edge Function. A project that has moved to
+  // the newer secret keys can set INGEST_SERVICE_KEY to an sb_secret_… key.
+  const serviceKey = Deno.env.get('INGEST_SERVICE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const url = Deno.env.get('SUPABASE_URL');
+  if (!serviceKey || !url) {
+    console.error('ingest_not_configured');
+    return json(500, { status: 'error', summary: 'Bank sync is not configured on the server' });
+  }
+  const supabase = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -90,7 +98,9 @@ Deno.serve(async (req) => {
   const sender = (asText(payload.sender) ?? '').slice(0, 64) || null;
   const receivedRaw = asText(payload.received_at);
   const receivedAt =
-    receivedRaw && !Number.isNaN(Date.parse(receivedRaw)) ? new Date(receivedRaw).toISOString() : new Date().toISOString();
+    receivedRaw && !Number.isNaN(Date.parse(receivedRaw))
+      ? new Date(receivedRaw).toISOString()
+      : new Date().toISOString();
 
   const parsed = parseBankSms({ body, sender, receivedAt });
 
@@ -105,15 +115,48 @@ Deno.serve(async (req) => {
   if (error) {
     const msg = error.message ?? '';
     if (msg.includes('CF810')) return json(401, { status: 'error', summary: 'Sync key not recognised' });
-    if (msg.includes('CF811')) return json(429, { status: 'error', summary: 'Too many messages — try later' });
+    if (msg.includes('CF811'))
+      return json(429, { status: 'error', summary: 'Too many messages — try later' });
     console.error('ingest_failed', error.code);
     return json(500, { status: 'error', summary: 'Could not record this message' });
   }
 
   const result = (data ?? {}) as Record<string, unknown>;
+  const status = String(result.status ?? 'ok');
   return json(200, {
-    status: result.status ?? 'ok',
-    summary: (result.summary as string | undefined) ?? describeParsed(parsed),
+    status,
+    summary:
+      notificationText(status, parsed) ?? (result.summary as string | undefined) ?? describeParsed(parsed),
     message_id: result.message_id ?? null,
   });
 });
+
+/** The line the Shortcut can show a second after a payment, in Indian number format. */
+function notificationText(status: string, p: ReturnType<typeof parseBankSms>): string | null {
+  if (p.kind !== 'transaction') return null;
+  const amount = `₹${new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: p.amount.endsWith('.00') ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(Number(p.amount))}`;
+  const who = p.merchant ? ` · ${p.merchant}` : '';
+  switch (status) {
+    case 'created':
+      return p.isCashWithdrawal
+        ? `Cash withdrawn ${amount}`
+        : `${p.direction === 'debit' ? 'Spent' : 'Received'} ${amount}${who}`;
+    case 'linked':
+      return `Matched ${amount} to your entry${who}`;
+    case 'paired':
+      return p.isCardBillPayment || p.isCardPaymentReceived
+        ? `Card bill paid ${amount}`
+        : `Moved ${amount} between your accounts`;
+    case 'duplicate':
+      return `Already recorded ${amount}`;
+    case 'needs_account':
+      return `${amount}${who} — open the app to pick the account`;
+    case 'awaiting_pair':
+      return `Card payment ${amount} — open the app to match it`;
+    default:
+      return null;
+  }
+}

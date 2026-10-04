@@ -206,9 +206,16 @@ export function BarChart({
               pointerEvents="none"
             >
               {data.map((d, i) => (
-                <View key={i} style={{ width: groupW, alignItems: 'center' }}>
+                <View key={i} style={{ width: groupW, alignItems: 'center', overflow: 'visible' }}>
                   {i % step === 0 ? (
-                    <Text variant="caption" tone={selected === i ? 'primary' : 'tertiary'} numberOfLines={1}>
+                    // Wider than its column, centred on it: a label may use the
+                    // space of the unlabelled columns around it.
+                    <Text
+                      variant="caption"
+                      tone={selected === i ? 'primary' : 'tertiary'}
+                      numberOfLines={1}
+                      style={{ width: Math.max(groupW * step, 44), textAlign: 'center' }}
+                    >
                       {d.label}
                     </Text>
                   ) : null}

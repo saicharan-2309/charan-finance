@@ -64,8 +64,8 @@ export default function SubscriptionsScreen() {
                         {d.merchantName}
                       </Text>
                       <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                        {formatMoney(d.typicalAmount, currency, { decimals: 'never' })} {FREQ_COPY[d.frequency]}, next{' '}
-                        {formatDayLabel(d.nextDate).toLowerCase()}
+                        {formatMoney(d.typicalAmount, currency, { decimals: 'never' })}{' '}
+                        {FREQ_COPY[d.frequency]}, next {formatDayLabel(d.nextDate).toLowerCase()}
                       </Text>
                     </View>
                     <Pressable

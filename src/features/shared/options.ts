@@ -34,7 +34,11 @@ export function splitCategoryValue(value: string): { categoryId: string; subcate
   return { categoryId, subcategoryId: subcategoryId ?? null };
 }
 
-export function categoryLabel(index: CategoryIndexLike, categoryId: string | null, subcategoryId: string | null) {
+export function categoryLabel(
+  index: CategoryIndexLike,
+  categoryId: string | null,
+  subcategoryId: string | null,
+) {
   const cat = categoryId ? index.byId.get(categoryId) : null;
   const sub = subcategoryId ? index.byId.get(subcategoryId) : null;
   if (!cat) return 'Uncategorised';

@@ -135,7 +135,6 @@ export default function HomeScreen() {
     return rows.sort((x, y) => x.date.localeCompare(y.date)).slice(0, 5);
   }, [accounts.data, cats, derived?.items, today]);
 
-
   // One-time local alerts when a budget crosses its threshold (deduplicated per period).
   useEffect(() => {
     if (budgets.data && settings.data) void notifyBudgetThresholds(budgets.data, settings.data);

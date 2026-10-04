@@ -39,7 +39,11 @@ export default function SplitScreen() {
 function SplitForm({ t }: { t: Transaction }) {
   const { index } = useCategoryIndex();
   const kind = t.type === 'income' ? 'income' : 'expense';
-  const original = t.categoryId ? (t.subcategoryId ? `${t.categoryId}:${t.subcategoryId}` : t.categoryId) : null;
+  const original = t.categoryId
+    ? t.subcategoryId
+      ? `${t.categoryId}:${t.subcategoryId}`
+      : t.categoryId
+    : null;
   const [parts, setParts] = useState<Part[]>([
     { key: 1, amount: minorToInput(t.amount), category: original },
     { key: 2, amount: '', category: null },
@@ -49,8 +53,7 @@ function SplitForm({ t }: { t: Transaction }) {
   const amounts = parts.map((p) => parseAmountInput(p.amount) ?? 0);
   const used = amounts.reduce((s, a) => s + a, 0);
   const remaining = (t.amount - used) as Minor;
-  const valid =
-    remaining === 0 && parts.every((p, i) => amounts[i] > 0 && p.category) && parts.length >= 2;
+  const valid = remaining === 0 && parts.every((p, i) => amounts[i] > 0 && p.category) && parts.length >= 2;
 
   const save = useAppMutation(
     () =>
@@ -123,7 +126,11 @@ function SplitForm({ t }: { t: Transaction }) {
           onPress={() =>
             setParts((ps) => [
               ...ps,
-              { key: Math.max(...ps.map((x) => x.key)) + 1, amount: remaining > 0 ? minorToInput(remaining) : '', category: null },
+              {
+                key: Math.max(...ps.map((x) => x.key)) + 1,
+                amount: remaining > 0 ? minorToInput(remaining) : '',
+                category: null,
+              },
             ])
           }
         />
@@ -137,7 +144,12 @@ function SplitForm({ t }: { t: Transaction }) {
             : `${formatMoney(-remaining, t.currency)} too much`}
       </Text>
 
-      <Button title="Split" disabled={!valid} loading={save.isPending} onPress={() => save.mutate(undefined)} />
+      <Button
+        title="Split"
+        disabled={!valid}
+        loading={save.isPending}
+        onPress={() => save.mutate(undefined)}
+      />
 
       <SelectSheet
         visible={picking !== null}

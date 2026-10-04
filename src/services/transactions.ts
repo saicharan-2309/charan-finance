@@ -25,6 +25,10 @@ export interface TransactionFilters {
   from?: string | null;
   to?: string | null;
   sort?: TransactionSort;
+  /** Only transactions bank sync added that haven't been confirmed yet. */
+  reviewOnly?: boolean;
+  /** Only transactions from a given source (e.g. 'sms'). */
+  source?: 'manual' | 'sms' | null;
 }
 
 /** PostgREST `in` lists need quoting-safe UUIDs only. */
@@ -44,6 +48,8 @@ export async function fetchTransactionsPage(
     q = q.ilike('search_text', `%${escaped}%`);
   }
   if (filters.types?.length) q = q.in('type', filters.types);
+  if (filters.reviewOnly) q = q.eq('needs_review', true);
+  if (filters.source) q = q.eq('source', filters.source);
   if (filters.categoryIds?.length) q = q.in('category_id', filters.categoryIds);
   if (filters.subcategoryIds?.length) q = q.in('subcategory_id', filters.subcategoryIds);
   if (filters.merchantIds?.length) q = q.in('merchant_id', filters.merchantIds);

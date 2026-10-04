@@ -209,7 +209,12 @@ describe('SBI', () => {
 
   it('reads an SBI credit glued to the account number', () => {
     const p = txn('Dear SBI UPI User, ur A/cX5566 credited by Rs500 on 02Oct26 by  (Ref no 627700003333)');
-    expect(p).toMatchObject({ direction: 'credit', amount: '500.00', last4: '5566', reference: '627700003333' });
+    expect(p).toMatchObject({
+      direction: 'credit',
+      amount: '500.00',
+      last4: '5566',
+      reference: '627700003333',
+    });
   });
 
   it('reads a transfer and the other account it went to', () => {
@@ -272,7 +277,9 @@ describe('Axis, Kotak, IDFC', () => {
   });
 
   it('reads an Axis UPI credit from a person', () => {
-    const p = txn('INR 2,000.00 credited\nA/c no. XX7890\n02-10-26, 10:01:11 IST\nUPI/P2A/627700004444/PRIYA S\nAxis Bank');
+    const p = txn(
+      'INR 2,000.00 credited\nA/c no. XX7890\n02-10-26, 10:01:11 IST\nUPI/P2A/627700004444/PRIYA S\nAxis Bank',
+    );
     expect(p).toMatchObject({ direction: 'credit', amount: '2000.00', merchant: 'Priya S' });
   });
 
@@ -290,8 +297,15 @@ describe('Axis, Kotak, IDFC', () => {
     expect(sent).toMatchObject({ direction: 'debit', amount: '250.00', last4: '4455', merchant: null });
     expect(sent.counterparty).toBe('paytmqr123@paytm');
 
-    const got = txn('Received Rs.1000.00 in your Kotak Bank AC X4455 from rahul@okicici on 02-10-26.UPI Ref:627700005555.');
-    expect(got).toMatchObject({ direction: 'credit', amount: '1000.00', merchant: 'Rahul', reference: '627700005555' });
+    const got = txn(
+      'Received Rs.1000.00 in your Kotak Bank AC X4455 from rahul@okicici on 02-10-26.UPI Ref:627700005555.',
+    );
+    expect(got).toMatchObject({
+      direction: 'credit',
+      amount: '1000.00',
+      merchant: 'Rahul',
+      reference: '627700005555',
+    });
   });
 
   it('reads an IDFC debit with a new balance', () => {
@@ -299,7 +313,13 @@ describe('Axis, Kotak, IDFC', () => {
       'Your A/C XXXXXXX6677 is debited by INR 300.00 on 03/10/2026 10:15. New Bal :INR 9,700.00. Not you? Call 18001080888',
       'VK-IDFCFB',
     );
-    expect(p).toMatchObject({ direction: 'debit', amount: '300.00', last4: '6677', balance: '9700.00', bank: 'idfc' });
+    expect(p).toMatchObject({
+      direction: 'debit',
+      amount: '300.00',
+      last4: '6677',
+      balance: '9700.00',
+      bank: 'idfc',
+    });
   });
 });
 
@@ -308,36 +328,64 @@ describe('more formats', () => {
     const p = txn(
       'Your A/c XX1234 has been debited with INR 1,500.00 on 03-Oct-2026 towards e-mandate for LIC. Avl Bal INR 10,000.00 -ICICI Bank',
     );
-    expect(p).toMatchObject({ direction: 'debit', amount: '1500.00', channel: 'autopay', balance: '10000.00' });
+    expect(p).toMatchObject({
+      direction: 'debit',
+      amount: '1500.00',
+      channel: 'autopay',
+      balance: '10000.00',
+    });
   });
 
   it('reads "towards MERCHANT" and Amex long card numbers', () => {
     expect(
-      txn('Dear Customer, Rs.649.00 has been debited from your account XX1234 towards NETFLIX (Auto Pay). -ICICI Bank'),
+      txn(
+        'Dear Customer, Rs.649.00 has been debited from your account XX1234 towards NETFLIX (Auto Pay). -ICICI Bank',
+      ),
     ).toMatchObject({ merchant: 'Netflix', amount: '649.00' });
     expect(
-      txn("Alert: You've spent INR 2,345.00 on your AMEX card ** 41001 at UBER on 3 October 2026 at 08:00 PM IST."),
+      txn(
+        "Alert: You've spent INR 2,345.00 on your AMEX card ** 41001 at UBER on 3 October 2026 at 08:00 PM IST.",
+      ),
     ).toMatchObject({ last4: '1001', merchant: 'Uber', occurredOn: '2026-10-03', amount: '2345.00' });
   });
 
   it('reads PNB and Federal formats', () => {
     expect(
-      txn('Ac XXXXXXXX0123 Debited with Rs.500.00 ,03-10-2026 10:12:11 thru UPI:627799998888. Bal Rs.1000.00 CR. Helpline 18001800-PNB'),
-    ).toMatchObject({ direction: 'debit', amount: '500.00', last4: '0123', reference: '627799998888', balance: '1000.00' });
+      txn(
+        'Ac XXXXXXXX0123 Debited with Rs.500.00 ,03-10-2026 10:12:11 thru UPI:627799998888. Bal Rs.1000.00 CR. Helpline 18001800-PNB',
+      ),
+    ).toMatchObject({
+      direction: 'debit',
+      amount: '500.00',
+      last4: '0123',
+      reference: '627799998888',
+      balance: '1000.00',
+    });
     expect(
-      txn('Rs 100.00 debited from your A/c XXXX4545 to VPA zomato@hdfcbank on 03-10-2026 10:00:00. UPI Ref:627712121212 -Federal Bank'),
+      txn(
+        'Rs 100.00 debited from your A/c XXXX4545 to VPA zomato@hdfcbank on 03-10-2026 10:00:00. UPI Ref:627712121212 -Federal Bank',
+      ),
     ).toMatchObject({ merchant: 'Zomato', bank: 'federal', last4: '4545' });
   });
 });
 
 describe('refunds, interest and other credits', () => {
   it('reads a refund on a card as a credit', () => {
-    const p = txn('Refund of Rs 499.00 from AMAZON has been credited to your HDFC Bank Card 5678 on 02-10-26');
-    expect(p).toMatchObject({ direction: 'credit', isRefund: true, isCardPaymentReceived: false, merchant: 'Amazon' });
+    const p = txn(
+      'Refund of Rs 499.00 from AMAZON has been credited to your HDFC Bank Card 5678 on 02-10-26',
+    );
+    expect(p).toMatchObject({
+      direction: 'credit',
+      isRefund: true,
+      isCardPaymentReceived: false,
+      merchant: 'Amazon',
+    });
   });
 
   it('reads a failed-UPI reversal as a refund, not a declined txn', () => {
-    const p = txn('Rs 450.00 reversed to your A/c XX1234 for failed UPI txn Ref 627612345678 on 03-10-26. -HDFC Bank');
+    const p = txn(
+      'Rs 450.00 reversed to your A/c XX1234 for failed UPI txn Ref 627612345678 on 03-10-26. -HDFC Bank',
+    );
     expect(p).toMatchObject({ direction: 'credit', isRefund: true, reference: '627612345678' });
   });
 
@@ -352,7 +400,9 @@ describe('messages that must never become transactions', () => {
 
   it('ignores OTPs even when they mention an amount and a card', () => {
     expect(
-      ignored('123456 is your OTP for transaction of Rs 2,499 at AMAZON on HDFC Bank card 5678. Valid for 5 mins. Do not share'),
+      ignored(
+        '123456 is your OTP for transaction of Rs 2,499 at AMAZON on HDFC Bank card 5678. Valid for 5 mins. Do not share',
+      ),
     ).toMatchObject({ kind: 'ignored', reason: 'otp' });
   });
 
@@ -364,7 +414,9 @@ describe('messages that must never become transactions', () => {
 
   it('ignores future debits and mandate notices', () => {
     expect(
-      ignored('Your e-mandate for NETFLIX of Rs.649.00 will be debited on 05-10-2026 from A/c XX1234. -HDFC Bank'),
+      ignored(
+        'Your e-mandate for NETFLIX of Rs.649.00 will be debited on 05-10-2026 from A/c XX1234. -HDFC Bank',
+      ),
     ).toMatchObject({ kind: 'ignored', reason: 'notice' });
     expect(ignored('Rahul has requested money of Rs 500 from you on Google Pay. UPI')).toMatchObject({
       kind: 'ignored',
@@ -381,7 +433,9 @@ describe('messages that must never become transactions', () => {
 
   it('ignores promotions', () => {
     expect(
-      ignored('Congratulations! You are pre-approved for a Personal Loan of up to Rs.5,00,000. Apply now: hdfc.bank/pl'),
+      ignored(
+        'Congratulations! You are pre-approved for a Personal Loan of up to Rs.5,00,000. Apply now: hdfc.bank/pl',
+      ),
     ).toMatchObject({ kind: 'ignored', reason: 'promotional' });
   });
 
@@ -417,8 +471,10 @@ describe('merchant names', () => {
   });
 
   it('describes a result in one line for the phone notification', () => {
-    expect(describeParsed(txn('Sent Rs.450.00\nFrom HDFC Bank A/C *1234\nTo SWIGGY\nOn 03/10/26\nRef 627612345678'))).toBe(
-      'Spent ₹450.00 at Swiggy',
-    );
+    expect(
+      describeParsed(
+        txn('Sent Rs.450.00\nFrom HDFC Bank A/C *1234\nTo SWIGGY\nOn 03/10/26\nRef 627612345678'),
+      ),
+    ).toBe('Spent ₹450.00 at Swiggy');
   });
 });

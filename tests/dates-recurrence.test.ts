@@ -161,3 +161,27 @@ describe('payday cycles', () => {
     expect(daysLeft({ start: '2026-09-25', end: '2026-10-24' }, '2026-10-25')).toBe(0);
   });
 });
+
+describe('money-month report ranges', () => {
+  const { rangeForPreset, previousRange } = jest.requireActual('@/lib/dates') as typeof import('@/lib/dates');
+  const today = new Date(2026, 9, 3);
+
+  it('runs month presets payday to payday', () => {
+    expect(rangeForPreset('this_month', today, 25)).toEqual({ start: '2026-09-25', end: '2026-10-24' });
+    expect(rangeForPreset('last_month', today, 25)).toEqual({ start: '2026-08-25', end: '2026-09-24' });
+    expect(rangeForPreset('last_3_months', today, 25)).toEqual({ start: '2026-07-25', end: '2026-10-24' });
+    expect(rangeForPreset('this_year', today, 25)).toEqual({ start: '2026-01-01', end: '2026-12-31' });
+    expect(rangeForPreset('this_month', today, 1)).toEqual({ start: '2026-10-01', end: '2026-10-31' });
+  });
+
+  it('compares a money month with the money month before it', () => {
+    expect(previousRange({ start: '2026-09-25', end: '2026-10-24' }, 25)).toEqual({
+      start: '2026-08-25',
+      end: '2026-09-24',
+    });
+    expect(previousRange({ start: '2026-07-25', end: '2026-10-24' }, 25)).toEqual({
+      start: '2026-04-25',
+      end: '2026-07-24',
+    });
+  });
+});

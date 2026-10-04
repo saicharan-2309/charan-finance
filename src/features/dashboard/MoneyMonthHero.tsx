@@ -21,7 +21,14 @@ import { Animated, Easing, Pressable, View } from 'react-native';
 import { AnimatedMoney, Skeleton, useReducedMotion } from '@/components/ui/feedback';
 import { Row, Text } from '@/components/ui/primitives';
 import { useAnimatedValue } from '@/lib/animation';
-import { daysBetweenInclusive, daysLeft, elapsedDays, fromISODate, type DateRange, type ISODate } from '@/lib/dates';
+import {
+  daysBetweenInclusive,
+  daysLeft,
+  elapsedDays,
+  fromISODate,
+  type DateRange,
+  type ISODate,
+} from '@/lib/dates';
 import { formatMoney, type Minor } from '@/lib/money';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';

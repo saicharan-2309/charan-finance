@@ -91,38 +91,27 @@ export default function AccountDetail() {
       />
 
       <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.xxl }}>
-        <Button
-          title={account.type === 'credit_card' ? 'Add expense' : 'Add'}
+        <ActionTile
           icon="add"
-          size="md"
-          style={{ flex: 1 }}
-          onPress={() => router.push({ pathname: '/transaction/new', params: { accountId: id } })}
+          label={isCard ? 'Add expense' : 'Add'}
+          primary
           disabled={!account.isActive}
+          onPress={() => router.push({ pathname: '/transaction/new', params: { accountId: id } })}
         />
         {liability ? (
-          <Button
-            title={isCard ? 'Make payment' : 'Pay'}
+          <ActionTile
             icon="arrow-down"
-            size="md"
-            variant="secondary"
-            style={{ flex: 1 }}
+            label={isCard ? 'Pay bill' : 'Pay'}
+            hint="Records a transfer from another account, not a new expense"
             onPress={() =>
               router.push({
                 pathname: '/transaction/new',
                 params: { type: 'transfer', toAccountId: id },
               })
             }
-            accessibilityHint="Records a transfer from another account, not a new expense"
           />
         ) : null}
-        <Button
-          title="Reconcile"
-          icon="checkmark-done"
-          size="md"
-          variant="secondary"
-          style={{ flex: 1 }}
-          onPress={() => setReconcile(true)}
-        />
+        <ActionTile icon="checkmark-done" label="Reconcile" onPress={() => setReconcile(true)} />
       </View>
 
       <Section title="Transactions">
@@ -421,7 +410,10 @@ function AliasSection({ account }: { account: Account }) {
     },
     success: 'Saved. Messages with these digits come here now.',
   });
-  const remove = useAppMutation(deleteAlias, { context: 'alias.delete', invalidate: [['aliases', account.id]] });
+  const remove = useAppMutation(deleteAlias, {
+    context: 'alias.delete',
+    invalidate: [['aliases', account.id]],
+  });
   const list = q.data ?? [];
 
   return (
@@ -464,9 +456,65 @@ function AliasSection({ account }: { account: Account }) {
             />
           </Row>
         ) : (
-          <Button title="Add other digits" variant="ghost" size="sm" icon="add" onPress={() => setAdding(true)} />
+          <Button
+            title="Add other digits"
+            variant="ghost"
+            size="sm"
+            icon="add"
+            onPress={() => setAdding(true)}
+          />
         )}
       </Card>
     </Section>
+  );
+}
+
+/** A compact, equal-width action: icon above a short label. */
+function ActionTile({
+  icon,
+  label,
+  onPress,
+  primary,
+  disabled,
+  hint,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  primary?: boolean;
+  disabled?: boolean;
+  hint?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      style={({ pressed }) => ({
+        flex: 1,
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: spacing.md,
+        borderRadius: radius.lg,
+        backgroundColor: primary
+          ? pressed
+            ? colors.brandPressed
+            : colors.brand
+          : pressed
+            ? colors.border
+            : colors.surface,
+        borderWidth: primary ? 0 : 1,
+        borderColor: colors.border,
+        opacity: disabled ? 0.45 : 1,
+      })}
+    >
+      <Icon name={icon} size={20} tone={primary ? 'onBrand' : 'primary'} />
+      <Text variant="subhead" tone={primary ? 'onBrand' : 'primary'} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }

@@ -93,11 +93,11 @@ describe('development seed', () => {
          from transactions_view where type = 'transfer'`,
       ),
     );
-    assert.ok(Number(row.card_payments) >= 6, 'six months of card bills');
+    // Each completed month's card spend is paid off the month after.
+    assert.ok(Number(row.card_payments) >= 4, 'at least four months of card bills');
     const [summary] = await asUser(db, uid, (q) =>
       q<{ expense: string; income: string }>(
-        // The window spans the seed's future-dated rent too, so the totals can
-        // be compared against the raw rows.
+        // A wide window, so the totals can be compared against the raw rows.
         `select expense, income from report_summary(current_date - 400, current_date + 400)`,
       ),
     );

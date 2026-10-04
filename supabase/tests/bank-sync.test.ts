@@ -48,7 +48,9 @@ async function one<T extends object>(sql: string, params: unknown[] = []): Promi
 }
 
 async function balance(name: string): Promise<number> {
-  const r = await one<{ b: string }>(`select current_balance::text as b from accounts where name = $1`, [name]);
+  const r = await one<{ b: string }>(`select current_balance::text as b from accounts where name = $1`, [
+    name,
+  ]);
   return Number(r.b);
 }
 
@@ -95,7 +97,10 @@ describe('bank sync — access', () => {
   });
 
   it('rejects an unknown key', async () => {
-    await expectError(sms('Sent Rs.1.00 From HDFC Bank A/C *1234 To X', 'AX-HDFCBK', 'f'.repeat(64)), /CF810/);
+    await expectError(
+      sms('Sent Rs.1.00 From HDFC Bank A/C *1234 To X', 'AX-HDFCBK', 'f'.repeat(64)),
+      /CF810/,
+    );
   });
 
   it('seeds the built-in merchant rules when sync is switched on', async () => {
@@ -111,8 +116,15 @@ describe('bank sync — spending', () => {
     );
     assert.equal(r.status, 'created');
     const t = await one<{
-      type: string; amount: string; account_name: string; category_name: string;
-      subcategory_name: string; merchant_name: string; needs_review: boolean; source: string; external_ref: string;
+      type: string;
+      amount: string;
+      account_name: string;
+      category_name: string;
+      subcategory_name: string;
+      merchant_name: string;
+      needs_review: boolean;
+      source: string;
+      external_ref: string;
     }>(`select * from transactions_view where id = $1`, [r.transaction_id]);
     assert.equal(t.type, 'expense');
     assert.equal(Number(t.amount), 450);
@@ -162,7 +174,9 @@ describe('bank sync — spending', () => {
       ),
     );
     const before = await expenseCount();
-    const r = await sms('Rs.320.00 debited from HDFC Bank A/c **1234 on 03-10-26 to VPA cornerstore@ybl (UPI Ref No 627800002222)');
+    const r = await sms(
+      'Rs.320.00 debited from HDFC Bank A/c **1234 on 03-10-26 to VPA cornerstore@ybl (UPI Ref No 627800002222)',
+    );
     assert.equal(r.status, 'linked');
     assert.equal(await expenseCount(), before);
   });
@@ -262,7 +276,9 @@ describe('bank sync — money moving between your own accounts is never spending
 
   it('moves ATM cash into a Cash account it creates', async () => {
     const before = await expenseCount();
-    const r = await sms('Rs.3000.00 withdrawn from HDFC Bank A/c XX1234 At MG ROAD ATM On 2026-10-03:19:01:22');
+    const r = await sms(
+      'Rs.3000.00 withdrawn from HDFC Bank A/c XX1234 At MG ROAD ATM On 2026-10-03:19:01:22',
+    );
     assert.equal(r.status, 'created');
     assert.equal(await expenseCount(), before);
     assert.equal(await balance('Cash'), 3000);
@@ -297,10 +313,9 @@ describe('bank sync — accounts it does not know yet', () => {
     );
     assert.equal(r.status, 'awaiting_pair');
     await asUser(db, uid, (q) => q(`select settle_bank_message_externally($1)`, [r.message_id]));
-    const t = await one<{ type: string }>(
-      `select type from transactions where bank_message_id = $1`,
-      [r.message_id],
-    );
+    const t = await one<{ type: string }>(`select type from transactions where bank_message_id = $1`, [
+      r.message_id,
+    ]);
     assert.equal(t.type, 'adjustment');
   });
 
@@ -317,22 +332,27 @@ describe('bank sync — accounts it does not know yet', () => {
 
 describe('review, learning and splitting', () => {
   it('remembers a corrected category for the merchant', async () => {
-    const r = await sms('Rs.180.00 debited from HDFC Bank A/c **1234 on 03-10-26 to VPA brewhouse@okaxis (UPI Ref No 627800004444)');
+    const r = await sms(
+      'Rs.180.00 debited from HDFC Bank A/c **1234 on 03-10-26 to VPA brewhouse@okaxis (UPI Ref No 627800004444)',
+    );
     const coffee = await one<{ id: string; parent_id: string }>(
       `select id, parent_id from transaction_categories where name = 'Snacks & Coffee'`,
     );
     await asUser(db, uid, (q) =>
       q(`select review_transaction($1, $2, $3, true)`, [r.transaction_id, coffee.parent_id, coffee.id]),
     );
-    const again = await sms('Rs.210.00 debited from HDFC Bank A/c **1234 on 03-10-26 to VPA brewhouse@okaxis (UPI Ref No 627800005555)');
+    const again = await sms(
+      'Rs.210.00 debited from HDFC Bank A/c **1234 on 03-10-26 to VPA brewhouse@okaxis (UPI Ref No 627800005555)',
+    );
     const t = await one<{ category_id: string; needs_review: boolean }>(
       `select category_id, needs_review from transactions where id = $1`,
       [again.transaction_id],
     );
     assert.equal(t.category_id, coffee.parent_id);
-    const reviewed = await one<{ needs_review: boolean }>(`select needs_review from transactions where id = $1`, [
-      r.transaction_id,
-    ]);
+    const reviewed = await one<{ needs_review: boolean }>(
+      `select needs_review from transactions where id = $1`,
+      [r.transaction_id],
+    );
     assert.equal(reviewed.needs_review, false);
   });
 
@@ -340,7 +360,9 @@ describe('review, learning and splitting', () => {
     const r = await sms('Spent Rs.1,000 On HDFC Bank Card 5678 At DMART On 2026-10-03:12:00:00');
     const card = await balance('HDFC Card');
     const cats = await asUser(db, uid, (q) =>
-      q<{ id: string; name: string }>(`select id, name from transaction_categories where name in ('Groceries', 'Personal Care')`),
+      q<{ id: string; name: string }>(
+        `select id, name from transaction_categories where name in ('Groceries', 'Personal Care')`,
+      ),
     );
     const parts = cats.map((c, i) => ({ amount: i === 0 ? '700.00' : '300.00', category_id: c.id }));
     await expectError(
@@ -394,7 +416,9 @@ describe('subscriptions and integrity', () => {
   });
 
   it('keeps every balance consistent with its transactions', async () => {
-    const bad = await asUser(db, uid, (q) => q(`select * from verify_account_balances() where not is_consistent`));
+    const bad = await asUser(db, uid, (q) =>
+      q(`select * from verify_account_balances() where not is_consistent`),
+    );
     assert.deepEqual(bad, []);
   });
 

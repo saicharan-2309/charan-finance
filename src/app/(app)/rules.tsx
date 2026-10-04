@@ -123,7 +123,12 @@ export default function RulesScreen() {
               />
               <View style={{ height: spacing.md }} />
               {groups.length === 0 ? (
-                <EmptyState compact icon="git-branch-outline" title="No rules match" message="Try another word." />
+                <EmptyState
+                  compact
+                  icon="git-branch-outline"
+                  title="No rules match"
+                  message="Try another word."
+                />
               ) : (
                 <View style={{ gap: spacing.md }}>
                   {groups.map((g) => (
@@ -140,10 +145,18 @@ export default function RulesScreen() {
                           <Pressable
                             key={r.id}
                             onPress={() =>
-                              Alert.alert(`Delete “${r.pattern}”?`, 'Transactions already filed stay as they are.', [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Delete', style: 'destructive', onPress: () => remove.mutate(r.id) },
-                              ])
+                              Alert.alert(
+                                `Delete “${r.pattern}”?`,
+                                'Transactions already filed stay as they are.',
+                                [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Delete',
+                                    style: 'destructive',
+                                    onPress: () => remove.mutate(r.id),
+                                  },
+                                ],
+                              )
                             }
                             accessibilityRole="button"
                             accessibilityLabel={`Rule ${r.pattern}. Delete`}

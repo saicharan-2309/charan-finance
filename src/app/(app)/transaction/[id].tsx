@@ -185,7 +185,14 @@ export default function TransactionDetail() {
       </View>
 
       {t.needsReview ? (
-        <Card style={{ marginBottom: spacing.lg, gap: spacing.md, backgroundColor: colors.warningSoft, borderColor: colors.warningSoft }}>
+        <Card
+          style={{
+            marginBottom: spacing.lg,
+            gap: spacing.md,
+            backgroundColor: colors.warningSoft,
+            borderColor: colors.warningSoft,
+          }}
+        >
           <Row gap={spacing.md} align="flex-start">
             <Icon name="chatbox-ellipses-outline" size={20} tone="warning" />
             <Text variant="callout" style={{ flex: 1 }}>
@@ -260,7 +267,7 @@ export default function TransactionDetail() {
       ) : null}
 
       <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
-        {(t.type === 'expense' || t.type === 'income') ? (
+        {t.type === 'expense' || t.type === 'income' ? (
           <Button
             title="Split across categories"
             icon="git-branch-outline"

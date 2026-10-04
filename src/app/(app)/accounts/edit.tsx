@@ -18,6 +18,7 @@ import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, IconBadge, Row, Text } from '@/components/ui/primitives';
 import { ColorPicker, CURRENCIES } from '@/features/shared/ColorPicker';
 import { useAccounts, useAppMutation, useCurrency } from '@/hooks/data';
+import { retryMessages } from '@/services/bank-sync';
 import { isLiability } from '@/lib/accounts';
 import { describeError } from '@/lib/errors';
 import { minorToInput, parseAmountInput, sanitizeAmountKeystrokes, type Minor } from '@/lib/money';
@@ -99,7 +100,12 @@ function AccountForm({
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const save = useAppMutation(
-    (input: AccountInput) => (existing ? updateAccount(existing.id, input) : createAccount(input)),
+    async (input: AccountInput) => {
+      const account = await (existing ? updateAccount(existing.id, input) : createAccount(input));
+      // New last digits may be exactly what waiting bank messages were missing.
+      if (input.last4) await retryMessages().catch(() => 0);
+      return account;
+    },
     {
       invalidate: 'financial',
       success: existing ? 'Payment method updated' : 'Payment method added',

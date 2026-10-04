@@ -81,10 +81,16 @@ function RecurringForm({
     existing?.accountId ?? prefill?.accountId ?? accounts[0]?.id ?? null,
   );
   const [toAccountId, setToAccountId] = useState<string | null>(existing?.toAccountId ?? null);
-  const [categoryId, setCategoryId] = useState<string | null>(existing?.categoryId ?? prefill?.categoryId ?? null);
+  const [categoryId, setCategoryId] = useState<string | null>(
+    existing?.categoryId ?? prefill?.categoryId ?? null,
+  );
   const [subcategoryId, setSubcategoryId] = useState<string | null>(existing?.subcategoryId ?? null);
-  const [merchantId, setMerchantId] = useState<string | null>(existing?.merchantId ?? prefill?.merchantId ?? null);
-  const [frequency, setFrequency] = useState<Frequency>(existing?.frequency ?? prefill?.frequency ?? 'monthly');
+  const [merchantId, setMerchantId] = useState<string | null>(
+    existing?.merchantId ?? prefill?.merchantId ?? null,
+  );
+  const [frequency, setFrequency] = useState<Frequency>(
+    existing?.frequency ?? prefill?.frequency ?? 'monthly',
+  );
   const [interval, setInterval] = useState(String(existing?.intervalCount ?? 1));
   const [start, setStart] = useState<Date>(() =>
     existing

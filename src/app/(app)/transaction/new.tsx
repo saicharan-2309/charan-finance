@@ -415,7 +415,16 @@ function TransactionForm({
               autoFocus={mode === 'create' && !params.amount}
               accessibilityLabel="Amount"
               maxLength={16}
-              style={[typography.display, { color: colors.text, minWidth: 60, padding: 0 }]}
+              style={[
+                typography.display,
+                {
+                  color: colors.text,
+                  padding: 0,
+                  // Sized to its digits so the ₹ stays beside the number (a web
+                  // input would otherwise reserve room for ~20 characters).
+                  width: Math.min(Math.max(amountText.length, 1) * 27 + 10, 300),
+                },
+              ]}
               selectionColor={colors.brand}
             />
           </View>

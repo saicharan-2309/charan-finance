@@ -14,13 +14,7 @@ import { Platform } from 'react-native';
 import { env } from '@/constants/env';
 import { supabase, unwrap } from '@/lib/supabase';
 import { toDecimalString, type Minor } from '@/lib/money';
-import {
-  mapBankMessage,
-  mapBankSyncStatus,
-  mapDetectedRecurring,
-  mapRule,
-  mapTransaction,
-} from './mappers';
+import { mapBankMessage, mapBankSyncStatus, mapDetectedRecurring, mapRule, mapTransaction } from './mappers';
 import type {
   BankMessage,
   BankSyncStatus,
@@ -243,9 +237,15 @@ export async function splitTransaction(id: string, parts: SplitPart[]): Promise<
   );
 }
 
-export async function fetchAliases(accountId: string): Promise<{ id: string; last4: string; bank: string | null }[]> {
+export async function fetchAliases(
+  accountId: string,
+): Promise<{ id: string; last4: string; bank: string | null }[]> {
   const rows = unwrap(
-    await supabase.from('account_aliases').select('id, last4, bank').eq('account_id', accountId).order('created_at'),
+    await supabase
+      .from('account_aliases')
+      .select('id, last4, bank')
+      .eq('account_id', accountId)
+      .order('created_at'),
   );
   return rows.map((r) => ({ id: r.id, last4: r.last4, bank: r.bank ?? null }));
 }

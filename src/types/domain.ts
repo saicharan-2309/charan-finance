@@ -206,6 +206,10 @@ export interface BankMessage {
   last4: string | null;
   bank: string | null;
   merchant: string | null;
+  /** What the SMS was about: an account, a credit/debit card, a wallet. */
+  instrument: 'account' | 'credit_card' | 'debit_card' | 'card' | 'wallet' | null;
+  /** A payment arriving on a credit card (its bill being paid). */
+  isCardPayment: boolean;
   accountId: UUID | null;
   transactionId: UUID | null;
   note: string | null;

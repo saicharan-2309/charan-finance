@@ -19,6 +19,7 @@ You develop it on **Windows** and build it for iOS **in the cloud with EAS**. Yo
    - [8a. Running without a dev server, for free](#8a-running-without-a-dev-server-for-free)
    - [8b. Upgrading an app that is already running](#8b-upgrading-an-app-that-is-already-running)
 9. [Receipt OCR (optional)](#9-receipt-ocr-optional)
+   - [9a. Automatic bank sync](#9a-automatic-bank-sync)
 10. [Testing & quality checks](#10-testing--quality-checks)
 11. [Development seed data](#11-development-seed-data)
 12. [Security model](#12-security-model)
@@ -29,29 +30,33 @@ You develop it on **Windows** and build it for iOS **in the cloud with EAS**. Yo
 
 ## 1. What's inside
 
-| Area                | Features                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Home**            | Total (liquid) balance, net worth, income / expenses / saved this month, savings rate, available balance after card dues and upcoming bills, insights, budgets, upcoming payments, category donut, 6-month trend, top merchants, goals, recent transactions                                                                                                                                                                                                                                              |
-| **Transactions**    | Expense / income / transfer, with a transfer into a credit card shown as a **card payment** — it reduces what you owe and is never counted as spending; category + subcategory, merchant, account, date & time, notes, tags, receipts; create / edit / duplicate / delete; global search (merchant, notes, category, account, tags, amount); filters by type, date, category, account, merchant and amount range; sort; day grouping; incremental loading (40 rows per page)                             |
-| **Add expense**     | Opens straight into the amount field. Recent categories, merchants and payment methods are one tap away, the payment-method picker shows each balance (and what is used and left on a card), and a new method can be added without leaving the form. The last-used method is preselected, and a known merchant fills in its usual category. The **+** button offers expense, income, transfer or card payment, EMI, a new payment method, or a receipt scan; long-press it to go straight to Add Expense |
-| **Payment methods** | Bank and savings accounts, credit and debit cards, cash, UPI apps (Google Pay, PhonePe, Paytm, Amazon Pay, other), investments, loans, other assets/liabilities — grouped by kind, each asking only for the fields its own type needs. Last 4 digits only. Opening/current balance; for a card, credit limit, **calculated** available credit, statement day, due day and minimum due. Archive, or reconcile to a real balance (recorded as an auditable adjustment)                                     |
-| **EMIs & loans**    | Total loan amount, monthly instalment, interest rate, tenure, lender, start date — paid from **any** payment method, bank or card or UPI or cash. Each EMI drives a monthly schedule, so it appears in Upcoming, the calendar and reminders. Progress (paid, remaining, instalments left) is counted from instalments actually recorded, never estimated                                                                                                                                                 |
-| **Categories**      | 28 defaults (20 expense, 8 income) with subcategories. Create, rename, recolour, re-icon, classify as essential/discretionary, archive. Deletion is blocked by the database when history exists                                                                                                                                                                                                                                                                                                          |
-| **Merchants**       | Auto-created from transactions (case-insensitive). Lifetime total, count, average, largest, monthly chart, category mix, history. Rename, merge, archive                                                                                                                                                                                                                                                                                                                                                 |
-| **Budgets**         | Weekly / monthly / yearly / custom periods with any start day (for example salary-to-salary). Overall and per-category limits. Spent, remaining, % used, projected spend, a time-elapsed marker on each bar, warnings                                                                                                                                                                                                                                                                                    |
-| **Goals**           | Target, starting amount, contributions and withdrawals, target date, linked account. Remaining, required monthly/weekly saving, recent pace, projected completion, on-track status                                                                                                                                                                                                                                                                                                                       |
-| **Recurring**       | Income, bills, subscriptions, transfers (for example SIPs). Daily to yearly, every N periods, start/end dates. Templates are stored separately from transactions. Mark paid (or a different amount), skip, or auto-record. An occurrence can never be posted twice                                                                                                                                                                                                                                       |
-| **Subscriptions**   | Monthly and annual cost, breakdown by category, upcoming renewals, active/inactive toggle                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Calendar**        | Month grid of actual daily activity plus **projected** recurring items. Projected month-end and lowest balance, 30+ day projected-balance chart (always labelled as a projection)                                                                                                                                                                                                                                                                                                                        |
-| **Reports**         | Any range (this/last month, 3/6 months, this/last year, custom). Income vs expenses, cumulative cash flow, savings rate, average per day and per month, previous-period and year-over-year comparison, categories (drill-down), merchants, accounts, essential vs discretionary, recurring and subscription share, largest expenses, budget performance, net worth trend                                                                                                                                 |
-| **Net worth**       | Assets − liabilities from real balances. A daily snapshot is taken automatically. Trend chart; investment values are never invented                                                                                                                                                                                                                                                                                                                                                                      |
-| **Insights**        | Descriptive statements computed from your data only (no advice)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Receipts**        | Camera, photo library or PDF. Images are compressed, stored in a private bucket under `<user_id>/…`, viewed through 5-minute signed links. OCR suggests merchant, amount, date, currency and category; **you confirm before anything is saved**                                                                                                                                                                                                                                                          |
-| **Import / export** | CSV import with full validation and preview. Rows with errors are listed and nothing is imported silently, and an interrupted import can be resumed without duplicates. CSV export and a full JSON backup                                                                                                                                                                                                                                                                                                |
-| **Notifications**   | Local reminders for bills, subscription renewals, budget thresholds (once per period), goal check-in and the monthly summary, each with its own toggle. Amounts never appear on the lock screen                                                                                                                                                                                                                                                                                                          |
-| **Security**        | Face ID / Touch ID / passcode app lock. The screen is hidden in the app switcher. The session is stored in the Keychain. Account deletion is available in-app                                                                                                                                                                                                                                                                                                                                            |
-| **Offline**         | Cached data shows instantly. New transactions, edits and deletes made offline are queued durably and synced later; conflicts are detected, and rejected writes are kept for you to review rather than dropped                                                                                                                                                                                                                                                                                            |
-| **Design**          | A soft, warm palette (warm whites, soft greys, muted greens, blues, lavenders, ambers and corals) with colour used to carry meaning rather than decoration. Light, dark and automatic themes, a token-based design system, animated category avatars, Dynamic Type, VoiceOver labels, reduced-motion support, skeleton/empty/error states                                                                                                                                                                |
+| Area                | Features                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**            | **Safe to spend until payday** (balance after card dues and bills due before your next salary) with a per-day figure, and a pace track comparing this month's spending with last month at the same point; money in, out and kept; anything bank sync wants checked; account tiles (cards show limit used); upcoming payments; spending by category; recent transactions; budgets; goals                                                                                                                                                                                 |
+| **Bank sync**       | Bank alert SMS become transactions automatically (§9a). Matched to the right account by its last digits, de-duplicated, linked to anything you already typed in, auto-categorised by merchant, and — the part most apps get wrong — **transfers between your own accounts, credit-card bill payments and ATM withdrawals are recorded as transfers, never as spending**. OTPs, promotions and personal texts are discarded and never stored. Each account shows the balance the bank last reported, with one tap to match it                                            |
+| **Review inbox**    | Everything bank sync added, waiting for a glance: confirm it, or change the category and the merchant is filed that way from then on. Messages it couldn't place (a card it doesn't know yet, a bill payment with no matching card) wait here for one tap, and the digits are remembered                                                                                                                                                                                                                                                                                |
+| **Auto-categorise** | ~290 built-in rules for the merchants people in India pay (Swiggy, Zomato, Blinkit, Uber, IRCTC, BESCOM, Airtel, LIC, Zerodha…) plus your own. A merchant you corrected always wins; among rules, the longest match wins                                                                                                                                                                                                                                                                                                                                                |
+| **Money month**     | Pick your payday and Home, budgets and the month presets in Reports run payday to payday instead of 1st to 31st                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Transactions**    | Expense / income / transfer, with a transfer into a credit card shown as a **card payment** — it reduces what you owe and is never counted as spending; category + subcategory, merchant, account, date & time, notes, tags, receipts; create / edit / duplicate / delete; global search (merchant, notes, category, account, tags, amount); filters by type, date, category, account, merchant, amount range and source (bank SMS, not yet checked, entered by you); **split a payment across categories**; sort; day grouping; incremental loading (40 rows per page) |
+| **Add expense**     | Opens straight into the amount field. Recent categories, merchants and payment methods are one tap away, the payment-method picker shows each balance (and what is used and left on a card), and a new method can be added without leaving the form. The last-used method is preselected, and a known merchant fills in its usual category. The **+** button offers expense, income, transfer or card payment, EMI, a new payment method, or a receipt scan; long-press it to go straight to Add Expense                                                                |
+| **Payment methods** | Bank and savings accounts, credit and debit cards, cash, UPI apps (Google Pay, PhonePe, Paytm, Amazon Pay, other), investments, loans, other assets/liabilities — grouped by kind, each asking only for the fields its own type needs. Last 4 digits only. Opening/current balance; for a card, credit limit, **calculated** available credit, statement day, due day and minimum due. Archive, or reconcile to a real balance (recorded as an auditable adjustment)                                                                                                    |
+| **EMIs & loans**    | Total loan amount, monthly instalment, interest rate, tenure, lender, start date — paid from **any** payment method, bank or card or UPI or cash. Each EMI drives a monthly schedule, so it appears in Upcoming, the calendar and reminders. Progress (paid, remaining, instalments left) is counted from instalments actually recorded, never estimated                                                                                                                                                                                                                |
+| **Categories**      | 28 defaults (20 expense, 8 income) with subcategories. Create, rename, recolour, re-icon, classify as essential/discretionary, archive. Deletion is blocked by the database when history exists                                                                                                                                                                                                                                                                                                                                                                         |
+| **Merchants**       | Auto-created from transactions (case-insensitive). Lifetime total, count, average, largest, monthly chart, category mix, history. Rename, merge, archive                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Budgets**         | Weekly / monthly / yearly / custom periods with any start day (for example salary-to-salary). Overall and per-category limits. Spent, remaining, % used, projected spend, a time-elapsed marker on each bar, warnings                                                                                                                                                                                                                                                                                                                                                   |
+| **Goals**           | Target, starting amount, contributions and withdrawals, target date, linked account. Remaining, required monthly/weekly saving, recent pace, projected completion, on-track status                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Recurring**       | Income, bills, subscriptions, transfers (for example SIPs). Daily to yearly, every N periods, start/end dates. Templates are stored separately from transactions. Mark paid (or a different amount), skip, or auto-record. An occurrence can never be posted twice                                                                                                                                                                                                                                                                                                      |
+| **Subscriptions**   | Monthly and annual cost, breakdown by category, upcoming renewals, active/inactive toggle, and **subscriptions found in your spending** — merchants charged on a steady rhythm for a steady amount — tracked in one tap                                                                                                                                                                                                                                                                                                                                                 |
+| **Calendar**        | Month grid of actual daily activity plus **projected** recurring items. Projected month-end and lowest balance, 30+ day projected-balance chart (always labelled as a projection)                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Reports**         | Any range (this/last month, 3/6 months, this/last year, custom). Income vs expenses, cumulative cash flow, savings rate, average per day and per month, previous-period and year-over-year comparison, categories (drill-down), merchants, accounts, essential vs discretionary, recurring and subscription share, largest expenses, budget performance, net worth trend                                                                                                                                                                                                |
+| **Net worth**       | Assets − liabilities from real balances. A daily snapshot is taken automatically. Trend chart; investment values are never invented                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Insights**        | Descriptive statements computed from your data only (no advice)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Receipts**        | Camera, photo library or PDF. Images are compressed, stored in a private bucket under `<user_id>/…`, viewed through 5-minute signed links. OCR suggests merchant, amount, date, currency and category; **you confirm before anything is saved**                                                                                                                                                                                                                                                                                                                         |
+| **Import / export** | CSV import with full validation and preview. Rows with errors are listed and nothing is imported silently, and an interrupted import can be resumed without duplicates. CSV export and a full JSON backup                                                                                                                                                                                                                                                                                                                                                               |
+| **Notifications**   | Local reminders for bills, subscription renewals, budget thresholds (once per period), goal check-in and the monthly summary, each with its own toggle. Amounts never appear on the lock screen                                                                                                                                                                                                                                                                                                                                                                         |
+| **Security**        | Face ID / Touch ID / passcode app lock. The screen is hidden in the app switcher. The session is stored in the Keychain. Account deletion is available in-app                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Offline**         | Cached data shows instantly. New transactions, edits and deletes made offline are queued durably and synced later; conflicts are detected, and rejected writes are kept for you to review rather than dropped                                                                                                                                                                                                                                                                                                                                                           |
+| **Design**          | "Rupee ink on note paper": cool note-paper surfaces, a deep indigo-ink hero, and category and chart colours taken from the inks of Indian banknotes (₹50 blue, ₹200 marigold, ₹100 lavender, ₹20 olive, ₹2000 magenta, ₹10 chocolate), checked for colour-blind separation and contrast. Bricolage Grotesque for big figures and titles, the system face (tabular figures) for everything else. Light, dark and automatic themes, animated category avatars, Dynamic Type, VoiceOver labels, reduced-motion support, skeleton/empty/error states                        |
 
 ---
 
@@ -153,6 +158,8 @@ Open **SQL Editor → New query**, then paste and run each file in `supabase/mig
 20261001000500_row_level_security.sql
 20261001000600_storage_receipts.sql
 20261003000100_payment_methods_and_loans.sql
+20261004000100_bank_sync.sql
+20261004000200_banknote_palette.sql
 ```
 
 `20261001000600` creates the private `receipts` bucket (10 MB limit; images and PDFs only) and its storage policies.
@@ -165,6 +172,14 @@ category colour is refreshed only where it still holds the exact factory
 default — any colour you changed yourself is left alone. Run it the same way as
 the others; if you are already using the app, this is the only file you need to
 apply.
+
+`20261004000100` adds automatic bank sync: the sync key table, the bank
+message log, account aliases, auto-categorise rules (with the built-in Indian
+merchant rules seeded for every existing user), payday-based months, split
+transactions and subscription detection. `20261004000200` moves the default
+category colours to the banknote palette — again only where a colour is still
+the exact previous default. Both are additive: nothing you already have is
+changed or removed.
 
 Verify: **Table Editor** should show the tables with RLS enabled, and **Storage** should show a private `receipts` bucket.
 
@@ -187,12 +202,16 @@ In **Authentication → Providers → Email**:
 ### 4.4 Deploy the Edge Functions
 
 ```powershell
-supabase functions deploy delete-account
-supabase functions deploy receipt-ocr
+npx supabase functions deploy delete-account --use-api
+npx supabase functions deploy receipt-ocr --use-api
+npx supabase functions deploy ingest-sms --use-api --no-verify-jwt
 ```
+
+`--use-api` bundles on Supabase's servers, so Docker isn't needed on Windows.
 
 - `delete-account` is required for in-app account deletion, which App Store rules demand. It uses the service role key that Supabase injects automatically on the server; the key never ships in the app.
 - `receipt-ocr` returns "not configured" until you add an OCR key (see §9). Receipts still upload and attach without it.
+- `ingest-sms` receives bank SMS from your iPhone Shortcut (§9a). It must be deployed with `--no-verify-jwt`: a Shortcut has no Supabase login, so the function checks your personal sync key instead.
 
 ### 4.5 Get your public keys
 
@@ -358,21 +377,32 @@ Trade-offs against a native build: you launch through Expo Go rather than your o
 
 If the app is already on your phone, this is the whole upgrade:
 
-1. **Apply the new migration.** In Supabase, run `supabase db push`, or paste
-   `supabase/migrations/20261003000100_payment_methods_and_loans.sql` into the
-   SQL Editor. It only adds things — your accounts, transactions and balances
-   are untouched, and the existing credit card keeps working exactly as before,
-   now with optional billing and due dates you can fill in by editing it.
-2. **Publish the new JavaScript.**
+1. **Get the code** — `git pull` in your `charan-finance` folder, then
+   `npm install` (this release adds two packages: the Bricolage Grotesque font
+   and `expo-clipboard`; both run in Expo Go).
+2. **Apply the new migrations.** Run `npx supabase db push`, or paste each new
+   file from `supabase/migrations/` into the SQL Editor, oldest first. For this
+   release that is `20261004000100_bank_sync.sql`, then
+   `20261004000200_banknote_palette.sql`. They only add things — your
+   accounts, transactions and balances are untouched.
+3. **Deploy the bank-sync function** (once). The first time, log the CLI in
+   and link it to your project; after that, only the last line is needed:
    ```powershell
-   npx eas-cli@latest update --branch main --message "payment methods, EMIs, redesign"
+   npx supabase login
+   npx supabase link --project-ref YOUR-PROJECT-REF
+   npx supabase functions deploy ingest-sms --use-api --no-verify-jwt
+   ```
+   Your project ref is the part before `.supabase.co` in your project URL.
+4. **Publish the new JavaScript.**
+   ```powershell
+   npx eas-cli@latest update --branch main --message "bank sync, review inbox, redesign"
    ```
    Choose the **preview** environment when asked.
-3. **Reopen the app** (fully close it first). It fetches the new bundle on launch.
+5. **Reopen the app** (fully close it first). It fetches the new bundle on launch.
+   Then follow §9a to switch on bank sync.
 
-Do them in that order: the new screens read the new columns, so the migration
-goes first. If you publish first, the app will show errors until the migration
-is applied.
+Do them in that order: the new screens read the new tables, so the migrations
+go first. If you publish first, the app will show errors until they are applied.
 
 ---
 
@@ -391,11 +421,68 @@ Without the key, scanning still attaches the receipt and asks you to type the de
 
 ---
 
+## 9a. Automatic bank sync
+
+India's account-data network (Account Aggregator) only gives data to companies
+regulated by RBI, SEBI, IRDAI or PFRDA, so a personal app can't connect to
+banks the way UK Open Banking apps do. What every Indian bank and card issuer
+_does_ do, by RBI rule, is send an SMS for every debit and credit within
+seconds. Bank sync reads those.
+
+**How it works**
+
+```
+Bank SMS ─▶ iPhone Shortcut ─▶ ingest-sms Edge Function ─▶ ingest_bank_sms() ─▶ your ledger
+            (on your phone)     checks your sync key,        matches the account,
+                                parses the text              skips duplicates,
+                                                             pairs transfers,
+                                                             categorises, flags for review
+```
+
+- **Parsing** (`supabase/functions/_shared/bank-sms.ts`, 39 unit tests) handles
+  the formats of HDFC, ICICI, SBI, Axis, Kotak, IDFC, Federal, PNB, Amex and
+  others: UPI, card, ATM, NEFT/IMPS, mandates, refunds, salary and interest. It
+  reads the amount separately from the "Avl Bal" figure, and ignores OTPs,
+  declined payments, "will be debited" notices, statements and promotions.
+- **Matching** uses the last digits in the SMS against each account's last 4
+  (and any extra digits you've told it about, such as a debit card on a savings
+  account). Two possible accounts is never guessed at — it goes to Review.
+- **Duplicates**: the same SMS twice, the same UPI reference on the same
+  account, and a transaction you already typed in by hand (same account and
+  amount within two days) are all recognised.
+- **Not spending**: a debit and a credit with the same reference on two of your
+  accounts become one transfer; a CRED/BillDesk/"credit card payment" debit and
+  the card's "payment received" become one card payment; ATM cash moves into a
+  Cash account.
+- **Privacy**: every text your phone receives passes through your own Supabase
+  function, but only bank transactions and balance updates are stored. OTPs,
+  promotions and personal messages are discarded on arrival. The sync key is
+  stored only as a SHA-256 hash; turning sync off revokes it instantly.
+
+**Set up (once, ~3 minutes)**
+
+1. Deploy the function (§4.4 / §8b) and apply the migrations.
+2. In the app: **More → Bank sync → Turn on bank sync**. It shows an address
+   and a sync key with copy buttons, and step-by-step Shortcut instructions.
+3. On the iPhone: **Shortcuts → Automation → + → Message**, leave Sender and
+   Message Contains empty, **Run Immediately**, **New Blank Automation**, add
+   **Get Contents of URL** with the address, method **POST**, header
+   `x-sync-key` = your key, and a JSON body with `text` = Shortcut Input ›
+   Content and `sender` = Shortcut Input › Sender.
+4. Tap **Test connection** in the app, then make any small UPI payment.
+5. Make sure each bank account and card in the app has its **last 4 digits**
+   set — the Bank sync screen lists any that don't.
+
+Older history isn't in your SMS inbox's reach: for months before you switched
+sync on, use **More → Import CSV** with your bank's statement export.
+
+---
+
 ## 10. Testing & quality checks
 
 ```powershell
-npm run verify        # TypeScript strict + ESLint + 75 Jest tests
-npm run test:db       # 36 SQL tests (needs a local, disposable PostgreSQL 15+)
+npm run verify        # TypeScript strict + ESLint + 119 Jest tests
+npm run test:db       # 58 SQL tests (needs a local, disposable PostgreSQL 15+)
 npm run verify:all    # both of the above
 npm run bundle:ios    # Metro production bundle for iOS
 ```
@@ -408,11 +495,12 @@ npm run bundle:ios    # Metro production bundle for iOS
 - balance maintenance on create, edit, account change and delete; opening-balance changes; reconciliation;
 - transfers (no income or expense impact) and a **150-operation randomized consistency check**;
 - idempotent creates, edit-conflict detection, merchant resolution, tag sync, category validation;
-- **RLS isolation across all 15 tables**, blocked cross-user references, no anon access, no forged snapshots or goal amounts, storage folder isolation, attachment path and MIME checks;
+- **RLS isolation across all the original tables**, blocked cross-user references, no anon access, no forged snapshots or goal amounts, storage folder isolation, attachment path and MIME checks;
 - the recurring engine (month-end, weekly, leap-year; post/skip/no duplicates; auto-post idempotency; history kept after template deletion);
 - budget periods and timezone-correct sums, goal contributions, net-worth snapshots, dashboard and reports, merchant merge;
 - **payment methods**: five types side by side with only their own fields populated, an expense from each one, statement/due-day validation, `current_balance` still unwritable with the new columns in place, billing-cycle computation, and the proof that paying a card bill from a bank account does **not** increase reported spending;
 - **EMIs**: a loan paid from a bank account and another from a credit card, progress counted from posted instalments, exact `instalment × tenure`, the loan record surviving deletion of its schedule, amount and rate validation, and loan isolation between users;
+- **bank sync** (`bank-sync.test.ts`): real bank SMS through the same parser, ingested exactly as the Edge Function does — only the service role may ingest, unknown keys are refused, expenses are created and auto-categorised, duplicates and OTPs never create anything (and an OTP is never stored), a hand-entered expense is linked not duplicated, transfers between your own accounts and card-bill payments are never counted as spending (with one card, and with two cards where the payment waits for the card's own SMS), ATM cash moves to a Cash account, unknown digits are learnt once assigned, a card payment from an untracked account becomes a correction not income, another user can't see or assign your messages, corrected categories are remembered per merchant, splits keep balances unchanged, monthly subscriptions are detected, and every balance still reconciles;
 - the development seed (`seed.test.ts`): it applies against the real schema, spends from every payment method, leaves no balance drift, and refuses to run over real data.
 
 Running the SQL tests on Windows: install PostgreSQL 16 from <https://www.postgresql.org/download/windows/> (or use Docker Desktop: `docker run -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16`), then:
@@ -478,6 +566,7 @@ This creates HDFC Bank, Cash and HDFC Credit Card; six months of salary, rent, e
 - **Interest is not amortised.** An EMI shows the instalment, how much has been paid, how many payments are left and the exact difference between `instalment × tenure` and the loan amount. It does not split each payment into principal and interest, and it does not track a declining outstanding principal — those need the lender's own schedule, and inventing them would put wrong numbers in front of you.
 - **Android is untested.** Every iOS-only API in the app sits behind a platform check with an Android branch, and `app.json` carries Android config, but the app has only ever been run on iOS. Android needs a test pass before trusting it. An Android APK built through EAS needs no developer account and no fee.
 - **Multi-currency.** Accounts can use any currency, and each is tracked exactly. Dashboard, report and net-worth totals include only accounts in your default currency; no exchange rates are invented. Transfers between currencies aren't supported yet. The schema is ready for a `currency_rates` table.
+- **Bank sync needs SMS alerts and an iPhone Shortcut.** It can't read SMS already in your inbox (iOS doesn't allow it), so earlier history comes in by CSV import. A bank that only sends email alerts, or an alert format the parser hasn't seen, shows up as a message in Review rather than being guessed at. UPI apps' own wallets (e.g. Paytm wallet balance) don't send bank SMS. An "Ask about my spending" chat assistant isn't included — it would need an AI API key on the server.
 - **Investments** are valued manually (Reconcile on the account). No market data is fetched.
 - **OCR** needs a Google Cloud Vision key (§9). PDFs are attached but not text-scanned.
 - **Receipts attached while offline** aren't queued. Save offline, then attach the receipt from the transaction once you're online.

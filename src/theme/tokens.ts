@@ -253,14 +253,6 @@ export const chartColorsLight = [
   '#A2541F', // ₹10 chocolate
   '#0A8F80', // teal
 ];
-export const chartColorsDark = [
-  '#3B8FC9',
-  '#B8822A',
-  '#8C74D6',
-  '#6E9F37',
-  '#CF4D99',
-  '#B86E3A',
-  '#1E9E8E',
-];
+export const chartColorsDark = ['#3B8FC9', '#B8822A', '#8C74D6', '#6E9F37', '#CF4D99', '#B86E3A', '#1E9E8E'];
 /** ₹500 stone — "Other" and anything folded. */
 export const chartOther = { light: '#8A9097', dark: '#7C849C' } as const;

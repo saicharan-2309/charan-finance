@@ -87,12 +87,17 @@ function PaydaySection() {
     <Section title="Your money month">
       <Card style={{ gap: spacing.md }}>
         <Text variant="footnote" tone="secondary">
-          Pick the day your salary usually arrives. Home, budgets and “safe to spend” then run payday to payday
-          instead of the 1st to the 31st.
+          Pick the day your salary usually arrives. Home, budgets and “safe to spend” then run payday to
+          payday instead of the 1st to the 31st.
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
           {days.map((d) => (
-            <Chip key={d} label={d === 1 ? '1st' : String(d)} selected={current === d} onPress={() => save.mutate(d)} />
+            <Chip
+              key={d}
+              label={d === 1 ? '1st' : String(d)}
+              selected={current === d}
+              onPress={() => save.mutate(d)}
+            />
           ))}
         </View>
         <Text variant="footnote">
@@ -106,6 +111,9 @@ function PaydaySection() {
 }
 
 function ordinal(n: number): string {
-  const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  const s =
+    n % 100 >= 11 && n % 100 <= 13
+      ? 'th'
+      : (({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th');
   return `${n}${s}`;
 }

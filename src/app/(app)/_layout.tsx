@@ -61,7 +61,10 @@ export default function AppLayout() {
       <Stack.Screen name="bank-sync/messages" options={{ title: 'Bank messages' }} />
       <Stack.Screen name="review" options={{ title: 'Review' }} />
       <Stack.Screen name="rules" options={{ title: 'Auto-categorise' }} />
-      <Stack.Screen name="transaction/split" options={{ presentation: 'modal', title: 'Split transaction' }} />
+      <Stack.Screen
+        name="transaction/split"
+        options={{ presentation: 'modal', title: 'Split transaction' }}
+      />
     </Stack>
   );
 }

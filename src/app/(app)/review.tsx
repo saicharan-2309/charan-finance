@@ -18,7 +18,12 @@ import { EmptyState, SkeletonList } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { SelectSheet } from '@/components/ui/pickers';
 import { Card, Divider, Icon, MoneyText, Row, Text } from '@/components/ui/primitives';
-import { accountOptions, categoryLabel, categoryOptions, splitCategoryValue } from '@/features/shared/options';
+import {
+  accountOptions,
+  categoryLabel,
+  categoryOptions,
+  splitCategoryValue,
+} from '@/features/shared/options';
 import { signedAmount, transactionTitle } from '@/features/transactions/TransactionRow';
 import {
   useAccounts,
@@ -52,7 +57,11 @@ export default function ReviewScreen() {
 
   const assign = useAppMutation(
     (v: { id: string; accountId: string }) => assignMessage(v.id, v.accountId, true),
-    { context: 'review.assign', invalidate: 'financial', success: 'Added — these digits are remembered now.' },
+    {
+      context: 'review.assign',
+      invalidate: 'financial',
+      success: 'Added — these digits are remembered now.',
+    },
   );
   const settle = useAppMutation(settleMessageExternally, {
     context: 'review.settle',
@@ -74,7 +83,16 @@ export default function ReviewScreen() {
     const all = accounts.data ?? [];
     if (!picking) return [];
     if (picking.status === 'awaiting_pair') {
-      return accountOptions(all, (a) => a.id !== picking.accountId && (picking.direction === 'credit' ? a.type !== 'credit_card' : a.type === 'credit_card'));
+      return accountOptions(
+        all,
+        (a) =>
+          a.id !== picking.accountId &&
+          (picking.direction === 'credit' ? a.type !== 'credit_card' : a.type === 'credit_card'),
+      );
+    }
+    if (picking.instrument === 'credit_card') {
+      const cards = accountOptions(all, (a) => a.type === 'credit_card');
+      if (cards.length) return cards;
     }
     return accountOptions(all);
   }, [accounts.data, picking]);
@@ -169,7 +187,9 @@ export default function ReviewScreen() {
             ? picking.direction === 'credit'
               ? 'Which account paid it?'
               : 'Which card was paid?'
-            : 'Which account is this?'
+            : picking?.instrument === 'credit_card'
+              ? 'Which card is this?'
+              : 'Which account is this?'
         }
         options={pickOptions}
         onSelect={(value) => {
@@ -192,7 +212,13 @@ export default function ReviewScreen() {
         title="Category"
         searchable
         options={recat ? categoryOptions(index, recat.type === 'income' ? 'income' : 'expense') : []}
-        selected={recat ? (recat.subcategoryId ? `${recat.categoryId}:${recat.subcategoryId}` : recat.categoryId) : null}
+        selected={
+          recat
+            ? recat.subcategoryId
+              ? `${recat.categoryId}:${recat.subcategoryId}`
+              : recat.categoryId
+            : null
+        }
         onSelect={(value) => {
           if (recat && value) {
             const { categoryId, subcategoryId } = splitCategoryValue(value);
@@ -226,14 +252,17 @@ function PendingCard({
     ? m.direction === 'credit'
       ? `${accountName ?? 'Card'} bill paid`
       : `Card bill paid from ${accountName ?? 'your account'}`
-    : (m.merchant ?? (m.direction === 'credit' ? 'Money in' : 'Payment'));
+    : m.isCardPayment
+      ? 'Card bill payment'
+      : (m.merchant ?? (m.direction === 'credit' ? 'Money in' : 'Payment'));
+  const isCard = m.instrument === 'credit_card' || m.instrument === 'debit_card' || m.instrument === 'card';
   const question = awaiting
     ? m.direction === 'credit'
       ? 'Which account did the money come from?'
       : 'Which card did this pay?'
     : m.last4
-      ? `Which of your accounts ends in ${m.last4}?`
-      : 'Which account is this?';
+      ? `Which of your ${isCard ? 'cards' : 'accounts'} ends in ${m.last4}?`
+      : `Which ${isCard ? 'card' : 'account'} is this?`;
 
   return (
     <Card style={{ gap: spacing.md }}>
@@ -271,13 +300,22 @@ function PendingCard({
         </View>
       </Row>
       <Row gap={spacing.sm} wrap>
-        <Button title={awaiting && m.direction === 'debit' ? 'Choose card' : 'Choose account'} size="sm" onPress={onChoose} />
+        <Button
+          title={awaiting && m.direction === 'debit' ? 'Choose card' : 'Choose account'}
+          size="sm"
+          onPress={onChoose}
+        />
         {awaiting ? (
           <Button title="Not in the app" size="sm" variant="secondary" onPress={onOutside} />
         ) : (
           <Button title="Not mine" size="sm" variant="secondary" onPress={onDismiss} />
         )}
-        <Pressable onPress={() => setOpen((v) => !v)} hitSlop={8} accessibilityRole="button" style={{ justifyContent: 'center', paddingHorizontal: spacing.sm }}>
+        <Pressable
+          onPress={() => setOpen((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          style={{ justifyContent: 'center', paddingHorizontal: spacing.sm }}
+        >
           <Text variant="subhead" tone="brand">
             {open ? 'Hide SMS' : 'Show SMS'}
           </Text>
@@ -327,7 +365,8 @@ function ReviewRow({
               {transactionTitle(t)}
             </Text>
             <Text variant="footnote" tone="secondary" numberOfLines={1}>
-              {t.accountName}, {formatDayLabel(new Date(t.occurredAt)).toLowerCase()} {formatTime(t.occurredAt)}
+              {t.accountName}, {formatDayLabel(new Date(t.occurredAt)).toLowerCase()}{' '}
+              {formatTime(t.occurredAt)}
             </Text>
           </View>
           <MoneyText

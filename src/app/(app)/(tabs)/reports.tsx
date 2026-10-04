@@ -27,6 +27,7 @@ import {
   formatShortDate,
   monthDiff,
   previousRange,
+  rangeForPreset,
   todayISO,
   yearAgoRange,
 } from '@/lib/dates';
@@ -62,11 +63,20 @@ function bucketLabel(bucket: Bucket, iso: string) {
 export default function ReportsScreen() {
   const { colors } = useTheme();
   const currency = useCurrency();
-  const [range, setRange] = useState<RangeValue>(defaultRange);
+  const startDay = useSettings().data?.cycleStartDay ?? 1;
+  const [range, setRange] = useState<RangeValue>(() => defaultRange(startDay));
+  // Once the payday setting arrives (or changes), re-resolve a preset range.
+  const [rangeDay, setRangeDay] = useState(startDay);
+  if (rangeDay !== startDay) {
+    setRangeDay(startDay);
+    if (range.preset !== 'custom') {
+      setRange({ preset: range.preset, range: rangeForPreset(range.preset, new Date(), startDay) });
+    }
+  }
   const [tab, setTab] = useState<Tab>('overview');
   const [refreshing, setRefreshing] = useState(false);
   const { start, end } = range.range;
-  const prev = useMemo(() => previousRange(range.range), [range.range]);
+  const prev = useMemo(() => previousRange(range.range, startDay), [range.range, startDay]);
   const yoy = useMemo(() => yearAgoRange(range.range), [range.range]);
   const bucket = bucketFor(start, end);
 
@@ -138,7 +148,7 @@ export default function ReportsScreen() {
         setRefreshing(false);
       }}
     >
-      <RangePicker value={range} onChange={setRange} />
+      <RangePicker value={range} onChange={setRange} startDay={startDay} />
       <SegmentedControl<Tab>
         value={tab}
         onChange={setTab}

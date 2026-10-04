@@ -37,6 +37,9 @@ declare
   idx integer;
   acct uuid;
   day date;
+  amt numeric(18, 2);
+  card_spent numeric(18, 2);
+  upi_spent numeric(18, 2);
 begin
   if not exists (select 1 from auth.users where id = p_user_id) then
     raise exception 'User % not found', p_user_id;
@@ -81,13 +84,20 @@ begin
     m_ids := m_ids || mid;
   end loop;
 
-  -- Six months of salary, rent and everyday spending.
+  -- Six months of salary, rent and everyday spending. Nothing is dated in the
+  -- future, and every balance stays believable: the card is paid off the
+  -- following month, the UPI wallet is topped up from the bank, and cash
+  -- comes from an ATM — all transfers, never income or expense.
   for d in 0 .. 5 loop
     day := (date_trunc('month', current_date) - make_interval(months => d))::date;
+    card_spent := 0;
+    upi_spent := 0;
     insert into public.transactions (user_id, type, amount, currency, account_id, category_id, occurred_at, notes)
     values (p_user_id, 'income', 125000, 'INR', bank, (cats ->> 'Salary')::uuid, day + time '09:00', 'Salary');
-    insert into public.transactions (user_id, type, amount, currency, account_id, category_id, occurred_at, notes)
-    values (p_user_id, 'expense', 25000, 'INR', bank, (cats ->> 'Rent')::uuid, day + 4 + time '10:00', 'Rent');
+    if day + 4 <= current_date then
+      insert into public.transactions (user_id, type, amount, currency, account_id, category_id, occurred_at, notes)
+      values (p_user_id, 'expense', 25000, 'INR', bank, (cats ->> 'Rent')::uuid, day + 4 + time '10:00', 'Rent');
+    end if;
     for i in 1 .. 18 loop
       idx := 1 + ((i * 7 + d * 3) % array_length(m_names, 1));
       -- Spread spending across every payment method, not just the card.
@@ -99,17 +109,29 @@ begin
                 else bank
               end;
       if day + (i * 1.6)::integer <= current_date then
+        amt := round((150 + ((i * 97 + d * 131) % 2400))::numeric, 2);
         insert into public.transactions (user_id, type, amount, currency, account_id, category_id, merchant_id, occurred_at)
-        values (p_user_id, 'expense', round((150 + ((i * 97 + d * 131) % 2400))::numeric, 2), 'INR', acct,
-                (cats ->> m_cats[idx])::uuid, m_ids[idx], day + (i * 1.6)::integer + time '19:30');
+        values (p_user_id, 'expense', amt, 'INR', acct,
+                (cats ->> m_cats[idx])::uuid, m_ids[idx], day + (i * 1.6)::integer + time '13:30');
+        if acct = card then card_spent := card_spent + amt; end if;
+        if acct = upi then upi_spent := upi_spent + amt; end if;
       end if;
     end loop;
-    -- Pay off the credit card each month (a transfer: not income, not expense).
-    insert into public.transactions (user_id, type, amount, currency, account_id, to_account_id, occurred_at, notes)
-    values (p_user_id, 'transfer', 7000, 'INR', bank, card, day + 20 + time '11:00', 'Card bill payment');
-    -- ATM withdrawal tops up cash (also a transfer).
-    insert into public.transactions (user_id, type, amount, currency, account_id, to_account_id, occurred_at, notes)
-    values (p_user_id, 'transfer', 8000, 'INR', bank, cash, day + 1 + time '18:00', 'ATM withdrawal');
+    -- Last month's card spend is paid in full early next month (a transfer).
+    if d > 0 and day + interval '1 month' + interval '5 days' <= current_date and card_spent > 0 then
+      insert into public.transactions (user_id, type, amount, currency, account_id, to_account_id, occurred_at, notes)
+      values (p_user_id, 'transfer', card_spent, 'INR', bank, card,
+              day + interval '1 month' + interval '5 days' + time '11:00', 'Card bill payment');
+    end if;
+    -- Top the UPI wallet back up, and draw cash at an ATM.
+    if upi_spent > 0 then
+      insert into public.transactions (user_id, type, amount, currency, account_id, to_account_id, occurred_at, notes)
+      values (p_user_id, 'transfer', upi_spent, 'INR', bank, upi, day + 1 + time '08:00', 'Wallet top-up');
+    end if;
+    if day + 1 <= current_date then
+      insert into public.transactions (user_id, type, amount, currency, account_id, to_account_id, occurred_at, notes)
+      values (p_user_id, 'transfer', 5000, 'INR', bank, cash, day + 1 + time '18:00', 'ATM withdrawal');
+    end if;
   end loop;
 
   insert into public.recurring_transactions (user_id, name, type, kind, amount, account_id, category_id, merchant_id, frequency, start_date)

@@ -17,7 +17,10 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
 import type { BankMessage, BankMessageStatus } from '@/types/domain';
 
-const STATUS: Record<BankMessageStatus, { label: string; tone: 'positive' | 'warning' | 'secondary' | 'brand' }> = {
+const STATUS: Record<
+  BankMessageStatus,
+  { label: string; tone: 'positive' | 'warning' | 'secondary' | 'brand' }
+> = {
   received: { label: 'Processing', tone: 'secondary' },
   created: { label: 'Added', tone: 'positive' },
   linked: { label: 'Matched your entry', tone: 'positive' },
@@ -82,7 +85,8 @@ function MessageRow({ m }: { m: BankMessage }) {
       <Row justify="space-between" align="flex-start" gap={spacing.md}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="bodyStrong" numberOfLines={1}>
-            {m.merchant ?? (m.direction === 'credit' ? 'Money in' : m.direction === 'debit' ? 'Money out' : 'Message')}
+            {m.merchant ??
+              (m.direction === 'credit' ? 'Money in' : m.direction === 'debit' ? 'Money out' : 'Message')}
           </Text>
           <Text variant="caption" tone="secondary">
             {formatDayLabel(new Date(m.receivedAt))}, {formatTime(m.receivedAt)}

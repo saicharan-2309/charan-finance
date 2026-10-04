@@ -16,7 +16,15 @@ import type { Insight } from '@/lib/insights';
 import { formatMoney, percentOf } from '@/lib/money';
 import { accountVisual, balanceDisplay, cardStanding, providerByKey } from '@/lib/payment-methods';
 import { useTheme } from '@/theme/ThemeProvider';
-import { chartColorsDark, chartColorsLight, chartOther, fonts, GUTTER, radius, spacing } from '@/theme/tokens';
+import {
+  chartColorsDark,
+  chartColorsLight,
+  chartOther,
+  fonts,
+  GUTTER,
+  radius,
+  spacing,
+} from '@/theme/tokens';
 import type { Account, BudgetStatusRow, CategoryTotal } from '@/types/domain';
 
 /**
@@ -123,7 +131,11 @@ export function CategoryBreakdown({
                   <View style={{ flex: 1 }}>
                     <ShareBar fraction={share} color={c.color} />
                   </View>
-                  <Text variant="caption" tone="tertiary" style={{ width: 34, textAlign: 'right', color: colors.textSecondary }}>
+                  <Text
+                    variant="caption"
+                    tone="tertiary"
+                    style={{ width: 34, textAlign: 'right', color: colors.textSecondary }}
+                  >
                     {Math.round(share * 100)}%
                   </Text>
                 </Row>
@@ -360,7 +372,13 @@ export function AccountStrip({ accounts }: { accounts: Account[] }) {
         const issuer = providerByKey(a.provider)?.label ?? a.institution ?? ACCOUNT_TYPE_LABELS[a.type];
         const util = card?.utilisation ?? null;
         const utilColor =
-          util === null ? colors.brand : util < 0.3 ? colors.positive : util < 0.7 ? colors.warning : colors.negative;
+          util === null
+            ? colors.brand
+            : util < 0.3
+              ? colors.positive
+              : util < 0.7
+                ? colors.warning
+                : colors.negative;
         return (
           <Pressable
             key={a.id}
@@ -409,7 +427,13 @@ export function AccountStrip({ accounts }: { accounts: Account[] }) {
                 {a.name}
               </Text>
               <Text
-                style={{ fontFamily: fonts.displayMedium, fontSize: 21, lineHeight: 26, color: colors.text, letterSpacing: -0.3 }}
+                style={{
+                  fontFamily: fonts.displayMedium,
+                  fontSize: 21,
+                  lineHeight: 26,
+                  color: colors.text,
+                  letterSpacing: -0.3,
+                }}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -417,7 +441,14 @@ export function AccountStrip({ accounts }: { accounts: Account[] }) {
               </Text>
               {card && card.available !== null ? (
                 <View style={{ gap: 4, marginTop: 2 }}>
-                  <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.surfaceMuted, overflow: 'hidden' }}>
+                  <View
+                    style={{
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: colors.surfaceMuted,
+                      overflow: 'hidden',
+                    }}
+                  >
                     <View
                       style={{
                         height: 4,

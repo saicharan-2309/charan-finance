@@ -88,7 +88,10 @@ export function mapAccount(r: Row): Account {
     dueDay: r.due_day === null || r.due_day === undefined ? null : num(r.due_day),
     minimumDue: moneyOrNull(r.minimum_due),
     reportedBalance: moneyOrNull(r.reported_balance),
-    reportedBalanceKind: r.reported_balance_kind === 'limit' || r.reported_balance_kind === 'balance' ? r.reported_balance_kind : null,
+    reportedBalanceKind:
+      r.reported_balance_kind === 'limit' || r.reported_balance_kind === 'balance'
+        ? r.reported_balance_kind
+        : null,
     reportedBalanceAt: str(r.reported_balance_at),
   };
 }
@@ -211,6 +214,8 @@ export function mapBankMessage(r: Row): BankMessage {
     last4: str(r.last4),
     bank: str(r.bank),
     merchant: str(parsed.merchant),
+    instrument: (str(parsed.instrument) as BankMessage['instrument']) ?? null,
+    isCardPayment: parsed.isCardPaymentReceived === true || parsed.isCardBillPayment === true,
     accountId: str(r.account_id),
     transactionId: str(r.transaction_id),
     note: str(r.note),

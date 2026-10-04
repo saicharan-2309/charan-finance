@@ -32,13 +32,7 @@ export type SmsChannel =
   | 'cash'
   | 'other';
 
-export type IgnoreReason =
-  | 'otp'
-  | 'promotional'
-  | 'declined'
-  | 'notice'
-  | 'statement'
-  | 'not_financial';
+export type IgnoreReason = 'otp' | 'promotional' | 'declined' | 'notice' | 'statement' | 'not_financial';
 
 export interface ParsedTransaction {
   kind: 'transaction';
@@ -114,13 +108,23 @@ interface BankDef {
 export const BANKS: BankDef[] = [
   { key: 'hdfc', label: 'HDFC Bank', senders: /HDFC/i, body: /\bHDFC\b/i },
   { key: 'icici', label: 'ICICI Bank', senders: /ICICI/i, body: /\bICICI\b/i },
-  { key: 'sbi', label: 'State Bank of India', senders: /SBI|ATMSBI|SBICRD|SBMSMS|CBSSBI/i, body: /\bSBI\b|State Bank/i },
+  {
+    key: 'sbi',
+    label: 'State Bank of India',
+    senders: /SBI|ATMSBI|SBICRD|SBMSMS|CBSSBI/i,
+    body: /\bSBI\b|State Bank/i,
+  },
   { key: 'axis', label: 'Axis Bank', senders: /AXIS/i, body: /\bAxis\b/i },
   { key: 'kotak', label: 'Kotak Mahindra Bank', senders: /KOTAK/i, body: /\bKotak\b/i },
   { key: 'idfc', label: 'IDFC FIRST Bank', senders: /IDFC/i, body: /\bIDFC\b/i },
   { key: 'yes', label: 'Yes Bank', senders: /YESBNK|YESBK/i, body: /\bYes ?Bank\b/i },
   { key: 'indusind', label: 'IndusInd Bank', senders: /INDUS/i, body: /\bIndusInd\b/i },
-  { key: 'au', label: 'AU Small Finance Bank', senders: /AUBANK|AUSFB/i, body: /\bAU (Small Finance )?Bank\b/i },
+  {
+    key: 'au',
+    label: 'AU Small Finance Bank',
+    senders: /AUBANK|AUSFB/i,
+    body: /\bAU (Small Finance )?Bank\b/i,
+  },
   { key: 'federal', label: 'Federal Bank', senders: /FEDBNK|FEDBK/i, body: /\bFederal Bank\b/i },
   { key: 'pnb', label: 'Punjab National Bank', senders: /PNB/i, body: /\bPNB\b|Punjab National/i },
   { key: 'bob', label: 'Bank of Baroda', senders: /BOB|BARODA/i, body: /\bBank of Baroda\b|\bBoB\b/i },
@@ -167,7 +171,19 @@ function squash(s: string): string {
 }
 
 const MONTHS: Record<string, number> = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  sept: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
 };
 
 function pad(n: number): string {
@@ -192,7 +208,9 @@ export function extractDate(text: string): string | null {
   let m = text.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
   if (m) return validDate(Number(m[1]), Number(m[2]), Number(m[3]));
   // 03-Oct-26, 03 Oct 2026, 03Oct26, 03-OCT-2026
-  m = text.match(/\b(\d{1,2})[-\s/]?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*[-\s/,]?\s?(\d{2,4})\b/i);
+  m = text.match(
+    /\b(\d{1,2})[-\s/]?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*[-\s/,]?\s?(\d{2,4})\b/i,
+  );
   if (m) return validDate(fullYear(m[3]), MONTHS[m[2].toLowerCase()], Number(m[1]));
   // 03-10-26, 03/10/2026, 03.10.26 — Indian banks always print day first
   m = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
@@ -205,10 +223,12 @@ export function extractDate(text: string): string | null {
 // ---------------------------------------------------------------------------
 
 const OTP = /\b(otp|one[- ]time password|verification code|security code)\b|\bis your (?:otp|code)\b/i;
-const DECLINED = /\b(declined|unsuccessful|failed|could not be (?:processed|completed)|not been processed|insufficient (?:funds|balance))\b/i;
+const DECLINED =
+  /\b(declined|unsuccessful|failed|could not be (?:processed|completed)|not been processed|insufficient (?:funds|balance))\b/i;
 const NOTICE =
   /\b(will be (?:debited|deducted|charged|auto-?debited)|to be debited|is due|due (?:on|by|date)|scheduled for|upcoming|pre-?debit|reminder|has requested|requested (?:money|rs|inr)|collect request|mandate (?:is |has been )?(?:successfully )?(?:created|registered|set up|approved)|payment request)\b/i;
-const STATEMENT = /\b(statement (?:for|of|is)|total (?:amount )?due|minimum (?:amount )?due|min\.? (?:amt )?due|stmt)\b/i;
+const STATEMENT =
+  /\b(statement (?:for|of|is)|total (?:amount )?due|minimum (?:amount )?due|min\.? (?:amt )?due|stmt)\b/i;
 const PROMO =
   /\b(pre-?approved|apply now|get up to|eligible for|offer|congratulations|win |reward points|limit (?:upgrade|enhancement|increase)|loan of up to|click here|download the|exclusive|avail)\b/i;
 
@@ -263,7 +283,10 @@ function extractBalance(text: string): Balance | null {
 const AMOUNT_WITH_CURRENCY = new RegExp(CURRENCY + String.raw`\s*\.?\s*` + NUMBER, 'i');
 // SBI writes "debited by 120.0" / "credited by Rs500"
 const AMOUNT_AFTER_VERB = new RegExp(
-  String.raw`(?:debited|credited|deposited|withdrawn)\s+(?:by|for|with|of)?\s*` + CURRENCY + String.raw`?\s*` + NUMBER,
+  String.raw`(?:debited|credited|deposited|withdrawn)\s+(?:by|for|with|of)?\s*` +
+    CURRENCY +
+    String.raw`?\s*` +
+    NUMBER,
   'i',
 );
 
@@ -370,7 +393,8 @@ const MERCHANT_ALIASES: Array<[RegExp, string]> = [
   [/\bchai point\b/i, 'Chai Point'],
 ];
 
-const NOISE = /\b(pvt\.?|private|ltd\.?|limited|llp|india|indi|technologies|technology|tech|services|retail|ventures|solutions|e-?commerce|online|payments?|com)\b/gi;
+const NOISE =
+  /\b(pvt\.?|private|ltd\.?|limited|llp|india|indi|technologies|technology|tech|services|retail|ventures|solutions|e-?commerce|online|payments?|com)\b/gi;
 
 function titleCase(s: string): string {
   return s.toLowerCase().replace(/\b([a-z])/g, (c) => c.toUpperCase());
@@ -430,7 +454,10 @@ function neftName(text: string): string | null {
   return m ? m[1] : null;
 }
 
-function extractMerchant(text: string, direction: SmsDirection): { merchant: string | null; counterparty: string | null } {
+function extractMerchant(
+  text: string,
+  direction: SmsDirection,
+): { merchant: string | null; counterparty: string | null } {
   const vpa = text.match(VPA_RE);
   const counterparty = vpa ? vpa[1].toLowerCase() : null;
   const neft = neftName(text);
@@ -462,7 +489,8 @@ function extractCounterpartyAccount(text: string, direction: SmsDirection): stri
 
 function detectChannel(text: string, instrument: SmsInstrument | null): SmsChannel {
   if (/\batm\b|withdrawn|cash withdrawal/i.test(text)) return 'atm';
-  if (/\b(e-?mandate|auto-?pay|autodebit|auto debit|standing instruction|\bsi\b|nach|ecs)\b/i.test(text)) return 'autopay';
+  if (/\b(e-?mandate|auto-?pay|autodebit|auto debit|standing instruction|\bsi\b|nach|ecs)\b/i.test(text))
+    return 'autopay';
   if (/\bupi\b|@[a-z]{2,}|\bvpa\b/i.test(text)) return 'upi';
   if (/\bimps\b/i.test(text)) return 'imps';
   if (/\bneft\b/i.test(text)) return 'neft';
@@ -483,7 +511,10 @@ export function parseBankSms(input: SmsInput): ParsedSms {
   const raw = input.body ?? '';
   const text = squash(raw.replace(/\r/g, ''));
   // Keep line structure for patterns that rely on it (HDFC "To X\nOn …").
-  const lined = raw.replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim();
+  const lined = raw
+    .replace(/\r/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
   const bank = detectBank(input.sender, text);
 
   if (!text) return { kind: 'ignored', reason: 'not_financial', bank };
@@ -548,7 +579,9 @@ export function parseBankSms(input: SmsInput): ParsedSms {
     instrument !== 'credit_card' &&
     (/\bcred\b|cred\.club|dreamplug/i.test(text) ||
       (counterparty !== null && /(cred|ccpay|ccbill|card|billdesk|bbps)/i.test(counterparty)) ||
-      /\b(credit ?card (?:bill|payment|dues)|cc (?:bill|payment)|card ?bill|towards (?:your )?(?:\w+ )?(?:bank )?credit card)\b/i.test(text));
+      /\b(credit ?card (?:bill|payment|dues)|cc (?:bill|payment)|card ?bill|towards (?:your )?(?:\w+ )?(?:bank )?credit card)\b/i.test(
+        text,
+      ));
 
   const isCashWithdrawal = direction === 'debit' && /\batm\b|withdrawn|cash withdrawal/i.test(text);
   const isSalary = direction === 'credit' && /\b(salary|sal\b|payroll|wages)\b/i.test(text);
@@ -591,11 +624,7 @@ export function parseBankSms(input: SmsInput): ParsedSms {
 export function describeParsed(p: ParsedSms): string {
   if (p.kind === 'ignored') return `Ignored (${p.reason.replace('_', ' ')})`;
   if (p.kind === 'balance') return `Balance update: ₹${p.balance}`;
-  const verb = p.isCardPaymentReceived
-    ? 'Card payment'
-    : p.direction === 'debit'
-      ? 'Spent'
-      : 'Received';
+  const verb = p.isCardPaymentReceived ? 'Card payment' : p.direction === 'debit' ? 'Spent' : 'Received';
   const who = p.merchant ? (p.direction === 'debit' ? ` at ${p.merchant}` : ` from ${p.merchant}`) : '';
   return `${verb} ₹${p.amount}${who}`;
 }

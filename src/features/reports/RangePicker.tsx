@@ -21,7 +21,10 @@ export interface RangeValue {
   range: DateRange;
 }
 
-export const defaultRange = (): RangeValue => ({ preset: 'this_month', range: rangeForPreset('this_month') });
+export const defaultRange = (startDay = 1): RangeValue => ({
+  preset: 'this_month',
+  range: rangeForPreset('this_month', new Date(), startDay),
+});
 
 const PRESETS: RangePreset[] = [
   'this_month',
@@ -33,7 +36,16 @@ const PRESETS: RangePreset[] = [
   'custom',
 ];
 
-export function RangePicker({ value, onChange }: { value: RangeValue; onChange: (v: RangeValue) => void }) {
+export function RangePicker({
+  value,
+  onChange,
+  startDay = 1,
+}: {
+  value: RangeValue;
+  onChange: (v: RangeValue) => void;
+  /** Payday: month presets run payday to payday. */
+  startDay?: number;
+}) {
   const { colors } = useTheme();
   const [custom, setCustom] = useState(false);
   const [start, setStart] = useState(fromISODate(value.range.start));
@@ -57,7 +69,9 @@ export function RangePicker({ value, onChange }: { value: RangeValue; onChange: 
             }
             selected={value.preset === p}
             onPress={() =>
-              p === 'custom' ? setCustom(true) : onChange({ preset: p, range: rangeForPreset(p) })
+              p === 'custom'
+                ? setCustom(true)
+                : onChange({ preset: p, range: rangeForPreset(p, new Date(), startDay) })
             }
           />
         ))}

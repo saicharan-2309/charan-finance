@@ -97,8 +97,34 @@ export const RANGE_PRESET_LABELS: Record<RangePreset, string> = {
   custom: 'Custom',
 };
 
-/** Resolves a preset into an inclusive calendar range relative to `today`. */
-export function rangeForPreset(preset: Exclude<RangePreset, 'custom'>, today: Date = new Date()): DateRange {
+/**
+ * Resolves a preset into an inclusive range relative to `today`. With a
+ * payday (`startDay` > 1), "months" are money months — payday to payday — so
+ * reports agree with Home and budgets. Years stay calendar years.
+ */
+export function rangeForPreset(
+  preset: Exclude<RangePreset, 'custom'>,
+  today: Date = new Date(),
+  startDay = 1,
+): DateRange {
+  if (startDay > 1 && startDay <= 28 && preset !== 'this_year' && preset !== 'last_year') {
+    const current = cycleRange(today, startDay);
+    const back = (n: number) => {
+      let r = current;
+      for (let i = 0; i < n; i++) r = cycleRange(fromISODate(addDaysISO(r.start, -1)), startDay);
+      return r;
+    };
+    switch (preset) {
+      case 'this_month':
+        return current;
+      case 'last_month':
+        return back(1);
+      case 'last_3_months':
+        return { start: back(2).start, end: current.end };
+      case 'last_6_months':
+        return { start: back(5).start, end: current.end };
+    }
+  }
   switch (preset) {
     case 'this_month':
       return { start: toISODate(startOfMonth(today)), end: toISODate(endOfMonth(today)) };
@@ -120,9 +146,19 @@ export function rangeForPreset(preset: Exclude<RangePreset, 'custom'>, today: Da
 }
 
 /** The range of equal length immediately preceding `range` (for comparisons). */
-export function previousRange(range: DateRange): DateRange {
+export function previousRange(range: DateRange, startDay = 1): DateRange {
   const startD = fromISODate(range.start);
   const endD = fromISODate(range.end);
+  // Whole money months (payday to payday) → the same number of money months before.
+  if (startDay > 1 && startD.getDate() === startDay && cycleRange(endD, startDay).end === range.end) {
+    let n = 0;
+    for (let r = cycleRange(startD, startDay); r.start <= range.end && n < 120; n++) {
+      r = cycleRange(fromISODate(addDaysISO(r.end, 1)), startDay);
+    }
+    let first = cycleRange(startD, startDay);
+    for (let i = 0; i < n; i++) first = cycleRange(fromISODate(addDaysISO(first.start, -1)), startDay);
+    return { start: first.start, end: addDaysISO(range.start, -1) };
+  }
   // Whole calendar months → previous whole months of the same count.
   if (toISODate(startOfMonth(startD)) === range.start && toISODate(endOfMonth(endD)) === range.end) {
     const months = monthDiff(range.start, range.end) + 1;
