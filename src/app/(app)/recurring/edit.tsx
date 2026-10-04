@@ -9,7 +9,7 @@ import { DateTimeField, SelectField, SelectSheet, type SelectOption } from '@/co
 import { Card, Divider, Text } from '@/components/ui/primitives';
 import { useAccounts, useAppMutation, useCategoryIndex, useMerchants, useRecurring } from '@/hooks/data';
 import { accountVisual, balanceDisplay } from '@/lib/payment-methods';
-import { fromISODate, toISODate } from '@/lib/dates';
+import { fromISODate, isISODate, toISODate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
 import { formatMoney, minorToInput, parseAmountInput, sanitizeAmountKeystrokes } from '@/lib/money';
 import { invalidateFinancialData } from '@/lib/query';
@@ -21,7 +21,18 @@ import type { RecurringItem, RecurringKind } from '@/types/domain';
 type RType = 'expense' | 'income' | 'transfer';
 
 export default function RecurringEditScreen() {
-  const { id, kind } = useLocalSearchParams<{ id?: string; kind?: RecurringKind }>();
+  const { id, kind, ...prefill } = useLocalSearchParams<{
+    id?: string;
+    kind?: RecurringKind;
+    // Prefill from a detected subscription
+    name?: string;
+    amount?: string;
+    accountId?: string;
+    categoryId?: string;
+    merchantId?: string;
+    frequency?: Frequency;
+    start?: string;
+  }>();
   const q = useRecurring();
   if (id && !q.data)
     return (
@@ -30,16 +41,30 @@ export default function RecurringEditScreen() {
       </Screen>
     );
   return (
-    <RecurringForm existing={id ? (q.data?.find((r) => r.id === id) ?? null) : null} initialKind={kind} />
+    <RecurringForm
+      existing={id ? (q.data?.find((r) => r.id === id) ?? null) : null}
+      initialKind={kind}
+      prefill={id ? undefined : prefill}
+    />
   );
 }
 
 function RecurringForm({
   existing,
   initialKind,
+  prefill,
 }: {
   existing: RecurringItem | null;
   initialKind?: RecurringKind;
+  prefill?: {
+    name?: string;
+    amount?: string;
+    accountId?: string;
+    categoryId?: string;
+    merchantId?: string;
+    frequency?: Frequency;
+    start?: string;
+  };
 }) {
   const toast = useToast();
   const accounts = (useAccounts().data ?? []).filter(
@@ -48,18 +73,26 @@ function RecurringForm({
   const merchants = useMerchants().data ?? [];
   const { index } = useCategoryIndex();
 
-  const [name, setName] = useState(existing?.name ?? '');
+  const [name, setName] = useState(existing?.name ?? prefill?.name ?? '');
   const [type, setType] = useState<RType>(existing?.type ?? 'expense');
   const [kind, setKind] = useState<RecurringKind>(existing?.kind ?? initialKind ?? 'bill');
-  const [amount, setAmount] = useState(existing ? minorToInput(existing.amount) : '');
-  const [accountId, setAccountId] = useState<string | null>(existing?.accountId ?? accounts[0]?.id ?? null);
+  const [amount, setAmount] = useState(existing ? minorToInput(existing.amount) : (prefill?.amount ?? ''));
+  const [accountId, setAccountId] = useState<string | null>(
+    existing?.accountId ?? prefill?.accountId ?? accounts[0]?.id ?? null,
+  );
   const [toAccountId, setToAccountId] = useState<string | null>(existing?.toAccountId ?? null);
-  const [categoryId, setCategoryId] = useState<string | null>(existing?.categoryId ?? null);
+  const [categoryId, setCategoryId] = useState<string | null>(existing?.categoryId ?? prefill?.categoryId ?? null);
   const [subcategoryId, setSubcategoryId] = useState<string | null>(existing?.subcategoryId ?? null);
-  const [merchantId, setMerchantId] = useState<string | null>(existing?.merchantId ?? null);
-  const [frequency, setFrequency] = useState<Frequency>(existing?.frequency ?? 'monthly');
+  const [merchantId, setMerchantId] = useState<string | null>(existing?.merchantId ?? prefill?.merchantId ?? null);
+  const [frequency, setFrequency] = useState<Frequency>(existing?.frequency ?? prefill?.frequency ?? 'monthly');
   const [interval, setInterval] = useState(String(existing?.intervalCount ?? 1));
-  const [start, setStart] = useState<Date>(() => (existing ? fromISODate(existing.startDate) : new Date()));
+  const [start, setStart] = useState<Date>(() =>
+    existing
+      ? fromISODate(existing.startDate)
+      : prefill?.start && isISODate(prefill.start)
+        ? fromISODate(prefill.start)
+        : new Date(),
+  );
   const [hasEnd, setHasEnd] = useState(!!existing?.endDate);
   const [end, setEnd] = useState<Date>(() =>
     existing?.endDate ? fromISODate(existing.endDate) : new Date(Date.now() + 365 * 86400000),

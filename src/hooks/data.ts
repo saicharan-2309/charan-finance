@@ -12,7 +12,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 
 import { useToast } from '@/components/ui/feedback';
 import { haptic } from '@/components/ui/controls';
-import { monthRange, todayISO, type ISODate } from '@/lib/dates';
+import { cycleRange, todayISO, type DateRange, type ISODate } from '@/lib/dates';
 import { describeError, logError } from '@/lib/errors';
 import { offlineQueue } from '@/lib/offline-queue';
 import { invalidateFinancialData, qk } from '@/lib/query';
@@ -26,6 +26,14 @@ import {
   fetchRecurring,
 } from '@/services/planning';
 import { fetchCardCycle, fetchLoans } from '@/services/loans';
+import {
+  fetchBankSyncStatus,
+  fetchDetectedRecurring,
+  fetchPendingMessages,
+  fetchRecentMessages,
+  fetchReviewQueue,
+  fetchRules,
+} from '@/services/bank-sync';
 import { fetchDashboard } from '@/services/reports';
 import {
   fetchRecentTransactions,
@@ -50,6 +58,16 @@ export const useBudgets = () => useQuery({ queryKey: qk.budgets, queryFn: fetchB
 export const useGoals = () => useQuery({ queryKey: qk.goals, queryFn: fetchGoals });
 export const useSnapshots = () => useQuery({ queryKey: qk.snapshots, queryFn: fetchNetWorthSnapshots });
 
+export const useBankSyncStatus = () => useQuery({ queryKey: qk.bankSync, queryFn: fetchBankSyncStatus });
+export const usePendingMessages = () =>
+  useQuery({ queryKey: qk.bankMessages('pending'), queryFn: fetchPendingMessages });
+export const useRecentMessages = () =>
+  useQuery({ queryKey: qk.bankMessages('recent'), queryFn: () => fetchRecentMessages(60) });
+export const useReviewQueue = () => useQuery({ queryKey: qk.reviewQueue, queryFn: fetchReviewQueue });
+export const useRules = () => useQuery({ queryKey: qk.rules, queryFn: fetchRules });
+export const useDetectedRecurring = () =>
+  useQuery({ queryKey: qk.detectedRecurring, queryFn: fetchDetectedRecurring, staleTime: 10 * 60_000 });
+
 export const useContributions = (goalId?: string) =>
   useQuery({ queryKey: qk.contributions(goalId), queryFn: () => fetchContributions(goalId) });
 
@@ -66,8 +84,15 @@ export function useBudgetStatus(ref: ISODate = todayISO()) {
   return useQuery({ queryKey: qk.budgetStatus(ref), queryFn: () => fetchBudgetStatus(ref) });
 }
 
+/** The current money month — payday to payday, or the calendar month. */
+export function useCycle(): DateRange {
+  const startDay = useSettings().data?.cycleStartDay ?? 1;
+  const today = todayISO();
+  return useMemo(() => cycleRange(new Date(), startDay), [startDay, today]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 export function useDashboard() {
-  const month = monthRange();
+  const month = useCycle();
   return useQuery({
     queryKey: qk.dashboard(month.start),
     queryFn: () => fetchDashboard(month.start, month.end),

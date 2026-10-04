@@ -149,6 +149,26 @@ export function monthRange(today: Date = new Date()): DateRange {
   return rangeForPreset('this_month', today);
 }
 
+/**
+ * The user's "money month": from payday to the day before the next payday.
+ * `startDay` is 1–28 (1 = calendar months), so it never needs clamping.
+ */
+export function cycleRange(today: Date = new Date(), startDay = 1): DateRange {
+  if (!Number.isInteger(startDay) || startDay <= 1 || startDay > 28) return monthRange(today);
+  const y = today.getFullYear();
+  const m = today.getDate() >= startDay ? today.getMonth() : today.getMonth() - 1;
+  const start = new Date(y, m, startDay);
+  const end = new Date(y, m + 1, startDay - 1);
+  return { start: toISODate(start), end: toISODate(end) };
+}
+
+/** Days left in a range after `today`, today included. */
+export function daysLeft(range: DateRange, today: ISODate): number {
+  if (today > range.end) return 0;
+  if (today < range.start) return daysBetweenInclusive(range.start, range.end);
+  return daysBetweenInclusive(today, range.end);
+}
+
 /** Combines a calendar date and a local time ('HH:mm') into a Date. */
 export function combineDateTime(date: ISODate, time: string): Date {
   const d = fromISODate(date);

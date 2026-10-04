@@ -8,6 +8,10 @@ import type {
   AccountTotal,
   AppSettings,
   Attachment,
+  BankMessage,
+  BankSyncStatus,
+  CategoryRule,
+  DetectedRecurring,
   Budget,
   BudgetItem,
   BudgetStatusRow,
@@ -58,6 +62,7 @@ export function mapSettings(r: Row): AppSettings {
     notifySubscriptionRenewals: !!r.notify_subscription_renewals,
     notifyMonthlySummary: !!r.notify_monthly_summary,
     billReminderDaysBefore: num(r.bill_reminder_days_before),
+    cycleStartDay: r.cycle_start_day === null || r.cycle_start_day === undefined ? 1 : num(r.cycle_start_day),
   };
 }
 
@@ -82,6 +87,9 @@ export function mapAccount(r: Row): Account {
     statementDay: r.statement_day === null || r.statement_day === undefined ? null : num(r.statement_day),
     dueDay: r.due_day === null || r.due_day === undefined ? null : num(r.due_day),
     minimumDue: moneyOrNull(r.minimum_due),
+    reportedBalance: moneyOrNull(r.reported_balance),
+    reportedBalanceKind: r.reported_balance_kind === 'limit' || r.reported_balance_kind === 'balance' ? r.reported_balance_kind : null,
+    reportedBalanceAt: str(r.reported_balance_at),
   };
 }
 
@@ -183,6 +191,67 @@ export function mapTransaction(r: Row): Transaction {
     tagNames: Array.isArray(r.tag_names) ? r.tag_names : [],
     hasReceipt: !!r.has_receipt,
     updatedAt: r.updated_at,
+    source: (str(r.source) as Transaction['source'] | null) ?? 'manual',
+    needsReview: !!r.needs_review,
+    externalRef: str(r.external_ref),
+    splitGroupId: str(r.split_group_id),
+  };
+}
+
+export function mapBankMessage(r: Row): BankMessage {
+  const parsed = (r.parsed ?? {}) as Row;
+  return {
+    id: r.id,
+    sender: str(r.sender),
+    body: r.body,
+    receivedAt: r.received_at,
+    status: r.status,
+    direction: r.direction === 'debit' || r.direction === 'credit' ? r.direction : null,
+    amount: moneyOrNull(r.amount),
+    last4: str(r.last4),
+    bank: str(r.bank),
+    merchant: str(parsed.merchant),
+    accountId: str(r.account_id),
+    transactionId: str(r.transaction_id),
+    note: str(r.note),
+  };
+}
+
+export function mapBankSyncStatus(r: Row): BankSyncStatus {
+  return {
+    connected: !!r.connected,
+    connectedAt: str(r.connected_at),
+    lastMessageAt: str(r.last_message_at),
+    pending: num(r.pending),
+    toReview: num(r.to_review),
+    last30Days: (r.last_30_days ?? {}) as BankSyncStatus['last30Days'],
+  };
+}
+
+export function mapRule(r: Row): CategoryRule {
+  return {
+    id: r.id,
+    pattern: r.pattern,
+    kind: r.kind,
+    categoryId: r.category_id,
+    subcategoryId: str(r.subcategory_id),
+    createdAt: r.created_at,
+  };
+}
+
+export function mapDetectedRecurring(r: Row): DetectedRecurring {
+  return {
+    merchantId: r.merchant_id,
+    merchantName: r.merchant_name,
+    categoryId: str(r.category_id),
+    accountId: str(r.account_id),
+    frequency: r.frequency,
+    typicalAmount: money(r.typical_amount),
+    lastAmount: money(r.last_amount),
+    occurrences: num(r.occurrences),
+    lastDate: isoDate(r.last_date)!,
+    nextDate: isoDate(r.next_date)!,
+    isTracked: !!r.is_tracked,
   };
 }
 

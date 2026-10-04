@@ -1,4 +1,10 @@
+import {
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from '@expo-google-fonts/bricolage-grotesque';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -24,10 +30,17 @@ export { ErrorBoundary } from '@/components/ErrorBoundary';
 function RootNavigator() {
   const { session, initializing, recovering } = useAuth();
   const { colors, scheme } = useTheme();
+  // A font that fails to load falls back to the system face; it never blocks the app.
+  const [fontsLoaded, fontError] = useFonts({
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+  });
+  const fontsReady = fontsLoaded || !!fontError;
 
   useEffect(() => {
-    if (!initializing) void SplashScreen.hideAsync();
-  }, [initializing]);
+    if (!initializing && fontsReady) void SplashScreen.hideAsync();
+  }, [initializing, fontsReady]);
 
   const navTheme = useMemo(() => {
     const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
@@ -44,7 +57,7 @@ function RootNavigator() {
     };
   }, [scheme, colors]);
 
-  if (initializing) return null;
+  if (initializing || !fontsReady) return null;
   const allowed = allowedGroups({ isConfigured, hasSession: !!session, recovering });
   const signedIn = allowed.has('(app)');
 

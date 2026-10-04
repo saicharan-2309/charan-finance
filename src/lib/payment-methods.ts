@@ -121,34 +121,34 @@ export interface Provider {
 
 /** UPI apps and digital wallets. */
 export const UPI_PROVIDERS: Provider[] = [
-  { key: 'gpay', label: 'Google Pay', icon: 'logo-google', color: '#5B87C4' },
-  { key: 'phonepe', label: 'PhonePe', icon: 'phone-portrait-outline', color: '#8B7FC0' },
-  { key: 'paytm', label: 'Paytm', icon: 'wallet-outline', color: '#4A8DA8' },
-  { key: 'amazonpay', label: 'Amazon Pay', icon: 'cart-outline', color: '#C09A5B' },
-  { key: 'upi_other', label: 'Other UPI app', icon: 'at-outline', color: '#8C8782' },
+  { key: 'gpay', label: 'Google Pay', icon: 'logo-google', color: '#1F86C7' },
+  { key: 'phonepe', label: 'PhonePe', icon: 'phone-portrait-outline', color: '#7A5CCB' },
+  { key: 'paytm', label: 'Paytm', icon: 'wallet-outline', color: '#127F9E' },
+  { key: 'amazonpay', label: 'Amazon Pay', icon: 'cart-outline', color: '#A2541F' },
+  { key: 'upi_other', label: 'Other UPI app', icon: 'at-outline', color: '#7B828C' },
 ];
 
 /** Indian banks and card issuers, as presets for name + institution. */
 export const BANK_PROVIDERS: Provider[] = [
-  { key: 'hdfc', label: 'HDFC', icon: 'business-outline', color: '#5B87C4', institution: 'HDFC Bank' },
+  { key: 'hdfc', label: 'HDFC', icon: 'business-outline', color: '#1F86C7', institution: 'HDFC Bank' },
   {
     key: 'sbi',
     label: 'SBI',
     icon: 'business-outline',
-    color: '#7C8FC0',
+    color: '#5A67C2',
     institution: 'State Bank of India',
   },
-  { key: 'icici', label: 'ICICI', icon: 'business-outline', color: '#C08A4F', institution: 'ICICI Bank' },
-  { key: 'axis', label: 'Axis', icon: 'business-outline', color: '#C97A86', institution: 'Axis Bank' },
+  { key: 'icici', label: 'ICICI', icon: 'business-outline', color: '#C2703A', institution: 'ICICI Bank' },
+  { key: 'axis', label: 'Axis', icon: 'business-outline', color: '#C23F5E', institution: 'Axis Bank' },
   {
     key: 'kotak',
     label: 'Kotak',
     icon: 'business-outline',
-    color: '#4A8DA8',
+    color: '#127F9E',
     institution: 'Kotak Mahindra Bank',
   },
-  { key: 'amex', label: 'Amex', icon: 'card-outline', color: '#4F9690', institution: 'American Express' },
-  { key: 'other_bank', label: 'Other', icon: 'business-outline', color: '#8C8782' },
+  { key: 'amex', label: 'Amex', icon: 'card-outline', color: '#0F7F73', institution: 'American Express' },
+  { key: 'other_bank', label: 'Other', icon: 'business-outline', color: '#7B828C' },
 ];
 
 export function providersFor(type: AccountType): Provider[] {

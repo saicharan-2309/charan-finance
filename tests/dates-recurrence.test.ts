@@ -140,3 +140,24 @@ describe('recurrence engine (mirrors SQL)', () => {
     expect(describeFrequency('weekly', 2)).toBe('Every 2 weeks');
   });
 });
+
+describe('payday cycles', () => {
+  const { cycleRange, daysLeft } = jest.requireActual('@/lib/dates') as typeof import('@/lib/dates');
+
+  it('uses calendar months when the cycle starts on the 1st', () => {
+    expect(cycleRange(new Date(2026, 9, 3), 1)).toEqual({ start: '2026-10-01', end: '2026-10-31' });
+  });
+
+  it('runs from payday to the day before the next payday', () => {
+    expect(cycleRange(new Date(2026, 9, 3), 25)).toEqual({ start: '2026-09-25', end: '2026-10-24' });
+    expect(cycleRange(new Date(2026, 9, 25), 25)).toEqual({ start: '2026-10-25', end: '2026-11-24' });
+    expect(cycleRange(new Date(2026, 0, 10), 28)).toEqual({ start: '2025-12-28', end: '2026-01-27' });
+    expect(cycleRange(new Date(2026, 11, 30), 28)).toEqual({ start: '2026-12-28', end: '2027-01-27' });
+  });
+
+  it('counts the days left, today included', () => {
+    expect(daysLeft({ start: '2026-09-25', end: '2026-10-24' }, '2026-10-03')).toBe(22);
+    expect(daysLeft({ start: '2026-09-25', end: '2026-10-24' }, '2026-10-24')).toBe(1);
+    expect(daysLeft({ start: '2026-09-25', end: '2026-10-24' }, '2026-10-25')).toBe(0);
+  });
+});

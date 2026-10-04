@@ -11,11 +11,12 @@ import { Screen } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { pickReceipt } from '@/features/receipts/pickReceipt';
 import { signedAmount, transactionTitle } from '@/features/transactions/TransactionRow';
-import { useTransaction } from '@/hooks/data';
+import { useAppMutation, useTransaction } from '@/hooks/data';
 import { formatShortDate, formatTime } from '@/lib/dates';
 import { describeError, logError } from '@/lib/errors';
 import { submitDelete } from '@/lib/offline-queue';
 import { invalidateFinancialData, qk, queryClient } from '@/lib/query';
+import { markReviewed } from '@/services/bank-sync';
 import {
   AttachmentError,
   deleteAttachment,
@@ -39,6 +40,11 @@ export default function TransactionDetail() {
     enabled: !!id,
   });
   const [busy, setBusy] = useState(false);
+  const confirm = useAppMutation((txId: string) => markReviewed([txId]), {
+    context: 'transaction.review',
+    invalidate: 'financial',
+    success: 'Checked',
+  });
 
   if (!tx.data) {
     return (
@@ -120,6 +126,9 @@ export default function TransactionDetail() {
     ]);
   if (t.merchantName) details.push(['Merchant', t.merchantName]);
   if (t.tagNames.length) details.push(['Tags', t.tagNames.map((x) => `#${x}`).join('  ')]);
+  if (t.source === 'sms') details.push(['Added from', 'Bank SMS']);
+  if (t.externalRef) details.push(['Bank reference', t.externalRef]);
+  if (t.splitGroupId) details.push(['Split', 'Part of a split payment']);
 
   return (
     <Screen>
@@ -174,6 +183,24 @@ export default function TransactionDetail() {
                 : 'Expense'}
         </Text>
       </View>
+
+      {t.needsReview ? (
+        <Card style={{ marginBottom: spacing.lg, gap: spacing.md, backgroundColor: colors.warningSoft, borderColor: colors.warningSoft }}>
+          <Row gap={spacing.md} align="flex-start">
+            <Icon name="chatbox-ellipses-outline" size={20} tone="warning" />
+            <Text variant="callout" style={{ flex: 1 }}>
+              Added automatically from your bank’s SMS. Check the category, then confirm.
+            </Text>
+          </Row>
+          <Button
+            title="Looks right"
+            size="md"
+            icon="checkmark"
+            loading={confirm.isPending}
+            onPress={() => confirm.mutate(t.id)}
+          />
+        </Card>
+      ) : null}
 
       <Card style={{ paddingVertical: spacing.xs }}>
         {details.map(([label, value], i) => (
@@ -233,6 +260,14 @@ export default function TransactionDetail() {
       ) : null}
 
       <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
+        {(t.type === 'expense' || t.type === 'income') ? (
+          <Button
+            title="Split across categories"
+            icon="git-branch-outline"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/transaction/split', params: { id: t.id } })}
+          />
+        ) : null}
         {t.type !== 'adjustment' ? (
           <Button
             title="Duplicate"

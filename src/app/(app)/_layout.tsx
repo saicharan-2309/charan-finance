@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { useSessionBootstrap } from '@/hooks/useSessionBootstrap';
 import { useUserId } from '@/providers/AuthProvider';
 import { useTheme } from '@/theme/ThemeProvider';
+import { fonts } from '@/theme/tokens';
 
 export default function AppLayout() {
   const userId = useUserId();
@@ -16,7 +17,7 @@ export default function AppLayout() {
         headerBackButtonDisplayMode: 'minimal',
         headerTintColor: colors.text,
         headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { color: colors.text },
+        headerTitleStyle: { color: colors.text, fontFamily: fonts.displayMedium, fontSize: 18 },
         contentStyle: { backgroundColor: colors.background },
       }}
     >
@@ -53,9 +54,14 @@ export default function AppLayout() {
       <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
       <Stack.Screen name="settings/security" options={{ title: 'Security' }} />
       <Stack.Screen name="settings/appearance" options={{ title: 'Appearance' }} />
-      <Stack.Screen name="settings/preferences" options={{ title: 'Currency & region' }} />
+      <Stack.Screen name="settings/preferences" options={{ title: 'Money month & region' }} />
       <Stack.Screen name="settings/about" options={{ title: 'About' }} />
       <Stack.Screen name="settings/privacy" options={{ title: 'Privacy' }} />
+      <Stack.Screen name="bank-sync/index" options={{ title: 'Bank sync' }} />
+      <Stack.Screen name="bank-sync/messages" options={{ title: 'Bank messages' }} />
+      <Stack.Screen name="review" options={{ title: 'Review' }} />
+      <Stack.Screen name="rules" options={{ title: 'Auto-categorise' }} />
+      <Stack.Screen name="transaction/split" options={{ presentation: 'modal', title: 'Split transaction' }} />
     </Stack>
   );
 }

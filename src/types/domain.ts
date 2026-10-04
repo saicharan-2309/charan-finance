@@ -42,6 +42,8 @@ export interface AppSettings {
   notifySubscriptionRenewals: boolean;
   notifyMonthlySummary: boolean;
   billReminderDaysBefore: number;
+  /** Day of month the user's money month starts (payday). 1 = calendar months. */
+  cycleStartDay: number;
 }
 
 export interface Account {
@@ -68,6 +70,10 @@ export interface Account {
   dueDay: number | null;
   /** Credit cards: minimum amount due, as printed on the statement. */
   minimumDue: Minor | null;
+  /** Latest balance (or available credit, see kind) printed in a bank SMS. */
+  reportedBalance: Minor | null;
+  reportedBalanceKind: 'balance' | 'limit' | null;
+  reportedBalanceAt: string | null;
 }
 
 /**
@@ -164,8 +170,79 @@ export interface Transaction {
   tagNames: string[];
   hasReceipt: boolean;
   updatedAt: string;
+  /** Where it came from: typed in, read from a bank SMS, imported… */
+  source: TransactionSource;
+  /** Auto-captured and not yet confirmed by the user. */
+  needsReview: boolean;
+  externalRef: string | null;
+  splitGroupId: UUID | null;
   /** True while the write is waiting in the offline queue. */
   pending?: boolean;
+}
+
+export type TransactionSource = 'manual' | 'sms' | 'import' | 'recurring' | 'receipt';
+
+export type BankMessageStatus =
+  | 'received'
+  | 'created'
+  | 'linked'
+  | 'paired'
+  | 'duplicate'
+  | 'ignored'
+  | 'needs_account'
+  | 'awaiting_pair'
+  | 'balance'
+  | 'dismissed';
+
+/** One forwarded bank SMS and what the app did with it. */
+export interface BankMessage {
+  id: UUID;
+  sender: string | null;
+  body: string;
+  receivedAt: string;
+  status: BankMessageStatus;
+  direction: 'debit' | 'credit' | null;
+  amount: Minor | null;
+  last4: string | null;
+  bank: string | null;
+  merchant: string | null;
+  accountId: UUID | null;
+  transactionId: UUID | null;
+  note: string | null;
+}
+
+export interface BankSyncStatus {
+  connected: boolean;
+  connectedAt: string | null;
+  lastMessageAt: string | null;
+  pending: number;
+  toReview: number;
+  last30Days: Partial<Record<BankMessageStatus, number>>;
+}
+
+/** "Anything containing SWIGGY goes to Food › Food Delivery." */
+export interface CategoryRule {
+  id: UUID;
+  pattern: string;
+  kind: CategoryKind;
+  categoryId: UUID;
+  subcategoryId: UUID | null;
+  createdAt: string;
+}
+
+/** A merchant charged on a steady rhythm — a likely subscription or bill. */
+export interface DetectedRecurring {
+  merchantId: UUID;
+  merchantName: string;
+  categoryId: UUID | null;
+  accountId: UUID | null;
+  frequency: Frequency;
+  typicalAmount: Minor;
+  lastAmount: Minor;
+  occurrences: number;
+  lastDate: ISODate;
+  nextDate: ISODate;
+  isTracked: boolean;
 }
 
 export interface RecurringItem {

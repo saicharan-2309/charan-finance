@@ -54,24 +54,24 @@ begin
   -- a credit card with a billing cycle. Nothing here is special-cased.
   insert into public.accounts (user_id, name, type, institution, provider, last4, opening_balance,
                                sort_order, color, icon)
-  values (p_user_id, 'HDFC Salary', 'bank', 'HDFC Bank', 'hdfc', '4821', 60000, 1, '#5B87C4',
+  values (p_user_id, 'HDFC Salary', 'bank', 'HDFC Bank', 'hdfc', '4821', 60000, 1, '#1F86C7',
           'business-outline')
   returning id into bank;
   insert into public.accounts (user_id, name, type, institution, provider, last4, opening_balance,
                                sort_order, color, icon)
-  values (p_user_id, 'SBI Savings', 'savings', 'State Bank of India', 'sbi', '9182', 42800, 2, '#7C8FC0',
+  values (p_user_id, 'SBI Savings', 'savings', 'State Bank of India', 'sbi', '9182', 42800, 2, '#5A67C2',
           'business-outline')
   returning id into savings;
   insert into public.accounts (user_id, name, type, opening_balance, sort_order, color, icon)
-  values (p_user_id, 'Cash', 'cash', 4000, 3, '#4F9A6A', 'cash-outline')
+  values (p_user_id, 'Cash', 'cash', 4000, 3, '#2F8A57', 'cash-outline')
   returning id into cash;
   insert into public.accounts (user_id, name, type, provider, opening_balance, sort_order, color, icon)
-  values (p_user_id, 'Google Pay', 'wallet', 'gpay', 2300, 4, '#5B87C4', 'logo-google')
+  values (p_user_id, 'Google Pay', 'wallet', 'gpay', 2300, 4, '#1F86C7', 'logo-google')
   returning id into upi;
   insert into public.accounts (user_id, name, type, institution, provider, last4, opening_balance,
                                credit_limit, statement_day, due_day, minimum_due, sort_order, color, icon)
   values (p_user_id, 'HDFC Credit Card', 'credit_card', 'HDFC Bank', 'hdfc', '9034', 0, 200000, 28, 12,
-          5000, 5, '#C97A86', 'card-outline')
+          5000, 5, '#C23F5E', 'card-outline')
   returning id into card;
 
   for i in 1 .. array_length(m_names, 1) loop
@@ -128,7 +128,7 @@ begin
   where b.user_id = p_user_id;
 
   insert into public.savings_goals (user_id, name, target_amount, initial_amount, target_date, icon, color)
-  values (p_user_id, 'MacBook', 120000, 72000, current_date + 150, 'laptop-outline', '#7C83C6');
+  values (p_user_id, 'MacBook', 120000, 72000, current_date + 150, 'laptop-outline', '#5A64C8');
 
   -- A car loan paid from the salary account, and a phone EMI on the credit
   -- card: the same model, two different payment methods.
@@ -143,7 +143,7 @@ begin
   values (p_user_id, 'Car Loan', 'HDFC Bank', 900000, 18500, 9.5, 60,
           (current_date - interval '8 months')::date, bank,
           coalesce((cats ->> 'Loans & EMI')::uuid, (cats ->> 'Other')::uuid), emi_schedule,
-          'car-outline', '#7C77C6');
+          'car-outline', '#6E5BB0');
 
   insert into public.recurring_transactions
     (user_id, name, type, kind, amount, account_id, category_id, frequency, start_date, remind_days_before)
@@ -156,7 +156,7 @@ begin
   values (p_user_id, 'Phone EMI', 'ICICI Bank', 50400, 4200, 13.0, 12,
           (current_date - interval '3 months')::date, card,
           coalesce((cats ->> 'Loans & EMI')::uuid, (cats ->> 'Other')::uuid), emi_schedule,
-          'phone-portrait-outline', '#A97BB5');
+          'phone-portrait-outline', '#C03587');
 
   return 'Seeded demo data for ' || p_user_id;
 end;

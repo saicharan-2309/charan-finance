@@ -6,15 +6,23 @@ import { EmptyState, QueryState, useToast } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { useSeriesColor } from '@/features/dashboard/widgets';
-import { useCategoryIndex, useCurrency, useRecurring } from '@/hooks/data';
+import { useCategoryIndex, useCurrency, useDetectedRecurring, useRecurring } from '@/hooks/data';
 import { formatDayLabel } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
-import { formatMoney } from '@/lib/money';
+import { formatMoney, minorToInput } from '@/lib/money';
 import { invalidateFinancialData } from '@/lib/query';
 import { describeFrequency, monthlyEquivalent, yearlyEquivalent } from '@/lib/recurrence';
 import { setRecurringActive } from '@/services/planning';
 import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/tokens';
+
+const FREQ_COPY: Record<string, string> = {
+  daily: 'a day',
+  weekly: 'a week',
+  monthly: 'a month',
+  quarterly: 'a quarter',
+  yearly: 'a year',
+};
 
 export default function SubscriptionsScreen() {
   const { colors } = useTheme();
@@ -23,6 +31,7 @@ export default function SubscriptionsScreen() {
   const q = useRecurring();
   const { index } = useCategoryIndex();
   const seriesColor = useSeriesColor();
+  const detected = (useDetectedRecurring().data ?? []).filter((d) => !d.isTracked);
 
   return (
     <Screen>
@@ -40,6 +49,59 @@ export default function SubscriptionsScreen() {
           ),
         }}
       />
+      {detected.length > 0 ? (
+        <Section title="Found in your spending">
+          <Card padded={false} style={{ paddingHorizontal: spacing.lg }}>
+            {detected.slice(0, 8).map((d, i) => {
+              const c = d.categoryId ? index.byId.get(d.categoryId) : null;
+              return (
+                <View key={d.merchantId}>
+                  {i > 0 ? <Divider inset={52} /> : null}
+                  <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
+                    <IconBadge icon={c?.icon ?? 'repeat'} color={c?.color} size={38} />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="bodyStrong" numberOfLines={1}>
+                        {d.merchantName}
+                      </Text>
+                      <Text variant="footnote" tone="secondary" numberOfLines={1}>
+                        {formatMoney(d.typicalAmount, currency, { decimals: 'never' })} {FREQ_COPY[d.frequency]}, next{' '}
+                        {formatDayLabel(d.nextDate).toLowerCase()}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        router.push({
+                          pathname: '/recurring/edit',
+                          params: {
+                            kind: 'subscription',
+                            name: d.merchantName,
+                            amount: minorToInput(d.lastAmount),
+                            accountId: d.accountId ?? undefined,
+                            categoryId: d.categoryId ?? undefined,
+                            merchantId: d.merchantId,
+                            frequency: d.frequency,
+                            start: d.nextDate,
+                          },
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`Track ${d.merchantName}`}
+                      hitSlop={8}
+                    >
+                      <Text variant="subhead" tone="brand">
+                        Track
+                      </Text>
+                    </Pressable>
+                  </Row>
+                </View>
+              );
+            })}
+          </Card>
+          <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.sm }}>
+            Charged at a steady rhythm for a steady amount. Track one to get renewal reminders.
+          </Text>
+        </Section>
+      ) : null}
       <QueryState query={q}>
         {(all) => {
           const subs = all.filter((r) => r.kind === 'subscription' && r.type === 'expense');

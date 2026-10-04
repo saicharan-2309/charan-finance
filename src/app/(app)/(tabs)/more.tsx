@@ -22,35 +22,43 @@ export default function MoreScreen() {
 
   const groups: { title: string; items: Item[] }[] = [
     {
+      title: 'Automatic',
+      items: [
+        { title: 'Bank sync', icon: 'flash-outline', href: '/bank-sync', color: '#C07F0A' },
+        { title: 'Review inbox', icon: 'file-tray-full-outline', href: '/review', color: '#1F86C7' },
+        { title: 'Auto-categorise rules', icon: 'git-branch-outline', href: '/rules', color: '#7A5CCB' },
+      ],
+    },
+    {
       title: 'Money',
       items: [
         {
           title: 'Accounts & payment methods',
           icon: 'wallet-outline',
           href: '/accounts',
-          color: '#5B87C4',
+          color: '#1F86C7',
         },
-        { title: 'Categories', icon: 'pricetags-outline', href: '/categories', color: '#D97757' },
-        { title: 'Merchants', icon: 'storefront-outline', href: '/merchants', color: '#A97BB5' },
-        { title: 'Budgets', icon: 'speedometer-outline', href: '/budgets', color: '#C97A86' },
+        { title: 'Categories', icon: 'pricetags-outline', href: '/categories', color: '#C07F0A' },
+        { title: 'Merchants', icon: 'storefront-outline', href: '/merchants', color: '#C03587' },
+        { title: 'Budgets', icon: 'speedometer-outline', href: '/budgets', color: '#C23F5E' },
       ],
     },
     {
       title: 'Planning',
       items: [
-        { title: 'Loans & EMIs', icon: 'calendar-number-outline', href: '/emi', color: '#7C77C6' },
-        { title: 'Recurring payments', icon: 'repeat', href: '/recurring', color: '#4F9690' },
-        { title: 'Subscriptions', icon: 'albums-outline', href: '/subscriptions', color: '#A97BC9' },
-        { title: 'Calendar', icon: 'calendar-outline', href: '/calendar', color: '#4A8DA8' },
-        { title: 'Net worth', icon: 'trending-up-outline', href: '/net-worth', color: '#4F9A6A' },
-        { title: 'Insights', icon: 'sparkles-outline', href: '/insights', color: '#C09A5B' },
+        { title: 'Loans & EMIs', icon: 'calendar-number-outline', href: '/emi', color: '#6E5BB0' },
+        { title: 'Recurring payments', icon: 'repeat', href: '/recurring', color: '#0F7F73' },
+        { title: 'Subscriptions', icon: 'albums-outline', href: '/subscriptions', color: '#8B55C4' },
+        { title: 'Calendar', icon: 'calendar-outline', href: '/calendar', color: '#127F9E' },
+        { title: 'Net worth', icon: 'trending-up-outline', href: '/net-worth', color: '#2F8A57' },
+        { title: 'Insights', icon: 'sparkles-outline', href: '/insights', color: '#A2541F' },
       ],
     },
     {
       title: 'Data',
       items: [
-        { title: 'Import CSV', icon: 'cloud-upload-outline', href: '/import', color: '#8C8782' },
-        { title: 'Export data', icon: 'cloud-download-outline', href: '/export', color: '#8C8782' },
+        { title: 'Import CSV', icon: 'cloud-upload-outline', href: '/import', color: '#7B828C' },
+        { title: 'Export data', icon: 'cloud-download-outline', href: '/export', color: '#7B828C' },
       ],
     },
     {
@@ -60,23 +68,23 @@ export default function MoreScreen() {
           title: 'Notifications',
           icon: 'notifications-outline',
           href: '/settings/notifications',
-          color: '#C97A86',
+          color: '#C23F5E',
         },
         {
           title: 'Security & app lock',
           icon: 'lock-closed-outline',
           href: '/settings/security',
-          color: '#4F9A6A',
+          color: '#2F8A57',
         },
-        { title: 'Appearance', icon: 'contrast-outline', href: '/settings/appearance', color: '#7C83C6' },
+        { title: 'Appearance', icon: 'contrast-outline', href: '/settings/appearance', color: '#5A64C8' },
         {
-          title: 'Currency & region',
+          title: 'Money month & region',
           icon: 'globe-outline',
           href: '/settings/preferences',
-          color: '#4A8DA8',
+          color: '#127F9E',
         },
-        { title: 'Privacy', icon: 'shield-checkmark-outline', href: '/settings/privacy', color: '#8C8782' },
-        { title: 'About', icon: 'information-circle-outline', href: '/settings/about', color: '#8C8782' },
+        { title: 'Privacy', icon: 'shield-checkmark-outline', href: '/settings/privacy', color: '#7B828C' },
+        { title: 'About', icon: 'information-circle-outline', href: '/settings/about', color: '#7B828C' },
       ],
     },
   ];

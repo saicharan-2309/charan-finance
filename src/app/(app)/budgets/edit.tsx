@@ -7,7 +7,7 @@ import { SkeletonList, useToast } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { DateTimeField } from '@/components/ui/pickers';
 import { Card, Divider, IconBadge, Row, Text } from '@/components/ui/primitives';
-import { useAppMutation, useBudgets, useCategoryIndex, useCurrency } from '@/hooks/data';
+import { useAppMutation, useBudgets, useCategoryIndex, useCurrency, useCycle } from '@/hooks/data';
 import type { BudgetPeriod } from '@/lib/budget';
 import { fromISODate, toISODate } from '@/lib/dates';
 import { describeError } from '@/lib/errors';
@@ -36,10 +36,10 @@ function BudgetForm({ existing }: { existing: Budget | null }) {
   const currency = useCurrency();
   const { index } = useCategoryIndex();
   const categories = index.top('expense');
-  const startOfMonth = () => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-  };
+  // A new monthly budget starts on the user's payday, so its months line up
+  // with the money month on Home.
+  const cycle = useCycle();
+  const startOfMonth = () => fromISODate(cycle.start);
 
   const [name, setName] = useState(existing?.name ?? 'Monthly budget');
   const [period, setPeriod] = useState<BudgetPeriod>(existing?.period ?? 'monthly');

@@ -310,11 +310,18 @@ export function AnimatedMoney({
   minor,
   currency,
   compact,
+  from,
   ...textProps
-}: { minor: number; currency: string; compact?: boolean } & Omit<TextProps, 'children'>) {
+}: {
+  minor: number;
+  currency: string;
+  compact?: boolean;
+  /** Count up from this value on first render (e.g. 0 for a hero figure). */
+  from?: number;
+} & Omit<TextProps, 'children'>) {
   const reduced = useReducedMotion();
-  const [display, setDisplay] = useState(minor);
-  const fromRef = useRef(minor);
+  const [display, setDisplay] = useState(from ?? minor);
+  const fromRef = useRef(from ?? minor);
   useEffect(() => {
     const from = fromRef.current;
     if (reduced || from === minor) {

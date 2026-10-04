@@ -38,6 +38,9 @@ function account(over: Partial<Account> & { type: AccountType }): Account {
     statementDay: null,
     dueDay: null,
     minimumDue: null,
+    reportedBalance: null,
+    reportedBalanceKind: null,
+    reportedBalanceAt: null,
     ...over,
   };
 }
@@ -145,7 +148,7 @@ describe('fields per payment method type', () => {
   it('prefers the account’s own icon and colour, then the provider’s', () => {
     expect(accountVisual(account({ type: 'wallet', provider: 'phonepe' }))).toEqual({
       icon: 'phone-portrait-outline',
-      color: '#8B7FC0',
+      color: '#7A5CCB',
     });
     expect(
       accountVisual(account({ type: 'wallet', provider: 'phonepe', icon: 'star', color: '#123456' })),

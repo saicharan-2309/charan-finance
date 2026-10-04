@@ -10,18 +10,18 @@ import { spacing } from '@/theme/tokens';
  * to read as a quiet accent behind an icon rather than a block of colour.
  */
 export const SWATCHES = [
-  '#D97757',
-  '#C97A86',
-  '#A97BB5',
-  '#7C77C6',
-  '#5B87C4',
-  '#4A8DA8',
-  '#4F9690',
-  '#4F9A6A',
-  '#52977F',
-  '#C09A5B',
-  '#B8923F',
-  '#8C8782',
+  '#C07F0A',
+  '#C23F5E',
+  '#C03587',
+  '#6E5BB0',
+  '#1F86C7',
+  '#127F9E',
+  '#0F7F73',
+  '#2F8A57',
+  '#3E8E3A',
+  '#A2541F',
+  '#B07A0E',
+  '#7B828C',
 ];
 
 export function ColorPicker({ value, onChange }: { value: string | null; onChange: (c: string) => void }) {

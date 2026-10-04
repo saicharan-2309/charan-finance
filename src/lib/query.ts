@@ -72,6 +72,11 @@ export const qk = {
   attachments: (txId: string) => ['attachments', txId] as const,
   report: (name: string, ...args: unknown[]) => ['report', name, ...args] as const,
   merchantStats: (id: string) => ['merchant-stats', id] as const,
+  bankSync: ['bank-sync'] as const,
+  bankMessages: (scope: string) => ['bank-messages', scope] as const,
+  reviewQueue: ['review-queue'] as const,
+  rules: ['rules'] as const,
+  detectedRecurring: ['detected-recurring'] as const,
 };
 
 /** Everything derived from transactions (balances, reports, budgets…). */
@@ -92,6 +97,10 @@ export const FINANCIAL_QUERY_ROOTS = [
   'goals',
   'contributions',
   'profile',
+  'bank-sync',
+  'bank-messages',
+  'review-queue',
+  'detected-recurring',
 ];
 
 export function invalidateFinancialData(): Promise<void> {

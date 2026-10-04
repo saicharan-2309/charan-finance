@@ -31,3 +31,8 @@ verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true
+
+# Called by the iPhone Shortcut, which has no Supabase session: authenticated
+# by the per-user sync key instead (see the function header).
+[functions.ingest-sms]
+verify_jwt = false

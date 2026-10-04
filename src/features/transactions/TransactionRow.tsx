@@ -49,7 +49,7 @@ export const TransactionRow = memo(function TransactionRow({
         [FLOW_LABELS[flow], t.accountName]
       : t.type === 'adjustment'
         ? [t.accountName]
-        : [t.subcategoryName ? `${t.categoryName} · ${t.subcategoryName}` : t.categoryName, t.accountName];
+        : [t.subcategoryName ? `${t.categoryName} › ${t.subcategoryName}` : t.categoryName, t.accountName];
   const subtitle = [
     ...subtitleParts,
     showDate
@@ -86,6 +86,14 @@ export const TransactionRow = memo(function TransactionRow({
           <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
             {title}
           </Text>
+          {t.needsReview ? (
+            <View
+              accessibilityLabel="New from your bank, not reviewed yet"
+              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.highlight }}
+            />
+          ) : t.source === 'sms' ? (
+            <Icon name="chatbox-ellipses-outline" size={13} tone="tertiary" />
+          ) : null}
           {t.hasReceipt ? <Icon name="receipt-outline" size={14} tone="tertiary" /> : null}
           {t.recurringId ? <Icon name="repeat" size={14} tone="tertiary" /> : null}
         </View>

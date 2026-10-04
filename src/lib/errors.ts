@@ -30,6 +30,17 @@ const CODE_MESSAGES: Record<string, string> = {
   CF603: 'Only the next due payment can be recorded or skipped.',
   CF701: 'Unsupported report grouping.',
   CF702: 'Please choose a shorter date range (up to 10 years).',
+  CF801: "That bank message couldn't be found.",
+  CF802: 'Add at least one category to file bank transactions under.',
+  CF810: 'This sync key is no longer valid. Set up bank sync again.',
+  CF811: 'Too many bank messages in the last hour. Try again later.',
+  CF812: 'That sync key is not valid.',
+  CF813: 'Choose the other account in this payment.',
+  CF814: 'This message has already been handled.',
+  CF820: 'Only expenses and income can be split.',
+  CF821: 'Split into between 2 and 10 parts.',
+  CF822: 'Every part needs an amount above zero.',
+  CF823: "The parts don't add up to the full amount.",
 };
 
 const PG_CODES: Record<string, string> = {

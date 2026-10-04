@@ -1,43 +1,38 @@
 /**
  * Home — the financial situation, not a transaction log.
  *
- * Order: greeting → this month at a glance → the accounts money sits in →
- * what is coming up → where it went → budgets, goals and trend → recent
- * activity. Every number comes from the database; nothing is illustrative.
+ * Order: greeting → safe to spend until payday (the hero) → anything bank
+ * sync wants checked → the accounts money sits in → what is coming up → where
+ * it went → recent activity → budgets and goals. Every number comes from the
+ * database; nothing is illustrative.
  */
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { BarChart } from '@/components/charts';
-import { AnimatedMoney, EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
+import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
-import {
-  AccountStrip,
-  BudgetRow,
-  CategoryBreakdown,
-  InsightCard,
-  SavingsRatePill,
-} from '@/features/dashboard/widgets';
+import { BankSyncCard } from '@/features/bank-sync/BankSyncCard';
+import { MoneyMonthHero } from '@/features/dashboard/MoneyMonthHero';
+import { AccountStrip, BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { PendingTransactions, SyncBanner } from '@/features/transactions/SyncStatus';
 import {
   useAccounts,
   useBudgetStatus,
   useCategoryIndex,
+  useCycle,
   useDashboard,
   useGoals,
-  useLoans,
   useProfile,
   useRecentTransactions,
   useRecurring,
   useSettings,
 } from '@/hooks/data';
-import { computeNetWorth, creditCardDues, isLiquid, liquidBalance } from '@/lib/accounts';
-import { availableBalance, liquidDelta, upcomingItems } from '@/lib/cashflow';
-import { addDaysISO, formatMonthLabel, fromISODate, monthRange, todayISO } from '@/lib/dates';
-import { generateInsights, savingsRate } from '@/lib/insights';
+import { creditCardDues, isLiquid, liquidBalance } from '@/lib/accounts';
+import { availableBalance, upcomingItems } from '@/lib/cashflow';
+import { addDaysISO, fromISODate, todayISO } from '@/lib/dates';
 import { formatMoney, type Minor } from '@/lib/money';
 import { cardDates, cardStanding } from '@/lib/payment-methods';
 import { notifyBudgetThresholds } from '@/lib/notifications';
@@ -56,7 +51,6 @@ export default function HomeScreen() {
   const dashboard = useDashboard();
   const accounts = useAccounts();
   const recurring = useRecurring();
-  const loans = useLoans();
   const budgets = useBudgetStatus();
   const goals = useGoals();
   const recent = useRecentTransactions(6);
@@ -65,7 +59,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const today = todayISO();
-  const month = monthRange(fromISODate(today));
+  const month = useCycle();
   const d = dashboard.data;
   const currency = d?.currency ?? profile.data?.defaultCurrency ?? 'INR';
 
@@ -77,24 +71,9 @@ export default function HomeScreen() {
     const liquid = liquidBalance(accts, currency);
     const dues = creditCardDues(accts, currency);
     const items = upcomingItems(recurring.data ?? [], today, addDaysISO(today, 30));
-    const thisMonth = items.filter((i) => i.date <= month.end);
-    const outflow30 = items.reduce((s, i) => (i.type !== 'income' ? s + i.amount : s), 0) as Minor;
-    const outflowCount = items.filter((i) => i.type !== 'income').length;
-    const available = availableBalance(liquid, dues, thisMonth, liquidIds, cardIds, month.end);
-    const committed = thisMonth.reduce((s, i) => s + Math.max(-liquidDelta(i, liquidIds), 0), 0);
-    const nw = computeNetWorth(accts, currency);
-    const insights = generateInsights({
-      currency,
-      month,
-      today,
-      current: d.current,
-      previous: d.previous,
-      categories: d.categories,
-      previousCategories: d.previousCategories,
-      upcomingOutflow30d: outflow30,
-      upcomingCount30d: outflowCount,
-    });
-    return { liquid, dues, items, available, committed, nw, insights };
+    const thisCycle = items.filter((i) => i.date <= month.end);
+    const available = availableBalance(liquid, dues, thisCycle, liquidIds, cardIds, month.end);
+    return { items, available, hasAccounts: d.accounts.length > 0 };
   })();
 
   /**
@@ -156,7 +135,6 @@ export default function HomeScreen() {
     return rows.sort((x, y) => x.date.localeCompare(y.date)).slice(0, 5);
   }, [accounts.data, cats, derived?.items, today]);
 
-  const emis = (loans.data ?? []).filter((l) => !l.isClosed);
 
   // One-time local alerts when a budget crosses its threshold (deduplicated per period).
   useEffect(() => {
@@ -177,7 +155,6 @@ export default function HomeScreen() {
       safeTop
       tabBarInset
       title={name ? `${greeting()}, ${name}` : greeting()}
-      subtitle={`${formatMonthLabel(today)} overview`}
       refreshing={refreshing}
       onRefresh={refresh}
       headerRight={
@@ -186,12 +163,38 @@ export default function HomeScreen() {
           accessibilityRole="button"
           accessibilityLabel="Insights"
           hitSlop={8}
+          style={({ pressed }) => ({
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: pressed ? colors.border : colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+          })}
         >
-          <IconBadge icon="sparkles" color={colors.brand} size={40} />
+          <Icon name="sparkles-outline" size={20} tone="primary" />
         </Pressable>
       }
     >
       <SyncBanner />
+
+      {dashboard.error && !d ? (
+        <ErrorState error={dashboard.error} onRetry={() => void dashboard.refetch()} />
+      ) : null}
+
+      <MoneyMonthHero
+        currency={currency}
+        cycle={month}
+        today={today}
+        safeToSpend={derived?.hasAccounts ? derived.available : null}
+        spent={d ? d.current.expense : null}
+        income={d ? d.current.income : null}
+        previousSpent={d ? d.previous.expense : null}
+      />
+
+      <BankSyncCard />
 
       {noAccounts ? (
         <Card style={{ marginBottom: spacing.xxl }}>
@@ -199,85 +202,12 @@ export default function HomeScreen() {
             compact
             icon="wallet-outline"
             title="Add your first payment method"
-            message="Start with wherever your money sits — a bank account, cash, a UPI app or a card. Balances update themselves as you record transactions."
+            message="Start with wherever your money sits — a bank account, cash, a UPI app or a card. Balances update themselves as transactions come in."
             actionLabel="Add payment method"
             onAction={() => router.push('/accounts/edit')}
           />
         </Card>
       ) : null}
-
-      {dashboard.error && !d ? (
-        <ErrorState error={dashboard.error} onRetry={() => void dashboard.refetch()} />
-      ) : null}
-
-      {/* This month at a glance */}
-      <Card variant="elevated" style={{ marginBottom: spacing.xxl, padding: spacing.xl, gap: spacing.lg }}>
-        <View style={{ gap: 2 }}>
-          <Text variant="overline" tone="secondary">
-            Spent this month
-          </Text>
-          {d ? (
-            <AnimatedMoney minor={d.current.expense} currency={currency} variant="display" />
-          ) : (
-            <Skeleton width={200} height={42} />
-          )}
-        </View>
-
-        <Divider />
-
-        <Row gap={spacing.md} align="flex-start">
-          <HeroStat label="Income" value={d?.current.income} currency={currency} tone="positive" />
-          <HeroStat
-            label="Left over"
-            value={d?.current.net}
-            currency={currency}
-            tone={d && d.current.net < 0 ? 'negative' : 'primary'}
-          />
-          <HeroStat label="In accounts" value={derived?.liquid} currency={currency} />
-        </Row>
-
-        <Row justify="space-between">
-          <SavingsRatePill rate={d ? savingsRate(d.current) : null} />
-          {derived ? (
-            <Pressable onPress={() => router.push('/net-worth')} accessibilityRole="link" hitSlop={6}>
-              <Text variant="caption" tone="secondary">
-                Net worth{' '}
-                <Text variant="caption" style={{ fontWeight: '700' }}>
-                  {formatShort(derived.nw.netWorth, currency)}
-                </Text>{' '}
-                ›
-              </Text>
-            </Pressable>
-          ) : null}
-        </Row>
-
-        {derived && (derived.dues > 0 || derived.committed > 0) ? (
-          <Pressable
-            onPress={() => router.push('/calendar')}
-            accessibilityRole="button"
-            style={{
-              backgroundColor: colors.surfaceMuted,
-              borderRadius: radius.md,
-              padding: spacing.md,
-              gap: 2,
-            }}
-          >
-            <Row justify="space-between">
-              <Text variant="subhead">Available balance</Text>
-              <MoneyText
-                minor={derived.available}
-                currency={currency}
-                variant="bodyStrong"
-                options={{ decimals: 'never' }}
-                colorBySign={derived.available < 0}
-              />
-            </Row>
-            <Text variant="caption" tone="secondary">
-              After card dues and payments due by month end (projection).
-            </Text>
-          </Pressable>
-        ) : null}
-      </Card>
 
       {/* Accounts */}
       {accounts.data?.length ? (
@@ -314,42 +244,6 @@ export default function HomeScreen() {
           </Card>
         )}
       </Section>
-
-      {/* EMIs */}
-      {emis.length ? (
-        <Section title="Loans & EMIs" action="All" onAction={() => router.push('/emi')}>
-          <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
-            {emis.slice(0, 3).map((l, i) => (
-              <View key={l.id}>
-                {i > 0 ? <Divider inset={50} /> : null}
-                <Pressable
-                  onPress={() => router.push({ pathname: '/emi/edit', params: { id: l.id } })}
-                  accessibilityRole="button"
-                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-                >
-                  <Row gap={spacing.md} style={{ paddingVertical: spacing.md }}>
-                    <IconBadge
-                      icon={l.icon ?? 'calendar-number-outline'}
-                      color={l.color ?? l.categoryColor}
-                      size={38}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text variant="bodyStrong" numberOfLines={1}>
-                        {l.name}
-                      </Text>
-                      <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                        {l.accountName}
-                        {l.tenureMonths ? ` · ${l.paidCount}/${l.tenureMonths} paid` : ''}
-                      </Text>
-                    </View>
-                    <MoneyText minor={l.emiAmount} currency={l.currency} options={{ decimals: 'never' }} />
-                  </Row>
-                </Pressable>
-              </View>
-            ))}
-          </Card>
-        </Section>
-      ) : null}
 
       {/* Spending */}
       <Section title="Spending" action="Reports" onAction={() => router.push('/reports')}>
@@ -402,22 +296,6 @@ export default function HomeScreen() {
         )}
       </Section>
 
-      {/* Insights */}
-      {derived && derived.insights.length > 0 ? (
-        <Section title="Insights" action="See all" onAction={() => router.push('/insights')}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -20 }}
-            contentContainerStyle={{ gap: spacing.md, paddingHorizontal: 20 }}
-          >
-            {derived.insights.slice(0, 3).map((i) => (
-              <InsightCard key={i.id} insight={i} compact />
-            ))}
-          </ScrollView>
-        </Section>
-      ) : null}
-
       {/* Budgets */}
       <Section
         title="Budgets"
@@ -451,32 +329,6 @@ export default function HomeScreen() {
             ))}
           </Card>
         )}
-      </Section>
-
-      {/* Trend */}
-      <Section title="Monthly trend">
-        <Card>
-          {d ? (
-            <BarChart
-              currency={currency}
-              series={[
-                { name: 'Income', color: colors.positive },
-                { name: 'Expenses', color: colors.brand },
-              ]}
-              data={d.trend.map((p) => ({
-                label: formatMonthLabel(p.bucket, true),
-                values: [p.income, p.expense],
-              }))}
-            />
-          ) : (
-            <Skeleton height={200} />
-          )}
-          {d && d.previous.expense > 0 ? (
-            <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.md }}>
-              {comparison(d.current.expense, d.previous.expense, currency)}
-            </Text>
-          ) : null}
-        </Card>
       </Section>
 
       {/* Goals */}
@@ -536,47 +388,6 @@ export default function HomeScreen() {
 
 function formatShort(minor: number, currency: string) {
   return formatMoney(minor, currency, { decimals: 'never' });
-}
-
-function comparison(cur: number, prev: number, currency: string) {
-  const diff = cur - prev;
-  const f = formatShort(Math.abs(diff), currency);
-  return diff > 0
-    ? `${f} more spent so far than all of last month.`
-    : `${f} less spent so far than all of last month.`;
-}
-
-function HeroStat({
-  label,
-  value,
-  currency,
-  tone = 'primary',
-}: {
-  label: string;
-  value: number | undefined;
-  currency: string;
-  tone?: 'primary' | 'positive' | 'negative';
-}) {
-  return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <Text variant="caption" tone="secondary">
-        {label}
-      </Text>
-      {value === undefined ? (
-        <Skeleton width={70} height={18} />
-      ) : (
-        <MoneyText
-          minor={value}
-          currency={currency}
-          variant="bodyStrong"
-          tone={tone}
-          options={{ decimals: 'never' }}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        />
-      )}
-    </View>
-  );
 }
 
 /** One row of the Upcoming list — a recurring item, an EMI or a card bill. */
