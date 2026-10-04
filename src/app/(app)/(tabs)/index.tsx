@@ -290,12 +290,15 @@ export default function HomeScreen() {
       <Section title="Upcoming" action="Calendar" onAction={() => router.push('/calendar')}>
         {upcoming.length > 0 ? (
           <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
-            {upcoming.map((u, idx) => (
-              <View key={u.key}>
-                {idx > 0 ? <Divider inset={50} /> : null}
-                <UpcomingItem {...u} currency={currency} />
-              </View>
-            ))}
+            {upcoming.map((u, idx) => {
+              const { key, ...item } = u;
+              return (
+                <View key={key}>
+                  {idx > 0 ? <Divider inset={50} /> : null}
+                  <UpcomingItem {...item} currency={currency} />
+                </View>
+              );
+            })}
           </Card>
         ) : (
           <Card onPress={() => router.push('/recurring/edit')}>
