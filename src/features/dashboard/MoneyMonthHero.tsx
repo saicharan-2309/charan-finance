@@ -11,15 +11,17 @@
  *   About ₹830 a day until 24 Oct
  *   ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░│░░░░░░░░░░░░░░   (bar = spent vs last month, notch = today)
  *   ₹21,400 spent · slower than last month
- *   ───────────────────────────────────
- *   In ₹85,000      Out ₹21,400      Kept 75%
+ *   [↓ In ₹85,000] [↑ Out ₹21,400] [Kept 75%]   (three glass tiles)
+ *
+ * Drawn as a violet gradient card — the one rich surface on Home.
  */
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 
 import { AnimatedMoney, Skeleton, useReducedMotion } from '@/components/ui/feedback';
-import { Row, Text } from '@/components/ui/primitives';
+import { CardRings, GradientFill } from '@/components/ui/gradient';
+import { Icon, Row, Text } from '@/components/ui/primitives';
 import { useAnimatedValue } from '@/lib/animation';
 import {
   daysBetweenInclusive,
@@ -31,7 +33,7 @@ import {
 } from '@/lib/dates';
 import { formatMoney, type Minor } from '@/lib/money';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, spacing } from '@/theme/tokens';
+import { continuous, radius, spacing } from '@/theme/tokens';
 
 export interface HeroProps {
   currency: string;
@@ -60,7 +62,7 @@ export function MoneyMonthHero({
   income,
   previousSpent,
 }: HeroProps) {
-  const { colors } = useTheme();
+  const { colors, elevation } = useTheme();
   const reduced = useReducedMotion();
   const grow = useAnimatedValue(0);
 
@@ -93,126 +95,149 @@ export function MoneyMonthHero({
   const endLabel = fromISODate(cycle.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   const kept = income && spent !== null && income > 0 ? Math.round(((income - spent) / income) * 100) : null;
 
+  const negative = headline !== null && headline < 0;
+
   return (
     <Pressable
       onPress={() => router.push('/reports')}
       accessibilityRole="button"
       accessibilityHint="Opens spending reports"
-      style={({ pressed }) => ({
-        backgroundColor: colors.hero,
-        borderRadius: radius.xxl,
-        padding: spacing.xl,
-        paddingTop: spacing.xl + 2,
-        marginBottom: spacing.xxl,
-        transform: [{ scale: pressed ? 0.995 : 1 }],
-      })}
+      style={({ pressed }) => [
+        {
+          borderRadius: radius.xxl,
+          ...continuous,
+          marginBottom: spacing.xxl,
+          transform: [{ scale: pressed ? 0.985 : 1 }],
+        },
+        elevation.hero(colors.hero),
+      ]}
     >
-      <Row justify="space-between" align="center">
-        <Text variant="subhead" style={{ color: colors.heroMuted }}>
-          {safeToSpend !== null ? 'Safe to spend' : 'Spent this month'}
+      <View style={{ borderRadius: radius.xxl, ...continuous, overflow: 'hidden', padding: spacing.xl }}>
+        <GradientFill colors={colors.heroGradient} sheen />
+        <CardRings />
+
+        <Row justify="space-between" align="center">
+          <Text variant="subhead" style={{ color: colors.heroMuted }}>
+            {safeToSpend !== null ? 'Safe to spend' : 'Spent this month'}
+          </Text>
+          <Row
+            gap={5}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: radius.pill,
+              backgroundColor: colors.heroTrack,
+            }}
+          >
+            <Icon name="calendar-clear-outline" size={12} color={colors.heroText} />
+            <Text variant="caption" style={{ color: colors.heroText, fontWeight: '600' }}>
+              {left === 1 ? 'Last day' : `${left} days left`}
+            </Text>
+          </Row>
+        </Row>
+
+        {headline === null ? (
+          <Skeleton width={210} height={50} style={{ marginTop: spacing.sm, opacity: 0.3 }} />
+        ) : (
+          <AnimatedMoney
+            minor={headline}
+            from={0}
+            currency={currency}
+            variant="display"
+            style={{ color: negative ? colors.highlight : colors.heroText, marginTop: spacing.sm }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          />
+        )}
+
+        <Text variant="subhead" style={{ color: colors.heroMuted, marginTop: 2, fontWeight: '400' }}>
+          {safeToSpend === null
+            ? `Until ${endLabel}`
+            : safeToSpend <= 0
+              ? `Bills and card dues already use your balance until ${endLabel}`
+              : `About ${formatMoney(perDay ?? 0, currency, { decimals: 'never' })} a day until ${endLabel}`}
         </Text>
+
+        {/* Pace track */}
         <View
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 3,
-            borderRadius: radius.pill,
-            backgroundColor: colors.heroTrack,
-          }}
+          style={{ marginTop: spacing.xl, height: 8, borderRadius: 4, backgroundColor: colors.heroTrack }}
+          accessibilityRole="progressbar"
+          accessibilityLabel={
+            hasPrev
+              ? `Spent ${Math.round(spentFrac * 100)}% of last month's total with ${Math.round(elapsedFrac * 100)}% of the month gone`
+              : `Spent ${Math.round(fill * 100)}%`
+          }
         >
-          <Text variant="caption" style={{ color: colors.heroText }}>
-            {left === 1 ? 'Last day' : `${left} days left`}
-          </Text>
+          <Animated.View
+            style={{
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: spentFrac > 1 ? colors.highlight : colors.heroText,
+              width: grow.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              left: `${elapsedFrac * 100}%`,
+              top: -4,
+              bottom: -4,
+              width: 4,
+              marginLeft: -2,
+              borderRadius: 2,
+              backgroundColor: colors.highlight,
+            }}
+          />
         </View>
-      </Row>
+        <Text variant="footnote" style={{ color: colors.heroMuted, marginTop: spacing.sm }}>
+          {spent === null
+            ? ' '
+            : `${formatMoney(spent, currency, { decimals: 'never' })} spent${
+                hasPrev ? `, ${paceCopy(spentFrac, elapsedFrac)}` : ''
+              }`}
+        </Text>
 
-      {headline === null ? (
-        <Skeleton width={210} height={48} style={{ marginTop: spacing.sm, opacity: 0.25 }} />
-      ) : (
-        <AnimatedMoney
-          minor={headline}
-          from={0}
-          currency={currency}
-          variant="display"
-          style={{ color: headline < 0 ? '#FFB4AB' : colors.heroText, marginTop: spacing.xs }}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        />
-      )}
-
-      <Text variant="footnote" style={{ color: colors.heroMuted, marginTop: 2 }}>
-        {safeToSpend === null
-          ? `Until ${endLabel}`
-          : safeToSpend <= 0
-            ? `Bills and card dues already use your balance until ${endLabel}`
-            : `About ${formatMoney(perDay ?? 0, currency, { decimals: 'never' })} a day until ${endLabel}`}
-      </Text>
-
-      {/* Pace track */}
-      <View
-        style={{ marginTop: spacing.xl, height: 10, borderRadius: 5, backgroundColor: colors.heroTrack }}
-        accessibilityRole="progressbar"
-        accessibilityLabel={
-          hasPrev
-            ? `Spent ${Math.round(spentFrac * 100)}% of last month's total with ${Math.round(elapsedFrac * 100)}% of the month gone`
-            : `Spent ${Math.round(fill * 100)}%`
-        }
-      >
-        <Animated.View
-          style={{
-            height: 10,
-            borderRadius: 5,
-            backgroundColor: spentFrac > 1 ? '#FFB4AB' : colors.heroText,
-            width: grow.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            left: `${elapsedFrac * 100}%`,
-            top: -4,
-            bottom: -4,
-            width: 3,
-            marginLeft: -1.5,
-            borderRadius: 2,
-            backgroundColor: colors.highlight,
-          }}
-        />
+        <Row gap={spacing.sm} align="stretch" style={{ marginTop: spacing.lg }}>
+          <HeroStat icon="arrow-down" label="In" value={income === null ? '—' : short(income)} />
+          <HeroStat icon="arrow-up" label="Out" value={spent === null ? '—' : short(spent)} />
+          <HeroStat icon="leaf-outline" label="Kept" value={kept === null ? '—' : `${kept}%`} />
+        </Row>
       </View>
-      <Text variant="footnote" style={{ color: colors.heroMuted, marginTop: spacing.sm }}>
-        {spent === null
-          ? ' '
-          : `${formatMoney(spent, currency, { decimals: 'never' })} spent${
-              hasPrev ? `, ${paceCopy(spentFrac, elapsedFrac)}` : ''
-            }`}
-      </Text>
-
-      <View style={{ height: 1, backgroundColor: colors.heroTrack, marginVertical: spacing.lg }} />
-
-      <Row justify="space-between" align="flex-start">
-        <HeroStat label="In" value={income} currency={currency} />
-        <HeroStat label="Out" value={spent} currency={currency} />
-        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <Text variant="caption" style={{ color: colors.heroMuted }}>
-            Kept
-          </Text>
-          <Text variant="bodyStrong" style={{ color: colors.heroText }}>
-            {kept === null ? '—' : `${kept}%`}
-          </Text>
-        </View>
-      </Row>
     </Pressable>
   );
+
+  function short(v: Minor) {
+    return formatMoney(v, currency, { decimals: 'never' });
+  }
 }
 
-function HeroStat({ label, value, currency }: { label: string; value: Minor | null; currency: string }) {
+/** One of the three glass tiles along the bottom of the hero. */
+function HeroStat({ icon, label, value }: { icon: string; label: string; value: string }) {
   const { colors } = useTheme();
   return (
-    <View style={{ gap: 2, flex: 1 }}>
-      <Text variant="caption" style={{ color: colors.heroMuted }}>
-        {label}
-      </Text>
-      <Text variant="bodyStrong" style={{ color: colors.heroText }} numberOfLines={1}>
-        {value === null ? '—' : formatMoney(value, currency, { decimals: 'never' })}
+    <View
+      style={{
+        flex: 1,
+        gap: 6,
+        padding: spacing.md,
+        borderRadius: radius.lg,
+        ...continuous,
+        backgroundColor: colors.heroTrack,
+      }}
+    >
+      <Row gap={5}>
+        <Icon name={icon} size={13} color={colors.heroMuted} />
+        <Text variant="caption" style={{ color: colors.heroMuted }}>
+          {label}
+        </Text>
+      </Row>
+      <Text
+        variant="bodyStrong"
+        style={{ color: colors.heroText, fontVariant: ['tabular-nums'] }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {value}
       </Text>
     </View>
   );

@@ -3,7 +3,6 @@ import { Stack } from 'expo-router';
 import { useSessionBootstrap } from '@/hooks/useSessionBootstrap';
 import { useUserId } from '@/providers/AuthProvider';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts } from '@/theme/tokens';
 
 export default function AppLayout() {
   const userId = useUserId();
@@ -17,7 +16,7 @@ export default function AppLayout() {
         headerBackButtonDisplayMode: 'minimal',
         headerTintColor: colors.text,
         headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { color: colors.text, fontFamily: fonts.displayMedium, fontSize: 18 },
+        headerTitleStyle: { color: colors.text, fontSize: 17, fontWeight: '600' },
         contentStyle: { backgroundColor: colors.background },
       }}
     >

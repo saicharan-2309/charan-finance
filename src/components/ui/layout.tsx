@@ -2,17 +2,27 @@
  * Screen scaffolding: scrollable page with large title, sections, sticky footer.
  */
 import type { ReactNode } from 'react';
-import { Pressable, RefreshControl, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, spacing } from '@/theme/tokens';
-import { Text } from './primitives';
+import { Icon, Text } from './primitives';
 
 export interface ScreenProps {
   children: ReactNode;
   /** Large in-content title (tab roots). Pushed screens use the native header. */
   title?: string;
+  /** Small line above the title (e.g. today's date), like Apple's Today views. */
+  eyebrow?: string;
   subtitle?: string;
   headerRight?: ReactNode;
   refreshing?: boolean;
@@ -32,6 +42,7 @@ export const TAB_BAR_HEIGHT = 64;
 export function Screen({
   children,
   title,
+  eyebrow,
   subtitle,
   headerRight,
   refreshing = false,
@@ -52,14 +63,25 @@ export function Screen({
         flexDirection: 'row',
         alignItems: 'flex-end',
         justifyContent: 'space-between',
-        marginBottom: spacing.lg,
+        marginBottom: spacing.xl,
         gap: spacing.md,
       }}
     >
       {/* Title first, then the subtitle beneath it: the name of the thing
           leads, the qualifier follows. */}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="largeTitle" accessibilityRole="header">
+        {eyebrow ? (
+          <Text variant="overline" tone="secondary">
+            {eyebrow}
+          </Text>
+        ) : null}
+        <Text
+          variant="largeTitle"
+          accessibilityRole="header"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
           {title}
         </Text>
         {subtitle ? (
@@ -111,8 +133,8 @@ export function Screen({
             paddingHorizontal: GUTTER,
             paddingTop: spacing.md,
             paddingBottom: insets.bottom + spacing.md,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.borderStrong,
             backgroundColor: colors.background,
           }}
         >
@@ -145,16 +167,28 @@ export function Section({
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: spacing.md,
+            paddingHorizontal: 2,
           }}
         >
           <Text variant="headline" accessibilityRole="header">
             {title}
           </Text>
           {action && onAction ? (
-            <Pressable onPress={onAction} hitSlop={10} accessibilityRole="link">
+            <Pressable
+              onPress={onAction}
+              hitSlop={12}
+              accessibilityRole="link"
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 2,
+                opacity: pressed ? 0.5 : 1,
+              })}
+            >
               <Text variant="subhead" tone="brand">
                 {action}
               </Text>
+              <Icon name="chevron-forward" size={14} tone="brand" />
             </Pressable>
           ) : null}
         </View>

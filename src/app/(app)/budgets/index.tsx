@@ -3,12 +3,12 @@ import { Pressable, View } from 'react-native';
 
 import { EmptyState, QueryState } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
-import { Card, Icon, MoneyText, Row, Text } from '@/components/ui/primitives';
-import { BudgetRow } from '@/features/dashboard/widgets';
+import { Card, Icon, Row, Text } from '@/components/ui/primitives';
+import { BudgetGauge, BudgetRow } from '@/features/dashboard/widgets';
 import { useBudgets, useBudgetStatus, useCurrency, useSettings } from '@/hooks/data';
-import { BUDGET_PERIOD_LABELS, budgetProgress } from '@/lib/budget';
-import { formatShortDate, todayISO } from '@/lib/dates';
-import { formatMoney, type Minor } from '@/lib/money';
+import { BUDGET_PERIOD_LABELS } from '@/lib/budget';
+import { formatShortDate } from '@/lib/dates';
+import { type Minor } from '@/lib/money';
 import { spacing } from '@/theme/tokens';
 import type { BudgetStatusRow } from '@/types/domain';
 
@@ -60,15 +60,6 @@ export default function BudgetsScreen() {
             const totalBudget = overall?.amount ?? categoryRows.reduce((s, r) => s + r.amount, 0);
             const totalSpent = overall?.spent ?? categoryRows.reduce((s, r) => s + r.spent, 0);
             const first = rows[0];
-            const p = first
-              ? budgetProgress(
-                  totalBudget as Minor,
-                  totalSpent as Minor,
-                  { start: first.periodStart, end: first.periodEnd },
-                  todayISO(),
-                  warn,
-                )
-              : null;
             return (
               <Section key={b.id}>
                 <Card style={{ gap: spacing.lg, opacity: b.isActive ? 1 : 0.6 }}>
@@ -90,30 +81,20 @@ export default function BudgetsScreen() {
                       <Icon name="create-outline" size={20} tone="secondary" />
                     </Row>
                   </Pressable>
-                  {p ? (
-                    <View style={{ gap: 4 }}>
-                      <Row justify="space-between">
-                        <MoneyText
-                          minor={totalSpent}
-                          currency={currency}
-                          variant="amountLarge"
-                          options={{ decimals: 'never' }}
-                        />
-                        <Text variant="subhead" tone="secondary">
-                          of {formatMoney(totalBudget, currency, { decimals: 'never' })}
-                        </Text>
-                      </Row>
-                      <Text variant="footnote" tone={p.remaining < 0 ? 'negative' : 'secondary'}>
-                        {p.remaining >= 0
-                          ? `${formatMoney(p.remaining, currency, { decimals: 'never' })} left · about ${formatMoney(p.dailyAllowance, currency, { decimals: 'never' })}/day for the rest of the period`
-                          : `${formatMoney(-p.remaining, currency, { decimals: 'never' })} over budget`}
-                      </Text>
-                      <Text variant="caption" tone="tertiary">
-                        Projected at current pace: {formatMoney(p.projected, currency, { decimals: 'never' })}
-                      </Text>
-                    </View>
+                  {/* The whole budget as a gauge; its category limits follow as rows. */}
+                  {first ? (
+                    <BudgetGauge
+                      row={{
+                        ...first,
+                        categoryId: null,
+                        amount: totalBudget as Minor,
+                        spent: totalSpent as Minor,
+                      }}
+                      currency={currency}
+                      warningPercent={warn}
+                    />
                   ) : null}
-                  {rows.map((r) => (
+                  {categoryRows.map((r) => (
                     <BudgetRow key={r.itemId} row={r} currency={currency} warningPercent={warn} />
                   ))}
                 </Card>

@@ -16,7 +16,7 @@ interface Action {
   label: string;
   hint: string;
   icon: string;
-  color: keyof ReturnType<typeof useTheme>['colors'];
+  color: 'brand' | 'positive' | 'transfer' | 'info' | 'warning' | 'textSecondary';
   go: () => void;
 }
 

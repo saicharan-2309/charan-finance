@@ -44,25 +44,37 @@ scripts/            import-iphone-sms.ts (history import from an iPhone backup),
 tests/              Jest (127). supabase/tests/ — SQL tests against a disposable Postgres (67)
 ```
 
-## Design system — "rupee ink on note paper"
+## Design system — "violet glass" (Apple-grade, since Oct 2026)
 
-All values live in `src/theme/tokens.ts`; components read them via `useTheme()`. Never hard-code
-a colour, size or font.
+All values live in `src/theme/tokens.ts`; components read them via `useTheme()` (which also
+returns scheme-aware `elevation`). Never hard-code a colour, size or font.
 
-- Surfaces: cool green-grey paper `#F1F3EE` with white cards. Text and the Home hero: deep indigo
-  ink (`#161D36`, hero `#18213F`). Actions: indigo `#3442B0`. Marigold `#F2B441` is a sparing
-  highlight (today on the pace track, the review badge).
+- Canvas: cool lavender-grey `#F3F3F8` (dark `#0A0A0F`) with **borderless** white cards (dark
+  `#18181F`) that float on soft, wide, accent-tinted shadows in light mode and lift by tone in
+  dark. Grouped lists use hairline dividers inset to the text, like iOS Settings.
+- One accent: iris violet `#5B3FD9` (dark `#A193FF`). The Home hero is a violet gradient card
+  (`heroGradient`, with a sheen and faint corner rings) — the one rich surface per screen. Credit
+  cards in the accounts strip are graphite cards (`cardGradient`). Amber `#FFC14D` marks "today"
+  on the pace track and the review badge. The coral → amber `gaugeGradient` is only for progress
+  against a limit (the budget arc gauge, `components/charts/Gauge.tsx`).
 - Categories and charts use banknote inks (₹50 blue, ₹200 marigold, ₹100 lavender, ₹20 olive,
   ₹2000 magenta, ₹10 chocolate, teal; ₹500 stone for "Other"). The order is validated for
   colour-blind separation in both modes — don't reorder or cycle it; fold extras into "Other".
-- Type: **Bricolage Grotesque** (600/700/800) only for big money figures and screen titles;
-  system font for body; every number in a list uses tabular figures.
+- Type: the **system face only** (San Francisco on iPhone), Apple's text-style ramp; big money is
+  SF bold with tight tracking; every number in a list uses tabular figures. (The Bricolage font
+  package is still installed but no longer loaded.)
+- Shape: continuous (squircle) corners via `continuous`; radius follows hierarchy (hero 30, cards
+  22, controls 14, buttons/chips/segmented control are capsules). Icon badges are tinted squircles.
+- Chrome: floating tab bar — a Liquid Glass capsule (`expo-glass-effect`, iOS 26; blur fallback)
+  with a sliding lens on the selected tab, and the Add button as its own round gradient control.
+  Segmented control thumb springs (`springs.snappy`); selected plain chips are solid ink capsules.
 - Colour never carries meaning alone: money always has a sign or label, chart series are named.
-- Every screen must work in **light and dark**; check both.
-- Radius follows hierarchy (hero roundest, then cards, then controls). Lift comes from contrast
-  with the paper, not heavy shadows. Sentence case everywhere, Indian number format (₹1,24,499).
-- Home order: money-month hero (safe to spend, per day, pace vs last month, In/Out/Kept) → bank
-  card → accounts strip → upcoming → spending → recent → budgets → goals.
+- Every screen must work in **light and dark**; check both. Contrast is checked in `tokens.ts`.
+- Sentence case everywhere, Indian number format (₹1,24,499).
+- Home: header is "Good evening · Tue, 6 Oct" over the first name as the large title. Order:
+  money-month hero (safe to spend, per day, pace vs last month, In/Out/Kept tiles) → bank card →
+  accounts strip → upcoming → spending → recent (inset grouped list) → budgets (overall arc gauge,
+  then category rows) → goals.
 
 ## Product rules that must not regress
 

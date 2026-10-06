@@ -33,12 +33,12 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         style={{
           marginTop: spacing.md,
           backgroundColor: lightPalette.brand,
-          paddingHorizontal: 24,
+          paddingHorizontal: 28,
           paddingVertical: 14,
-          borderRadius: 14,
+          borderRadius: 999,
         }}
       >
-        <RNText style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Try again</RNText>
+        <RNText style={{ color: lightPalette.onBrand, fontWeight: '600', fontSize: 16 }}>Try again</RNText>
       </Pressable>
     </View>
   );

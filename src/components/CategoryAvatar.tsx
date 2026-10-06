@@ -189,7 +189,8 @@ export const CategoryAvatar = memo(function CategoryAvatar({
         {
           width: size,
           height: size,
-          borderRadius: size / 2.6,
+          borderRadius: size * 0.32,
+          borderCurve: 'continuous',
           backgroundColor: `${tint}1F`,
           alignItems: 'center',
           justifyContent: 'center',

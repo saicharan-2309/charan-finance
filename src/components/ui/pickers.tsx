@@ -272,9 +272,10 @@ export function SelectField({
         accessibilityLabel={`${label}: ${value ?? placeholder}`}
         style={({ pressed }) => ({
           minHeight: 52,
-          borderRadius: radius.lg,
-          borderWidth: 1,
-          borderColor: error ? colors.negative : colors.border,
+          borderRadius: radius.md,
+          borderCurve: 'continuous',
+          borderWidth: error ? 1.5 : 0,
+          borderColor: colors.negative,
           backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
           paddingHorizontal: spacing.lg,
           flexDirection: 'row',

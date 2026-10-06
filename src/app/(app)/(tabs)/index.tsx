@@ -10,12 +10,13 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { HeaderButton } from '@/components/ui/controls';
 import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { BankSyncCard } from '@/features/bank-sync/BankSyncCard';
 import { MoneyMonthHero } from '@/features/dashboard/MoneyMonthHero';
-import { AccountStrip, BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
+import { AccountStrip, BudgetGauge, BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { PendingTransactions, SyncBanner } from '@/features/transactions/SyncStatus';
 import {
@@ -146,6 +147,7 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  const overallBudget = budgets.data?.find((r) => r.categoryId === null) ?? null;
   const name = profile.data?.displayName?.split(' ')[0];
   const noAccounts = accounts.data && accounts.data.length === 0;
 
@@ -153,29 +155,11 @@ export default function HomeScreen() {
     <Screen
       safeTop
       tabBarInset
-      title={name ? `${greeting()}, ${name}` : greeting()}
+      eyebrow={`${greeting()} · ${new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`}
+      title={name ?? greeting()}
       refreshing={refreshing}
       onRefresh={refresh}
-      headerRight={
-        <Pressable
-          onPress={() => router.push('/insights')}
-          accessibilityRole="button"
-          accessibilityLabel="Insights"
-          hitSlop={8}
-          style={({ pressed }) => ({
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: pressed ? colors.border : colors.surface,
-            borderWidth: 1,
-            borderColor: colors.border,
-          })}
-        >
-          <Icon name="sparkles-outline" size={20} tone="primary" />
-        </Pressable>
-      }
+      headerRight={<HeaderButton icon="sparkles" label="Insights" onPress={() => router.push('/insights')} />}
     >
       <SyncBanner />
 
@@ -287,11 +271,14 @@ export default function HomeScreen() {
             />
           </Card>
         ) : (
-          <View>
-            {recent.data.map((t) => (
-              <TransactionRow key={t.id} t={t} showDate />
+          <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.xs }}>
+            {recent.data.map((t, idx) => (
+              <View key={t.id}>
+                {idx > 0 ? <Divider inset={54} /> : null}
+                <TransactionRow t={t} showDate />
+              </View>
             ))}
-          </View>
+          </Card>
         )}
       </Section>
 
@@ -318,14 +305,25 @@ export default function HomeScreen() {
           </Card>
         ) : (
           <Card style={{ gap: spacing.xl }}>
-            {budgets.data.slice(0, 4).map((r) => (
-              <BudgetRow
-                key={r.itemId}
-                row={r}
+            {/* The overall limit, when there is one, leads as a gauge; categories follow as rows. */}
+            {overallBudget ? (
+              <BudgetGauge
+                row={overallBudget}
                 currency={currency}
                 warningPercent={settings.data?.budgetWarningPercent ?? 80}
               />
-            ))}
+            ) : null}
+            {budgets.data
+              .filter((r) => r !== overallBudget)
+              .slice(0, overallBudget ? 3 : 4)
+              .map((r) => (
+                <BudgetRow
+                  key={r.itemId}
+                  row={r}
+                  currency={currency}
+                  warningPercent={settings.data?.budgetWarningPercent ?? 80}
+                />
+              ))}
           </Card>
         )}
       </Section>

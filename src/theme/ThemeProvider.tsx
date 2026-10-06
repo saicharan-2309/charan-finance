@@ -2,12 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { darkPalette, lightPalette, type Palette } from './tokens';
+import { darkPalette, elevationFor, lightPalette, type Palette } from './tokens';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 
 interface ThemeContextValue {
   colors: Palette;
+  /** Soft shadows tinted for the current scheme (cards, floating chrome, hero). */
+  elevation: ReturnType<typeof elevationFor>;
   scheme: 'light' | 'dark';
   preference: AppearancePreference;
   setPreference: (p: AppearancePreference) => void;
@@ -37,15 +39,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const scheme: 'light' | 'dark' =
     preference === 'system' ? (system === 'dark' ? 'dark' : 'light') : preference;
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({
-      colors: scheme === 'dark' ? darkPalette : lightPalette,
-      scheme,
-      preference,
-      setPreference,
-    }),
-    [scheme, preference, setPreference],
-  );
+  const value = useMemo<ThemeContextValue>(() => {
+    const colors = scheme === 'dark' ? darkPalette : lightPalette;
+    return { colors, elevation: elevationFor(colors.shadow), scheme, preference, setPreference };
+  }, [scheme, preference, setPreference]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

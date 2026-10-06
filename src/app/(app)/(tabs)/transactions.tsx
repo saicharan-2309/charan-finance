@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextField } from '@/components/ui/controls';
 import { EmptyState, ErrorState, SkeletonList } from '@/components/ui/feedback';
 import { TAB_BAR_HEIGHT } from '@/components/ui/layout';
-import { Icon, MoneyText, Text } from '@/components/ui/primitives';
+import { Divider, Icon, MoneyText, Text } from '@/components/ui/primitives';
 import {
   countActiveFilters,
   FilterSheet,
@@ -22,7 +22,7 @@ import { useCurrency, useTransactionsInfinite } from '@/hooks/data';
 import { formatDayLabel, toISODate } from '@/lib/dates';
 import { invalidateFinancialData } from '@/lib/query';
 import { useTheme } from '@/theme/ThemeProvider';
-import { GUTTER, radius, spacing } from '@/theme/tokens';
+import { continuous, GUTTER, radius, spacing } from '@/theme/tokens';
 import type { Transaction } from '@/types/domain';
 
 function useDebounced<T>(value: T, ms = 300): T {
@@ -35,7 +35,7 @@ function useDebounced<T>(value: T, ms = 300): T {
 }
 
 export default function TransactionsScreen() {
-  const { colors } = useTheme();
+  const { colors, scheme, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const currency = useCurrency();
   const [search, setSearch] = useState('');
@@ -104,10 +104,10 @@ export default function TransactionsScreen() {
           style={{
             width: 52,
             height: 52,
-            borderRadius: radius.lg,
-            borderWidth: 1,
-            borderColor: active ? colors.text : colors.border,
+            borderRadius: radius.md,
+            ...continuous,
             backgroundColor: active ? colors.text : colors.surface,
+            ...(scheme === 'light' ? elevation.card : null),
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -156,7 +156,9 @@ export default function TransactionsScreen() {
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
-              paddingVertical: spacing.sm,
+              paddingTop: spacing.md,
+              paddingBottom: spacing.sm,
+              paddingHorizontal: 4,
               backgroundColor: colors.background,
             }}
           >
@@ -174,7 +176,30 @@ export default function TransactionsScreen() {
             ) : null}
           </View>
         )}
-        renderItem={({ item }) => <TransactionRow t={item} showDate={!byDate} />}
+        renderItem={({ item, index, section }) => {
+          // Each day is an inset grouped list: one white card, rows split by hairlines.
+          const first = index === 0;
+          const last = index === section.data.length - 1;
+          return (
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                paddingHorizontal: spacing.lg,
+                borderTopLeftRadius: first ? radius.xl : 0,
+                borderTopRightRadius: first ? radius.xl : 0,
+                borderBottomLeftRadius: last ? radius.xl : 0,
+                borderBottomRightRadius: last ? radius.xl : 0,
+                ...continuous,
+                paddingTop: first ? spacing.xs : 0,
+                paddingBottom: last ? spacing.xs : 0,
+                marginBottom: last ? spacing.sm : 0,
+              }}
+            >
+              {first ? null : <Divider inset={54} />}
+              <TransactionRow t={item} showDate={!byDate} />
+            </View>
+          );
+        }}
         onEndReachedThreshold={0.4}
         onEndReached={() => {
           if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();

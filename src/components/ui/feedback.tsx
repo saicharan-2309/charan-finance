@@ -23,31 +23,21 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { useAnimatedValue } from '@/lib/animation';
+import { useAnimatedValue, useReducedMotion } from '@/lib/animation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { describeError } from '@/lib/errors';
 import { formatMoney } from '@/lib/money';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevation, motion, radius, spacing } from '@/theme/tokens';
+import { continuous, motion, radius, spacing } from '@/theme/tokens';
 import { Button } from './controls';
 import { Icon, Text, type TextProps } from './primitives';
 
 // ---------------------------------------------------------------------------
 // Reduced motion
 // ---------------------------------------------------------------------------
-export function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then(setReduced)
-      .catch(() => undefined);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    return () => sub.remove();
-  }, []);
-  return reduced;
-}
+export { useReducedMotion };
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -136,6 +126,7 @@ export function EmptyState({
           width: 64,
           height: 64,
           borderRadius: 22,
+          ...continuous,
           backgroundColor: colors.brandSoft,
           alignItems: 'center',
           justifyContent: 'center',
@@ -382,7 +373,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
-  const { colors } = useTheme();
+  const { colors, elevation, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const anim = useAnimatedValue(0);
   useEffect(() => {
@@ -417,10 +408,11 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
           gap: spacing.sm,
           padding: spacing.md,
           paddingHorizontal: spacing.lg,
-          borderRadius: radius.lg,
+          minHeight: 48,
+          borderRadius: radius.pill,
           backgroundColor: colors.surfaceElevated,
-          borderWidth: 1,
-          borderColor: colors.border,
+          borderWidth: scheme === 'dark' ? StyleSheet.hairlineWidth : 0,
+          borderColor: colors.borderStrong,
           ...elevation.floating,
         }}
       >

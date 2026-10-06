@@ -2,35 +2,43 @@
  * Design tokens. One source of truth for colour, type, spacing, radius and
  * elevation. Components read these through `useTheme()` — never hard-code.
  *
- * Identity — "rupee ink on note paper"
- *   * Surfaces are cool, faintly green-grey note paper with white cards, not
- *     the cream of every other "calm" app.
- *   * Text and the hero are a deep indigo ink, the colour of the print on an
- *     Indian banknote. Actions are a clear indigo.
- *   * Categories and charts take their hues from the banknotes themselves:
- *     ₹50 blue, ₹200 marigold, ₹100 lavender, ₹20 olive, ₹2000 magenta,
- *     ₹10 chocolate, plus a teal. ₹500 stone grey is kept for "Other".
- *   * Display type is Bricolage Grotesque — a grotesque with some ink-trap
- *     character — used for big money figures and screen titles only. Body
- *     copy and every number in a list stay in the system face, whose tabular
- *     figures line columns of amounts up exactly.
+ * Identity — "violet glass"
+ *   * Apple-grade restraint: a cool, faintly lavender grey canvas with white
+ *     cards that float on soft, wide, low shadows (no borders in light mode).
+ *     In dark mode the canvas goes near-black and cards lift by tone alone.
+ *   * One accent: an iris violet. It colours actions, the selected tab and the
+ *     Home hero, which is a violet gradient card — the one rich surface on the
+ *     screen. Everything else stays neutral so the numbers lead.
+ *   * A warm coral → amber gauge is the single secondary accent, used only for
+ *     progress against a limit (budget gauges, "today" on the pace track).
+ *   * Type is the system face — San Francisco on iPhone — everywhere. Big money
+ *     figures are SF heavy with tight tracking; every number in a list uses
+ *     tabular figures so columns of amounts line up.
+ *   * Corners are continuous (squircle) on iOS, and radius follows hierarchy:
+ *     hero roundest, then cards, then controls.
+ *   * Categories and charts keep the validated banknote-ink palette below.
  *
  * Colour never carries meaning alone: money always has a sign or a label, and
  * chart series are always named.
  *
- * Contrast (WCAG, checked): light text 16.6:1, secondary 6.3:1, brand 8.2:1,
- * positive 5.5:1, negative 5.7:1, warning 5.6:1 on white; all ≥ 4.8:1 on the
- * paper background. Dark: text 14.8:1, secondary 7.6:1, every status colour
- * ≥ 6.7:1. `textTertiary` (3.7:1 light) is only for captions that repeat
- * information shown nearby.
+ * Contrast (WCAG, checked): light text 18.1:1,
+ * secondary 5.6:1, brand 6.7:1, positive 5.5:1, negative 5.4:1, warning 5.6:1
+ * on white; all ≥ 4.8:1 on the canvas. Dark: text 16.1:1, secondary 7.1:1,
+ * brand 6.8:1, every status colour ≥ 7.3:1 on the dark card. White on the hero
+ * gradient ≥ 5.9:1 at its lightest stop; hero secondary text ≥ 4.6:1. Chart
+ * colours keep ≥ 4.3:1 on the dark card.
+ * `textTertiary` (3.3:1 light) is only for captions that repeat information
+ * shown nearby.
  */
-import { Platform, type TextStyle } from 'react-native';
+import { Platform, type TextStyle, type ViewStyle } from 'react-native';
 
 export interface Palette {
   background: string;
   surface: string;
   surfaceElevated: string;
   surfaceMuted: string;
+  /** Recessed fill for tracks and control backgrounds (segmented control, switches). */
+  fill: string;
   border: string;
   borderStrong: string;
   text: string;
@@ -54,81 +62,105 @@ export interface Palette {
   chartGrid: string;
   /** Neutral transfer colour (not income, not expense). */
   transfer: string;
-  /** The ink-indigo hero panel and the text on it. */
+  /** The Home hero: a violet gradient card, and the text on it. */
   hero: string;
+  heroGradient: readonly [string, string, string];
   heroText: string;
   heroMuted: string;
   heroTrack: string;
-  /** Marigold — "today" on the hero's pace track, and auto-captured badges. */
+  /** Credit cards in the accounts strip are drawn as a graphite card. */
+  cardGradient: readonly [string, string];
+  /** The warm gauge (coral → amber): progress against a limit. */
+  gaugeGradient: readonly [string, string];
+  /** Amber — "today" on the hero's pace track, and auto-captured badges. */
   highlight: string;
+  /** Colour of the soft, wide card shadow (light mode only). */
+  shadow: string;
+  /** Floating chrome (tab bar): its hairline edge, and its fill where no blur exists. */
+  chromeStroke: string;
+  chromeFill: string;
 }
 
 export const lightPalette: Palette = {
-  background: '#F1F3EE',
+  background: '#F3F3F8',
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
-  surfaceMuted: '#F6F7F3',
-  border: '#E3E6DF',
-  borderStrong: '#CDD2C8',
-  text: '#161D36',
-  textSecondary: '#5A6072',
-  textTertiary: '#7E8494',
+  surfaceMuted: '#F0F0F5',
+  fill: '#E7E7EE',
+  border: '#E7E7EF',
+  borderStrong: '#D3D3DE',
+  text: '#15151E',
+  textSecondary: '#666676',
+  textTertiary: '#8C8C9B',
   textInverse: '#FFFFFF',
-  brand: '#3442B0',
-  brandPressed: '#28349A',
-  brandSoft: '#E9EBFA',
+  brand: '#5B3FD9',
+  brandPressed: '#4B31C2',
+  brandSoft: '#EEEBFD',
   onBrand: '#FFFFFF',
   positive: '#19784F',
-  positiveSoft: '#E3F2EA',
-  negative: '#B83A31',
-  negativeSoft: '#F9E6E4',
+  positiveSoft: '#E3F3EA',
+  negative: '#BF3A30',
+  negativeSoft: '#FBE8E6',
   warning: '#8F5E08',
   warningSoft: '#FBF0DA',
   info: '#1F6FA8',
-  infoSoft: '#E2EFF8',
-  overlay: 'rgba(22, 29, 54, 0.42)',
-  skeleton: '#E8EBE4',
-  chartGrid: '#ECEEE8',
-  transfer: '#5D6577',
-  hero: '#18213F',
-  heroText: '#F4F5F0',
-  heroMuted: '#A9B0C8',
-  heroTrack: '#2A3459',
-  highlight: '#F2B441',
+  infoSoft: '#E4EFF8',
+  overlay: 'rgba(21, 21, 30, 0.4)',
+  skeleton: '#E9E9F0',
+  chartGrid: '#EEEEF3',
+  transfer: '#626275',
+  hero: '#4E33D8',
+  heroGradient: ['#6046E8', '#4E33D8', '#3B22B0'],
+  heroText: '#FFFFFF',
+  heroMuted: 'rgba(255, 255, 255, 0.84)',
+  heroTrack: 'rgba(255, 255, 255, 0.2)',
+  cardGradient: ['#34344A', '#15151E'],
+  gaugeGradient: ['#FF9A3C', '#F2554B'],
+  highlight: '#FFC14D',
+  shadow: '#2B2266',
+  chromeStroke: 'rgba(255, 255, 255, 0.7)',
+  chromeFill: 'rgba(255, 255, 255, 0.82)',
 };
 
 export const darkPalette: Palette = {
-  background: '#0E1322',
-  surface: '#161C2E',
-  surfaceElevated: '#1C2338',
-  surfaceMuted: '#1A2033',
-  border: '#252D45',
-  borderStrong: '#343E5C',
-  text: '#EEF0EA',
-  textSecondary: '#A6ADC2',
-  textTertiary: '#7C849C',
-  textInverse: '#0E1322',
-  brand: '#8F9BFF',
-  brandPressed: '#7884F0',
-  brandSoft: '#20264A',
-  onBrand: '#0E1322',
+  background: '#0A0A0F',
+  surface: '#18181F',
+  surfaceElevated: '#202029',
+  surfaceMuted: '#22222B',
+  fill: '#2B2B35',
+  border: '#2A2A35',
+  borderStrong: '#3A3A47',
+  text: '#F4F4F7',
+  textSecondary: '#A3A3B2',
+  textTertiary: '#767684',
+  textInverse: '#0A0A0F',
+  brand: '#A193FF',
+  brandPressed: '#8E7EF5',
+  brandSoft: '#25203F',
+  onBrand: '#0A0A0F',
   positive: '#5CC896',
-  positiveSoft: '#13291F',
-  negative: '#F08A80',
-  negativeSoft: '#2D1A1B',
-  warning: '#E4B25A',
+  positiveSoft: '#132A20',
+  negative: '#F38A80',
+  negativeSoft: '#2E1A1B',
+  warning: '#E6B45C',
   warningSoft: '#2A2214',
   info: '#6FB3E6',
-  infoSoft: '#142536',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-  skeleton: '#1F263A',
-  chartGrid: '#222A40',
-  transfer: '#A7AEC0',
-  hero: '#1F2848',
-  heroText: '#F4F5F0',
-  heroMuted: '#A9B0C8',
-  heroTrack: '#323D66',
-  highlight: '#F2B441',
+  infoSoft: '#132535',
+  overlay: 'rgba(0, 0, 0, 0.62)',
+  skeleton: '#202029',
+  chartGrid: '#25252F',
+  transfer: '#A7A7B6',
+  hero: '#4A31D0',
+  heroGradient: ['#5A3FE3', '#4A31D0', '#2E1A96'],
+  heroText: '#FFFFFF',
+  heroMuted: 'rgba(255, 255, 255, 0.84)',
+  heroTrack: 'rgba(255, 255, 255, 0.18)',
+  cardGradient: ['#3A3A4C', '#1E1E28'],
+  gaugeGradient: ['#FFA24A', '#F6625A'],
+  highlight: '#FFC14D',
+  shadow: '#000000',
+  chromeStroke: 'rgba(255, 255, 255, 0.08)',
+  chromeFill: 'rgba(32, 32, 41, 0.82)',
 };
 
 /** The 4-point scale, with room to breathe. */
@@ -149,83 +181,100 @@ export const GUTTER = 20;
 
 /**
  * Radius follows hierarchy rather than one value everywhere: the hero is the
- * roundest, cards less so, controls and rows tighter still.
+ * roundest, cards less so, controls and rows tighter still. Pair with
+ * `continuous` so iOS draws Apple's squircle instead of a circular arc.
  */
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 28,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 22,
+  xxl: 30,
   pill: 999,
 } as const;
 
-/** Font family names registered in the root layout (see `FONT_ASSETS`). */
+/** Continuous (squircle) corners on iOS; ignored elsewhere. */
+export const continuous: ViewStyle = { borderCurve: 'continuous' };
+
+/**
+ * Kept for callers that name a family directly. The app now uses the system
+ * face throughout, so these resolve to it (weights come from `typography`).
+ */
+const system = Platform.select({ ios: 'System', default: undefined });
 export const fonts = {
-  display: 'BricolageGrotesque_700Bold',
-  displayHeavy: 'BricolageGrotesque_800ExtraBold',
-  displayMedium: 'BricolageGrotesque_600SemiBold',
+  display: system,
+  displayHeavy: system,
+  displayMedium: system,
 } as const;
 
-const system = Platform.select({ ios: 'System', default: undefined });
 const tabular: TextStyle['fontVariant'] = ['tabular-nums'];
 
 /**
- * A deliberately wide hierarchy: a headline figure is more than twice the size
- * of the label under it, so the eye lands on the number first. Custom-font
- * styles leave fontWeight unset — the weight is in the family name, and a
- * synthetic bold on top would smear it.
+ * Apple's type ramp (iOS text styles), with a wider gap at the top: a headline
+ * figure is more than twice the size of the label under it, so the eye lands
+ * on the number first. Large sizes take negative tracking, as SF Display does.
  */
 export const typography = {
-  display: {
-    fontFamily: fonts.displayHeavy,
-    fontSize: 44,
-    lineHeight: 48,
-    letterSpacing: -1.4,
-  },
-  largeTitle: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.8 },
-  title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 30, letterSpacing: -0.5 },
-  headline: { fontFamily: fonts.displayMedium, fontSize: 19, lineHeight: 24, letterSpacing: -0.2 },
-  body: { fontFamily: system, fontSize: 16, lineHeight: 22, fontWeight: '400' },
-  bodyStrong: { fontFamily: system, fontSize: 16, lineHeight: 22, fontWeight: '600' },
-  callout: { fontFamily: system, fontSize: 15, lineHeight: 20, fontWeight: '400' },
-  subhead: { fontFamily: system, fontSize: 14, lineHeight: 19, fontWeight: '500' },
+  display: { fontFamily: system, fontSize: 44, lineHeight: 50, fontWeight: '700', letterSpacing: -1.2 },
+  largeTitle: { fontFamily: system, fontSize: 34, lineHeight: 41, fontWeight: '700', letterSpacing: -0.6 },
+  title: { fontFamily: system, fontSize: 26, lineHeight: 32, fontWeight: '700', letterSpacing: -0.5 },
+  headline: { fontFamily: system, fontSize: 20, lineHeight: 25, fontWeight: '600', letterSpacing: -0.35 },
+  body: { fontFamily: system, fontSize: 17, lineHeight: 22, fontWeight: '400', letterSpacing: -0.2 },
+  bodyStrong: { fontFamily: system, fontSize: 17, lineHeight: 22, fontWeight: '600', letterSpacing: -0.2 },
+  callout: { fontFamily: system, fontSize: 16, lineHeight: 21, fontWeight: '400', letterSpacing: -0.15 },
+  subhead: { fontFamily: system, fontSize: 15, lineHeight: 20, fontWeight: '500', letterSpacing: -0.1 },
   footnote: { fontFamily: system, fontSize: 13, lineHeight: 18, fontWeight: '400' },
   caption: { fontFamily: system, fontSize: 12, lineHeight: 16, fontWeight: '500' },
   /** Small section label — sentence case, set apart by weight, not capitals. */
   overline: { fontFamily: system, fontSize: 13, lineHeight: 17, fontWeight: '600', letterSpacing: 0 },
-  amount: { fontFamily: system, fontSize: 16, lineHeight: 22, fontWeight: '600', fontVariant: tabular },
-  amountLarge: {
-    fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 36,
-    letterSpacing: -0.6,
-  },
+  amount: { fontFamily: system, fontSize: 17, lineHeight: 22, fontWeight: '600', fontVariant: tabular },
+  amountLarge: { fontFamily: system, fontSize: 30, lineHeight: 36, fontWeight: '700', letterSpacing: -0.7 },
 } satisfies Record<string, TextStyle>;
 
 export type TypographyVariant = keyof typeof typography;
 
-/** Lift comes from contrast with the paper background, not heavy shadow. */
-export const elevation = {
-  card: Platform.select({
-    ios: {
-      shadowColor: '#161D36',
-      shadowOpacity: 0.04,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 3 },
-    },
-    default: { elevation: 1 },
-  }),
-  floating: Platform.select({
-    ios: {
-      shadowColor: '#161D36',
-      shadowOpacity: 0.16,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-    },
-    default: { elevation: 6 },
-  }),
-};
+/**
+ * Depth comes from soft, wide, low-opacity shadows tinted with the accent —
+ * never a hard drop shadow. Dark mode lifts cards by tone instead.
+ */
+export function elevationFor(shadow: string) {
+  return {
+    card: Platform.select<ViewStyle>({
+      ios: {
+        shadowColor: shadow,
+        shadowOpacity: 0.07,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      web: { boxShadow: `0 6px 18px ${shadow}12` } as ViewStyle,
+      default: { elevation: 1 },
+    }),
+    floating: Platform.select<ViewStyle>({
+      ios: {
+        shadowColor: shadow,
+        shadowOpacity: 0.18,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 10 },
+      },
+      web: { boxShadow: `0 10px 24px ${shadow}2E` } as ViewStyle,
+      default: { elevation: 6 },
+    }),
+    /** The hero card: a coloured glow in its own hue. */
+    hero: (color: string) =>
+      Platform.select<ViewStyle>({
+        ios: {
+          shadowColor: color,
+          shadowOpacity: 0.35,
+          shadowRadius: 22,
+          shadowOffset: { width: 0, height: 12 },
+        },
+        web: { boxShadow: `0 12px 28px ${color}59` } as ViewStyle,
+        default: { elevation: 8 },
+      }),
+  };
+}
+
+export const elevation = elevationFor(lightPalette.shadow);
 
 export const motion = {
   fast: 160,
@@ -233,16 +282,22 @@ export const motion = {
   slow: 420,
 } as const;
 
+/** Apple-like springs for Animated.spring: quick to settle, no wobble. */
+export const springs = {
+  snappy: { damping: 22, stiffness: 320, mass: 1 },
+  smooth: { damping: 26, stiffness: 200, mass: 1 },
+} as const;
+
 /**
  * Categorical chart colours from the banknote inks, assigned in fixed order
  * (never cycled past the end — extra series fold into "Other", in stone grey).
  *
- * Validated on the real surfaces (#FFFFFF light, #161C2E dark) with the
- * data-viz palette checks: OKLCH lightness band, chroma ≥ 0.10, adjacent-pair
- * separation under simulated protanopia/deuteranopia (worst ΔE 11.1 dark),
- * normal-vision separation ≥ 15 ΔE, and ≥ 3:1 contrast against the surface —
- * all passing in both modes. The order is what makes the CVD check pass:
- * magenta never sits next to teal, olive never next to chocolate.
+ * Validated on white (light) and a dark card with the data-viz palette checks:
+ * OKLCH lightness band, chroma ≥ 0.10, adjacent-pair separation under
+ * simulated protanopia/deuteranopia (worst ΔE 11.1 dark), normal-vision
+ * separation ≥ 15 ΔE, and ≥ 3:1 contrast against the surface — all passing in
+ * both modes. The order is what makes the CVD check pass: magenta never sits
+ * next to teal, olive never next to chocolate.
  */
 export const chartColorsLight = [
   '#1F86C7', // ₹50 blue

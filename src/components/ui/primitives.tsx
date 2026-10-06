@@ -5,6 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps, ReactNode } from 'react';
 import {
   Pressable,
+  StyleSheet,
   Text as RNText,
   View,
   type PressableProps,
@@ -16,7 +17,14 @@ import {
 
 import { formatMoney, type FormatOptions } from '@/lib/money';
 import { useTheme } from '@/theme/ThemeProvider';
-import { elevation, radius, spacing, typography, type Palette, type TypographyVariant } from '@/theme/tokens';
+import {
+  continuous,
+  radius,
+  spacing,
+  typography,
+  type Palette,
+  type TypographyVariant,
+} from '@/theme/tokens';
 
 // ---------------------------------------------------------------------------
 // Text
@@ -112,14 +120,20 @@ export function Card({
   onPress,
   accessibilityLabel,
 }: CardProps) {
-  const { colors, scheme } = useTheme();
+  const { colors, scheme, elevation } = useTheme();
+  // No borders: a white card floats on the grey canvas on a soft, wide shadow
+  // in light mode, and lifts by tone alone in dark mode. "elevated" floats
+  // higher; "muted" sits flat in the canvas.
   const base: ViewStyle = {
     backgroundColor: variant === 'muted' ? colors.surfaceMuted : colors.surface,
     borderRadius: radius.xl,
-    borderWidth: variant === 'outlined' ? 1 : 0,
-    borderColor: colors.border,
+    ...continuous,
     padding: padded ? spacing.lg : 0,
-    ...(variant === 'elevated' && scheme === 'light' ? elevation.card : null),
+    ...(scheme === 'light' && variant !== 'muted'
+      ? variant === 'elevated'
+        ? elevation.floating
+        : elevation.card
+      : null),
   };
   if (!onPress) return <View style={[base, style]}>{children}</View>;
   return (
@@ -129,7 +143,7 @@ export function Card({
       onPress={onPress}
       style={({ pressed }) => [
         base,
-        { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] },
+        { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         style,
       ]}
     >
@@ -140,7 +154,14 @@ export function Card({
 
 export function Divider({ inset = 0, style }: { inset?: number; style?: StyleProp<ViewStyle> }) {
   const { colors } = useTheme();
-  return <View style={[{ height: 1, backgroundColor: colors.border, marginLeft: inset }, style]} />;
+  return (
+    <View
+      style={[
+        { height: StyleSheet.hairlineWidth, backgroundColor: colors.borderStrong, marginLeft: inset },
+        style,
+      ]}
+    />
+  );
 }
 
 export function Spacer({ size = spacing.lg }: { size?: number }) {
@@ -215,7 +236,7 @@ export function MoneyText({
   );
 }
 
-/** Circular icon badge used for categories, accounts and insights. */
+/** Squircle icon badge used for categories, accounts and insights. */
 export function IconBadge({
   icon,
   color,
@@ -234,7 +255,8 @@ export function IconBadge({
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2.6,
+        borderRadius: size * 0.32,
+        ...continuous,
         backgroundColor: `${tint}1F`,
         alignItems: 'center',
         justifyContent: 'center',

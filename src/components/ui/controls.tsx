@@ -3,9 +3,10 @@
  * SwitchRow, ListRow.
  */
 import * as Haptics from 'expo-haptics';
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Platform,
   Pressable,
   Switch,
@@ -17,7 +18,8 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, spacing, typography } from '@/theme/tokens';
+import { useAnimatedValue, useReducedMotion } from '@/lib/animation';
+import { continuous, radius, spacing, springs, typography } from '@/theme/tokens';
 import { Icon, Text, type TextTone } from './primitives';
 
 export const haptic = {
@@ -107,7 +109,7 @@ export function Button({
       style={({ pressed }) => [
         {
           height,
-          borderRadius: size === 'sm' ? radius.md : radius.lg,
+          borderRadius: radius.pill,
           paddingHorizontal: size === 'sm' ? spacing.md : spacing.xl,
           backgroundColor: pressed ? palette.bgPressed : palette.bg,
           alignItems: 'center',
@@ -115,6 +117,7 @@ export function Button({
           flexDirection: 'row',
           gap: spacing.sm,
           opacity: isDisabled && !loading ? 0.45 : 1,
+          transform: [{ scale: pressed ? 0.97 : 1 }],
         },
         style,
       ]}
@@ -207,9 +210,10 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           flexDirection: 'row',
           alignItems: 'center',
           minHeight: 52,
-          borderRadius: radius.lg,
-          borderWidth: 1,
-          borderColor: error ? colors.negative : colors.border,
+          borderRadius: radius.md,
+          ...continuous,
+          borderWidth: error ? 1.5 : 0,
+          borderColor: colors.negative,
           backgroundColor: editable ? colors.surface : colors.surfaceMuted,
           paddingHorizontal: spacing.lg,
           gap: spacing.sm,
@@ -254,15 +258,53 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors, scheme } = useTheme();
+  const { colors, scheme, elevation } = useTheme();
+  const reduced = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const index = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+  const x = useAnimatedValue(0);
+  const segment = width > 0 ? (width - 6) / options.length : 0;
+
+  // The thumb springs to the selected segment, like UISegmentedControl.
+  useEffect(() => {
+    if (!segment) return;
+    if (reduced) x.setValue(index * segment);
+    else Animated.spring(x, { toValue: index * segment, useNativeDriver: true, ...springs.snappy }).start();
+  }, [index, segment, reduced, x]);
+
   return (
     <View
       accessibilityRole="tablist"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       style={[
-        { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: 3 },
+        {
+          flexDirection: 'row',
+          backgroundColor: colors.fill,
+          borderRadius: radius.pill,
+          padding: 3,
+        },
         style,
       ]}
     >
+      {segment ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 3,
+            bottom: 3,
+            left: 3,
+            width: segment,
+            borderRadius: radius.pill,
+            backgroundColor: scheme === 'dark' ? colors.borderStrong : colors.surface,
+            transform: [{ translateX: x }],
+            ...(scheme === 'light' ? elevation.card : null),
+          }}
+        />
+      ) : null}
       {options.map((o) => {
         const selected = o.value === value;
         return (
@@ -277,24 +319,18 @@ export function SegmentedControl<T extends string>({
             style={{
               flex: 1,
               paddingVertical: 8,
-              borderRadius: radius.sm + 2,
               alignItems: 'center',
-              backgroundColor: selected
-                ? scheme === 'dark'
-                  ? colors.borderStrong
-                  : colors.surface
-                : 'transparent',
-              ...(selected && scheme === 'light'
-                ? {
-                    shadowColor: '#000',
-                    shadowOpacity: 0.08,
-                    shadowRadius: 4,
-                    shadowOffset: { width: 0, height: 1 },
-                  }
-                : null),
+              // Before the first layout there's no thumb yet; tint the segment instead.
+              borderRadius: radius.pill,
+              backgroundColor: !segment && selected ? colors.surface : 'transparent',
             }}
           >
-            <Text variant="subhead" tone={selected ? 'primary' : 'secondary'} numberOfLines={1}>
+            <Text
+              variant="subhead"
+              tone={selected ? 'primary' : 'secondary'}
+              style={{ fontWeight: selected ? '600' : '500' }}
+              numberOfLines={1}
+            >
               {o.label}
             </Text>
           </Pressable>
@@ -308,9 +344,10 @@ export function SegmentedControl<T extends string>({
 // Chip
 // ---------------------------------------------------------------------------
 /**
- * A chip. Selection is shown with a soft tint of the chip's own colour rather
- * than a heavy dark fill, so a row of chips stays calm; the tint is paired
- * with a stronger border and bolder text, so selection never rests on colour
+ * A chip. A plain chip, when selected, becomes a solid ink capsule with
+ * inverse text — the clearest "this one" mark there is. A chip that carries
+ * its own colour (a category) shows selection with a soft tint of that colour
+ * plus a ring and bolder text instead, so selection never rests on colour
  * alone.
  */
 export function Chip({
@@ -327,7 +364,9 @@ export function Chip({
   color?: string | null;
 }) {
   const { colors } = useTheme();
-  const tint = color ?? colors.brand;
+  const ink = !color;
+  const tint = color ?? colors.text;
+  const fg = selected ? (ink ? colors.textInverse : tint) : colors.text;
   return (
     <Pressable
       accessibilityRole="button"
@@ -340,18 +379,25 @@ export function Chip({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: spacing.lg,
         height: 38,
         borderRadius: radius.pill,
-        borderWidth: 1,
-        borderColor: selected ? tint : colors.border,
-        backgroundColor: selected ? `${tint}1A` : pressed ? colors.surfaceMuted : colors.surface,
+        borderWidth: selected && !ink ? 1.5 : 0,
+        borderColor: tint,
+        backgroundColor: selected
+          ? ink
+            ? colors.text
+            : `${tint}1A`
+          : pressed
+            ? colors.fill
+            : colors.surface,
+        transform: [{ scale: pressed ? 0.96 : 1 }],
       })}
     >
-      {icon ? <Icon name={icon} size={16} color={selected ? tint : (color ?? colors.textSecondary)} /> : null}
+      {icon ? <Icon name={icon} size={16} color={selected ? fg : (color ?? colors.textSecondary)} /> : null}
       <Text
-        variant={selected ? 'bodyStrong' : 'subhead'}
-        style={{ color: selected ? tint : colors.text, fontSize: 14 }}
+        variant="subhead"
+        style={{ color: fg, fontSize: 14, fontWeight: selected ? '600' : '500' }}
         numberOfLines={1}
       >
         {label}
@@ -466,5 +512,38 @@ export function SwitchRow({
         />
       }
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// HeaderButton
+// ---------------------------------------------------------------------------
+/** The round action beside a large title: a floating white disc with an accent glyph. */
+export function HeaderButton({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  const { colors, scheme, elevation } = useTheme();
+  return (
+    <Pressable
+      onPress={() => {
+        haptic.light();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      style={({ pressed }) => [
+        {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: scheme === 'dark' ? colors.surfaceElevated : colors.surface,
+          transform: [{ scale: pressed ? 0.92 : 1 }],
+        },
+        scheme === 'light' ? elevation.card : null,
+      ]}
+    >
+      <Icon name={icon} size={21} tone="brand" />
+    </Pressable>
   );
 }

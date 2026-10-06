@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Alert, View } from 'react-native';
 
 import { useToast } from '@/components/ui/feedback';
+import { GradientFill } from '@/components/ui/gradient';
 import { ListRow } from '@/components/ui/controls';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, IconBadge, Row, Text } from '@/components/ui/primitives';
@@ -119,15 +120,16 @@ export default function MoreScreen() {
         <Row gap={spacing.md}>
           <View
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 18,
-              backgroundColor: colors.brandSoft,
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              overflow: 'hidden',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text variant="title" tone="brand">
+            <GradientFill colors={colors.heroGradient} sheen />
+            <Text variant="title" style={{ color: colors.heroText }}>
               {(profile.data?.displayName ?? user?.email ?? '?').charAt(0).toUpperCase()}
             </Text>
           </View>

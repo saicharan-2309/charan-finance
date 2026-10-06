@@ -6,14 +6,15 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { Icon, Row, Text } from '@/components/ui/primitives';
+import { Icon, IconBadge, Row, Text } from '@/components/ui/primitives';
 import { useBankSyncStatus } from '@/hooks/data';
 import { useFoundAccounts } from './FoundAccounts';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, spacing } from '@/theme/tokens';
+import { continuous, lightPalette, radius, spacing } from '@/theme/tokens';
 
 export function BankSyncCard() {
-  const { colors } = useTheme();
+  const { colors, scheme, elevation } = useTheme();
+  const lift = scheme === 'light' ? elevation.card : null;
   const q = useBankSyncStatus();
   const found = useFoundAccounts();
   const s = q.data;
@@ -30,14 +31,14 @@ export function BankSyncCard() {
           gap: spacing.md,
           padding: spacing.lg,
           borderRadius: radius.xl,
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          borderColor: colors.borderStrong,
-          backgroundColor: pressed ? colors.surfaceMuted : 'transparent',
+          ...continuous,
+          backgroundColor: colors.surface,
           marginBottom: spacing.xxl,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+          ...lift,
         })}
       >
-        <Icon name="flash-outline" size={22} tone="brand" />
+        <IconBadge icon="flash" color={colors.brand} size={42} />
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="bodyStrong">Add transactions automatically</Text>
           <Text variant="footnote" tone="secondary">
@@ -67,10 +68,11 @@ export function BankSyncCard() {
         gap: spacing.md,
         padding: spacing.lg,
         borderRadius: radius.xl,
-        backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
+        ...continuous,
+        backgroundColor: colors.surface,
         marginBottom: spacing.xxl,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+        ...lift,
       })}
     >
       <View
@@ -84,7 +86,7 @@ export function BankSyncCard() {
           justifyContent: 'center',
         }}
       >
-        <Text variant="headline" style={{ color: '#161D36' }}>
+        <Text variant="headline" style={{ color: lightPalette.text }}>
           {total > 99 ? '99+' : total}
         </Text>
       </View>

@@ -7,3 +7,6 @@ android
 package-lock.json
 supabase/migrations
 supabase/seed
+# Locally installed agent skills (not part of the app)
+.claude/skills
+.agents

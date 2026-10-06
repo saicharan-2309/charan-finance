@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { HeaderButton } from '@/components/ui/controls';
 import { EmptyState, ProgressRing, QueryState } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
@@ -32,16 +33,7 @@ export default function GoalsScreen() {
         await invalidateFinancialData();
         setRefreshing(false);
       }}
-      headerRight={
-        <Pressable
-          onPress={() => router.push('/goals/edit')}
-          accessibilityRole="button"
-          accessibilityLabel="New goal"
-          hitSlop={8}
-        >
-          <IconBadge icon="add" color={colors.brand} size={40} />
-        </Pressable>
-      }
+      headerRight={<HeaderButton icon="add" label="New goal" onPress={() => router.push('/goals/edit')} />}
     >
       <QueryState query={goals}>
         {(list) => {
