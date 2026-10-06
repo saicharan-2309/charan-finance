@@ -1,23 +1,23 @@
 /**
- * Home — the financial situation, not a transaction log.
+ * Home, laid out after the reference design.
  *
- * Order: greeting → safe to spend until payday (the hero) → anything bank
- * sync wants checked → the accounts money sits in → what is coming up → where
- * it went → recent activity → budgets and goals. Every number comes from the
- * database; nothing is illustrative.
+ * Order: header (insights · Home · you) → total balance with what is safe to
+ * spend until payday → payment-method cards → anything bank sync wants checked
+ * → this week's income and spending → recent transactions → expenses by
+ * category → the monthly budget gauge → upcoming → goals. Every number comes
+ * from the database; nothing is illustrative.
  */
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { HeaderButton } from '@/components/ui/controls';
-import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
+import { AnimatedMoney, EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
+import { GradientFill } from '@/components/ui/gradient';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { BankSyncCard } from '@/features/bank-sync/BankSyncCard';
-import { MoneyMonthHero } from '@/features/dashboard/MoneyMonthHero';
-import { AccountStrip, BudgetGauge, BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
-import { TransactionRow } from '@/features/transactions/TransactionRow';
+import { AccountCarousel, ExpenseTiles, TransactionCards, WeekChart } from '@/features/dashboard/home-cards';
+import { BudgetGauge, BudgetRow } from '@/features/dashboard/widgets';
 import { PendingTransactions, SyncBanner } from '@/features/transactions/SyncStatus';
 import {
   useAccounts,
@@ -30,21 +30,17 @@ import {
   useRecentTransactions,
   useRecurring,
   useSettings,
+  useWeekSeries,
 } from '@/hooks/data';
 import { creditCardDues, isLiquid, liquidBalance } from '@/lib/accounts';
 import { availableBalance, upcomingItems } from '@/lib/cashflow';
-import { addDaysISO, fromISODate, todayISO } from '@/lib/dates';
+import { addDaysISO, daysLeft, fromISODate, todayISO } from '@/lib/dates';
 import { formatMoney, type Minor } from '@/lib/money';
 import { cardDates, cardStanding } from '@/lib/payment-methods';
 import { notifyBudgetThresholds } from '@/lib/notifications';
 import { invalidateFinancialData } from '@/lib/query';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
-
-function greeting(d = new Date()) {
-  const h = d.getHours();
-  return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-}
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -55,6 +51,7 @@ export default function HomeScreen() {
   const budgets = useBudgetStatus();
   const goals = useGoals();
   const recent = useRecentTransactions(6);
+  const week = useWeekSeries();
   const settings = useSettings();
   const { index: cats } = useCategoryIndex();
   const [refreshing, setRefreshing] = useState(false);
@@ -74,7 +71,7 @@ export default function HomeScreen() {
     const items = upcomingItems(recurring.data ?? [], today, addDaysISO(today, 30));
     const thisCycle = items.filter((i) => i.date <= month.end);
     const available = availableBalance(liquid, dues, thisCycle, liquidIds, cardIds, month.end);
-    return { items, available, hasAccounts: d.accounts.length > 0 };
+    return { items, available, liquid, hasAccounts: d.accounts.length > 0 };
   })();
 
   /**
@@ -148,38 +145,124 @@ export default function HomeScreen() {
   };
 
   const overallBudget = budgets.data?.find((r) => r.categoryId === null) ?? null;
-  const name = profile.data?.displayName?.split(' ')[0];
+  const name = profile.data?.displayName ?? '';
   const noAccounts = accounts.data && accounts.data.length === 0;
+  const spentToday = week.data ? (week.days.find((x) => x.date === today)?.expense ?? 0) : null;
+  const left = daysLeft(month, today);
+  const perDay = derived && derived.available > 0 && left > 0 ? derived.available / left : null;
+  const endLabel = fromISODate(month.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
   return (
-    <Screen
-      safeTop
-      tabBarInset
-      eyebrow={`${greeting()} · ${new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`}
-      title={name ?? greeting()}
-      refreshing={refreshing}
-      onRefresh={refresh}
-      headerRight={<HeaderButton icon="sparkles" label="Insights" onPress={() => router.push('/insights')} />}
-    >
+    <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh}>
+      {/* Header: insights · Home · you */}
+      <Row justify="space-between" style={{ marginBottom: spacing.xl }}>
+        <Pressable
+          onPress={() => router.push('/insights')}
+          accessibilityRole="button"
+          accessibilityLabel="Insights"
+          hitSlop={10}
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            justifyContent: 'center',
+            opacity: pressed ? 0.5 : 1,
+          })}
+        >
+          <Icon name="sparkles-outline" size={24} tone="primary" />
+        </Pressable>
+        <Text variant="headline" accessibilityRole="header">
+          Home
+        </Text>
+        <Pressable
+          onPress={() => router.push('/more')}
+          accessibilityRole="button"
+          accessibilityLabel="Your account and settings"
+          hitSlop={8}
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [{ scale: pressed ? 0.92 : 1 }],
+          })}
+        >
+          <GradientFill colors={colors.heroGradient} sheen />
+          <Text variant="bodyStrong" style={{ color: colors.heroText }}>
+            {(name || '?').charAt(0).toUpperCase()}
+          </Text>
+        </Pressable>
+      </Row>
+
       <SyncBanner />
 
       {dashboard.error && !d ? (
         <ErrorState error={dashboard.error} onRetry={() => void dashboard.refetch()} />
       ) : null}
 
-      <MoneyMonthHero
-        currency={currency}
-        cycle={month}
-        today={today}
-        safeToSpend={derived?.hasAccounts ? derived.available : null}
-        spent={d ? d.current.expense : null}
-        income={d ? d.current.income : null}
-        previousSpent={d ? d.previous.expense : null}
-      />
+      {/* Total balance, and what is safe to spend until payday */}
+      <View style={{ marginBottom: spacing.xl, gap: 2 }}>
+        <Text variant="subhead" tone="secondary" style={{ fontWeight: '400' }}>
+          Total balance
+        </Text>
+        {derived ? (
+          <AnimatedMoney
+            minor={derived.liquid}
+            from={0}
+            currency={currency}
+            variant="display"
+            style={{ fontSize: 38, lineHeight: 44, color: colors.text }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          />
+        ) : (
+          <Skeleton width={200} height={44} style={{ marginTop: 2 }} />
+        )}
+        {derived?.hasAccounts ? (
+          <Pressable
+            onPress={() => router.push('/reports')}
+            accessibilityRole="button"
+            accessibilityHint="Opens spending reports"
+            style={({ pressed }) => ({
+              alignSelf: 'flex-start',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: spacing.sm,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: radius.pill,
+              backgroundColor: derived.available < 0 ? colors.negativeSoft : colors.brandSoft,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Icon
+              name={derived.available < 0 ? 'alert-circle' : 'shield-checkmark'}
+              size={14}
+              tone={derived.available < 0 ? 'negative' : 'brand'}
+            />
+            <Text
+              variant="footnote"
+              tone={derived.available < 0 ? 'negative' : 'brand'}
+              style={{ fontWeight: '600', flexShrink: 1 }}
+            >
+              {derived.available < 0
+                ? `Bills and card dues exceed your balance by ${formatShort(-derived.available, currency)}`
+                : `Safe to spend ${formatShort(derived.available, currency)}${
+                    perDay !== null ? ` · ${formatShort(perDay, currency)}/day` : ''
+                  } until ${endLabel}`}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
 
-      <BankSyncCard />
-
-      {noAccounts ? (
+      {/* Cards */}
+      {accounts.data?.length ? (
+        <View style={{ marginBottom: spacing.xxl }}>
+          <AccountCarousel accounts={accounts.data} />
+        </View>
+      ) : noAccounts ? (
         <Card style={{ marginBottom: spacing.xxl }}>
           <EmptyState
             compact
@@ -192,12 +275,82 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
-      {/* Accounts */}
-      {accounts.data?.length ? (
-        <Section title="Accounts" action="Manage" onAction={() => router.push('/accounts')}>
-          <AccountStrip accounts={accounts.data} />
-        </Section>
-      ) : null}
+      <BankSyncCard />
+
+      {/* This week */}
+      <View style={{ marginBottom: spacing.xxl }}>
+        <WeekChart currency={currency} />
+      </View>
+
+      {/* Recent transactions, one card each */}
+      <Section title="Recent" action="See all" onAction={() => router.push('/transactions')}>
+        <PendingTransactions />
+        {recent.data === undefined ? (
+          <Skeleton height={160} rounded={radius.xl} />
+        ) : recent.data.length === 0 ? (
+          <Card>
+            <EmptyState
+              compact
+              icon="receipt-outline"
+              title="No transactions yet"
+              message="Tap + to record an expense, income or transfer."
+            />
+          </Card>
+        ) : (
+          <TransactionCards transactions={recent.data} />
+        )}
+      </Section>
+
+      {/* Expenses by category */}
+      <View style={{ marginBottom: spacing.xxl }}>
+        <ExpenseTiles currency={currency} />
+      </View>
+
+      {/* Budget */}
+      <Section
+        title="Monthly budget"
+        action={budgets.data?.length ? 'Details' : undefined}
+        onAction={() => router.push('/budgets')}
+      >
+        {budgets.data === undefined ? (
+          <Skeleton height={90} rounded={radius.xl} />
+        ) : budgets.data.length === 0 ? (
+          <Card onPress={() => router.push('/budgets/edit')}>
+            <Row gap={spacing.md}>
+              <IconBadge icon="speedometer-outline" color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyStrong">Set a monthly budget</Text>
+                <Text variant="footnote" tone="secondary">
+                  Track spending limits by category.
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={18} tone="tertiary" />
+            </Row>
+          </Card>
+        ) : (
+          <Card style={{ gap: spacing.xl, paddingTop: spacing.xl }}>
+            {overallBudget ? (
+              <BudgetGauge
+                row={overallBudget}
+                currency={currency}
+                warningPercent={settings.data?.budgetWarningPercent ?? 80}
+                spentToday={spentToday}
+              />
+            ) : null}
+            {budgets.data
+              .filter((r) => r !== overallBudget)
+              .slice(0, overallBudget ? 3 : 4)
+              .map((r) => (
+                <BudgetRow
+                  key={r.itemId}
+                  row={r}
+                  currency={currency}
+                  warningPercent={settings.data?.budgetWarningPercent ?? 80}
+                />
+              ))}
+          </Card>
+        )}
+      </Section>
 
       {/* Upcoming */}
       <Section title="Upcoming" action="Calendar" onAction={() => router.push('/calendar')}>
@@ -224,106 +377,6 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </Row>
-          </Card>
-        )}
-      </Section>
-
-      {/* Spending */}
-      <Section title="Spending" action="Reports" onAction={() => router.push('/reports')}>
-        <Card>
-          {!d ? (
-            <Skeleton height={220} />
-          ) : d.categories.length === 0 ? (
-            <EmptyState
-              compact
-              icon="pie-chart-outline"
-              title="No spending yet this month"
-              message="Your category breakdown appears as you add expenses."
-            />
-          ) : (
-            <CategoryBreakdown
-              categories={d.categories}
-              currency={currency}
-              max={6}
-              onPressCategory={(c) =>
-                router.push({
-                  pathname: '/report-detail',
-                  params: { categoryId: c.categoryId!, start: month.start, end: month.end },
-                })
-              }
-            />
-          )}
-        </Card>
-      </Section>
-
-      {/* Recent transactions */}
-      <Section title="Recent transactions" action="See all" onAction={() => router.push('/transactions')}>
-        <PendingTransactions />
-        {recent.data === undefined ? (
-          <Skeleton height={160} rounded={radius.xl} />
-        ) : recent.data.length === 0 ? (
-          <Card>
-            <EmptyState
-              compact
-              icon="receipt-outline"
-              title="No transactions yet"
-              message="Tap + to record an expense, income or transfer."
-            />
-          </Card>
-        ) : (
-          <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.xs }}>
-            {recent.data.map((t, idx) => (
-              <View key={t.id}>
-                {idx > 0 ? <Divider inset={54} /> : null}
-                <TransactionRow t={t} showDate />
-              </View>
-            ))}
-          </Card>
-        )}
-      </Section>
-
-      {/* Budgets */}
-      <Section
-        title="Budgets"
-        action={budgets.data?.length ? 'Manage' : undefined}
-        onAction={() => router.push('/budgets')}
-      >
-        {budgets.data === undefined ? (
-          <Skeleton height={90} rounded={radius.xl} />
-        ) : budgets.data.length === 0 ? (
-          <Card onPress={() => router.push('/budgets/edit')}>
-            <Row gap={spacing.md}>
-              <IconBadge icon="speedometer-outline" color={colors.brand} />
-              <View style={{ flex: 1 }}>
-                <Text variant="bodyStrong">Set a monthly budget</Text>
-                <Text variant="footnote" tone="secondary">
-                  Track spending limits by category.
-                </Text>
-              </View>
-              <Icon name="chevron-forward" size={18} tone="tertiary" />
-            </Row>
-          </Card>
-        ) : (
-          <Card style={{ gap: spacing.xl }}>
-            {/* The overall limit, when there is one, leads as a gauge; categories follow as rows. */}
-            {overallBudget ? (
-              <BudgetGauge
-                row={overallBudget}
-                currency={currency}
-                warningPercent={settings.data?.budgetWarningPercent ?? 80}
-              />
-            ) : null}
-            {budgets.data
-              .filter((r) => r !== overallBudget)
-              .slice(0, overallBudget ? 3 : 4)
-              .map((r) => (
-                <BudgetRow
-                  key={r.itemId}
-                  row={r}
-                  currency={currency}
-                  warningPercent={settings.data?.budgetWarningPercent ?? 80}
-                />
-              ))}
           </Card>
         )}
       </Section>

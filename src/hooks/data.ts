@@ -12,7 +12,8 @@ import { useMemo, useSyncExternalStore } from 'react';
 
 import { useToast } from '@/components/ui/feedback';
 import { haptic } from '@/components/ui/controls';
-import { cycleRange, todayISO, type DateRange, type ISODate } from '@/lib/dates';
+import { addDaysISO, cycleRange, fromISODate, todayISO, type DateRange, type ISODate } from '@/lib/dates';
+import type { Minor } from '@/lib/money';
 import { describeError, logError } from '@/lib/errors';
 import { offlineQueue } from '@/lib/offline-queue';
 import { invalidateFinancialData, qk } from '@/lib/query';
@@ -35,7 +36,7 @@ import {
   fetchReviewQueue,
   fetchRules,
 } from '@/services/bank-sync';
-import { fetchDashboard } from '@/services/reports';
+import { fetchCategoryBreakdown, fetchDashboard, fetchTimeSeries } from '@/services/reports';
 import {
   fetchRecentTransactions,
   fetchRecentUsage,
@@ -193,4 +194,54 @@ export function useAppMutation<TVars, TResult = unknown>(
 /** The user's display currency (profile default, INR until loaded). */
 export function useCurrency(): string {
   return useProfile().data?.defaultCurrency ?? 'INR';
+}
+
+/**
+ * The current week, day by day (income and spending), for Home's "This week"
+ * chart. The week starts on the user's chosen day (0 = Sunday … 6 = Saturday;
+ * Monday by default). Days with nothing recorded come back as zero.
+ */
+export function useWeekSeries() {
+  const startsOn = useSettings().data?.weekStartsOn ?? 1;
+  const today = todayISO();
+  const start = useMemo(() => {
+    const d = fromISODate(today);
+    const back = (d.getDay() - startsOn + 7) % 7;
+    return addDaysISO(today, -back);
+  }, [today, startsOn]);
+  const end = addDaysISO(start, 6);
+  const q = useQuery({
+    queryKey: qk.report('series', start, end, 'day'),
+    queryFn: () => fetchTimeSeries(start, end, 'day'),
+  });
+  const days = useMemo(() => {
+    const byDay = new Map((q.data ?? []).map((p) => [p.bucket.slice(0, 10), p]));
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDaysISO(start, i);
+      const p = byDay.get(date);
+      return { date, income: (p?.income ?? 0) as Minor, expense: (p?.expense ?? 0) as Minor };
+    });
+  }, [q.data, start]);
+  return { ...q, days, start, end, today };
+}
+
+export type SpendPeriod = 'today' | '1w' | '1m' | '1y';
+
+/** Spending by category for a period ending today (today, 7 days, this money month, 12 months). */
+export function useCategorySpend(period: SpendPeriod) {
+  const cycle = useCycle();
+  const today = todayISO();
+  const start =
+    period === 'today'
+      ? today
+      : period === '1w'
+        ? addDaysISO(today, -6)
+        : period === '1m'
+          ? cycle.start
+          : addDaysISO(today, -364);
+  const q = useQuery({
+    queryKey: qk.report('categories', start, today),
+    queryFn: () => fetchCategoryBreakdown(start, today),
+  });
+  return { ...q, start, end: today };
 }

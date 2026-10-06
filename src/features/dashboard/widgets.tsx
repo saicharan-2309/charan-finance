@@ -2,33 +2,29 @@
  * Reusable dashboard/report building blocks.
  */
 import { router } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { CategoryAvatar } from '@/components/CategoryAvatar';
 import { ShareBar } from '@/components/charts';
 import { Gauge } from '@/components/charts/Gauge';
 import { ProgressBar } from '@/components/ui/feedback';
-import { CardRings, GradientFill } from '@/components/ui/gradient';
 import { Card, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
-import { ACCOUNT_TYPE_LABELS } from '@/lib/accounts';
 import { budgetProgress } from '@/lib/budget';
 import type { ProjectedItem } from '@/lib/cashflow';
-import { formatDayLabel, todayISO } from '@/lib/dates';
+import { daysLeft, formatDayLabel, todayISO } from '@/lib/dates';
 import type { Insight } from '@/lib/insights';
 import { formatMoney, percentOf } from '@/lib/money';
-import { accountVisual, balanceDisplay, cardStanding, providerByKey } from '@/lib/payment-methods';
 import { useTheme } from '@/theme/ThemeProvider';
 import {
   chartColorsDark,
   chartColorsLight,
   chartOther,
   continuous,
-  GUTTER,
   radius,
   spacing,
   typography,
 } from '@/theme/tokens';
-import type { Account, BudgetStatusRow, CategoryTotal } from '@/types/domain';
+import type { BudgetStatusRow, CategoryTotal } from '@/types/domain';
 
 /**
  * Chart series colour: the validated categorical palette, in fixed order and
@@ -350,207 +346,23 @@ export function percentLabel(part: number, whole: number) {
 }
 
 /**
- * Horizontal strip of payment methods, each drawn as the thing it is: cards
- * carry their last digits and how much of the limit is used; bank, cash and
- * wallet tiles carry their balance. Tapping opens that method; the last tile
- * adds a new one.
- */
-export function AccountStrip({ accounts }: { accounts: Account[] }) {
-  const { colors, scheme, elevation } = useTheme();
-  const active = accounts.filter((a) => a.isActive);
-  if (active.length === 0) return null;
-  const lift = scheme === 'light' ? elevation.card : null;
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      // Vertical padding leaves room for the tiles' shadows, which a scroll view would clip.
-      style={{ marginHorizontal: -GUTTER, marginVertical: -spacing.md }}
-      contentContainerStyle={{ gap: spacing.md, paddingHorizontal: GUTTER, paddingVertical: spacing.md }}
-    >
-      {active.map((a) => {
-        const visual = accountVisual(a);
-        const display = balanceDisplay(a);
-        const card = a.type === 'credit_card' ? cardStanding(a) : null;
-        const issuer = providerByKey(a.provider)?.label ?? a.institution ?? ACCOUNT_TYPE_LABELS[a.type];
-        const label = `${a.name}, ${formatMoney(display.amount, a.currency)} ${display.caption ?? ''}`;
-        const open = () => router.push({ pathname: '/accounts/[id]', params: { id: a.id } });
-
-        if (card) {
-          // A credit card is drawn as one: graphite, last digits along the bottom.
-          return (
-            <Pressable
-              key={a.id}
-              onPress={open}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              style={({ pressed }) => [
-                tile,
-                elevation.floating,
-                { transform: [{ scale: pressed ? 0.97 : 1 }] },
-              ]}
-            >
-              <View style={[tileInner, { padding: spacing.lg, justifyContent: 'space-between' }]}>
-                <GradientFill colors={colors.cardGradient} sheen />
-                <CardRings opacity={0.06} />
-                <Row justify="space-between">
-                  <Text
-                    variant="caption"
-                    numberOfLines={1}
-                    style={{ color: colors.heroMuted, flexShrink: 1, fontWeight: '600' }}
-                  >
-                    {issuer}
-                  </Text>
-                  <Icon
-                    name="wifi"
-                    size={15}
-                    color={colors.heroMuted}
-                    style={{ transform: [{ rotate: '90deg' }] }}
-                  />
-                </Row>
-                <View style={{ gap: 2 }}>
-                  <Text
-                    style={[typography.headline, { color: colors.heroText, fontVariant: ['tabular-nums'] }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {formatMoney(display.amount, a.currency, { decimals: 'never' })}
-                  </Text>
-                  <Text variant="caption" style={{ color: colors.heroMuted }} numberOfLines={1}>
-                    {card.available !== null
-                      ? `${formatMoney(card.available, a.currency, { decimals: 'never' })} available`
-                      : (display.caption ?? 'Outstanding')}
-                  </Text>
-                </View>
-                <Row justify="space-between">
-                  <Text
-                    variant="caption"
-                    style={{ color: colors.heroText, fontWeight: '600' }}
-                    numberOfLines={1}
-                  >
-                    {a.name}
-                  </Text>
-                  {a.last4 ? (
-                    <Text
-                      variant="caption"
-                      style={{ color: colors.heroText, fontVariant: ['tabular-nums'], letterSpacing: 1 }}
-                    >
-                      •••• {a.last4}
-                    </Text>
-                  ) : null}
-                </Row>
-              </View>
-            </Pressable>
-          );
-        }
-
-        const tint = visual.color ?? colors.textSecondary;
-        return (
-          <Pressable
-            key={a.id}
-            onPress={open}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            style={({ pressed }) => [
-              tile,
-              lift,
-              {
-                backgroundColor: colors.surface,
-                padding: spacing.lg,
-                justifyContent: 'space-between',
-                transform: [{ scale: pressed ? 0.97 : 1 }],
-              },
-            ]}
-          >
-            <Row justify="space-between">
-              <IconBadge icon={visual.icon} color={tint} size={34} />
-              {a.last4 ? (
-                <Text variant="caption" tone="tertiary" style={{ fontVariant: ['tabular-nums'] }}>
-                  •• {a.last4}
-                </Text>
-              ) : null}
-            </Row>
-            <View style={{ gap: 2 }}>
-              <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                {a.name}
-              </Text>
-              <Text
-                style={[typography.headline, { color: colors.text, fontVariant: ['tabular-nums'] }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {formatMoney(display.amount, a.currency, { decimals: 'never' })}
-              </Text>
-              <Text variant="caption" tone="tertiary" numberOfLines={1}>
-                {display.caption ?? ACCOUNT_TYPE_LABELS[a.type]}
-              </Text>
-            </View>
-          </Pressable>
-        );
-      })}
-      <Pressable
-        onPress={() => router.push('/accounts/edit')}
-        accessibilityRole="button"
-        accessibilityLabel="Add payment method"
-        style={({ pressed }) => [
-          tile,
-          {
-            width: 116,
-            padding: spacing.lg,
-            gap: spacing.sm,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: pressed ? colors.fill : colors.surfaceMuted,
-          },
-        ]}
-      >
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: colors.brandSoft,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name="add" size={22} tone="brand" />
-        </View>
-        <Text variant="footnote" tone="brand" style={{ fontWeight: '600' }}>
-          Add method
-        </Text>
-      </Pressable>
-    </ScrollView>
-  );
-}
-
-const tile = {
-  width: 188,
-  height: 124,
-  borderRadius: radius.xl,
-  ...continuous,
-} as const;
-
-const tileInner = {
-  flex: 1,
-  borderRadius: radius.xl,
-  ...continuous,
-  overflow: 'hidden',
-} as const;
-
-/**
  * The overall budget as an arc gauge: spent of limit in the middle, then what
- * that leaves per day and in total. Category budgets stay as rows below it.
+ * is left to spend today and what was spent today. Category budgets stay as
+ * rows below it.
  */
 export function BudgetGauge({
   row,
   currency,
   warningPercent,
+  spentToday,
+  size = 240,
 }: {
   row: BudgetStatusRow;
   currency: string;
   warningPercent: number;
+  /** Spending recorded today; null while unknown. */
+  spentToday: number | null;
+  size?: number;
 }) {
   const { colors } = useTheme();
   const p = budgetProgress(
@@ -562,77 +374,76 @@ export function BudgetGauge({
   );
   const status = STATUS_COPY[p.status];
   const money = (v: number) => formatMoney(v, currency, { decimals: 'never' });
+  // Today's allowance: what was left before today, spread over the days left
+  // including today, minus what has been spent today.
+  const daysIncl = Math.max(daysLeft({ start: row.periodStart, end: row.periodEnd }, todayISO()), 1);
+  const leftToday =
+    spentToday === null
+      ? p.dailyAllowance
+      : Math.max(Math.floor((row.amount - (row.spent - spentToday)) / daysIncl) - spentToday, 0);
   return (
     <View style={{ alignItems: 'center', gap: spacing.lg }}>
       <Gauge
+        size={size}
         progress={row.amount ? row.spent / row.amount : 0}
-        accessibilityLabel={`Overall budget: ${money(row.spent)} of ${money(row.amount)} spent, ${status.label}`}
+        accessibilityLabel={`Budget: ${money(row.spent)} of ${money(row.amount)} spent, ${status.label}`}
       >
-        <Text variant="footnote" tone="secondary">
-          Spent
-        </Text>
         <Text
-          style={[typography.title, { fontSize: 32, lineHeight: 38, color: colors.text }]}
+          style={[typography.display, { fontSize: 40, lineHeight: 46, color: colors.text }]}
           numberOfLines={1}
           adjustsFontSizeToFit
         >
           {money(row.spent)}
         </Text>
-        <Text variant="subhead" tone="secondary">
+        <Text variant="callout" tone="secondary">
           of {money(row.amount)}
         </Text>
       </Gauge>
-      <Row gap={spacing.sm} style={{ alignSelf: 'stretch', marginTop: -spacing.lg }}>
-        <GaugeStat
-          icon="sunny-outline"
-          value={p.remaining > 0 ? money(p.dailyAllowance) : money(0)}
-          label="Left per day"
-        />
-        <GaugeStat
-          icon={p.remaining >= 0 ? 'wallet-outline' : 'alert-circle-outline'}
-          value={money(Math.abs(p.remaining))}
-          label={p.remaining >= 0 ? 'Remaining' : 'Over budget'}
-          tone={p.remaining >= 0 ? undefined : 'negative'}
-        />
+      <Row justify="space-around" style={{ alignSelf: 'stretch', marginTop: -spacing.lg }}>
+        <GaugeStat icon="wallet" value={money(leftToday)} label="Left today" />
+        <GaugeStat icon="cash" value={spentToday === null ? '—' : money(spentToday)} label="Spent today" />
       </Row>
       <Row gap={4}>
         <Icon name={status.icon} size={14} tone={status.tone} />
         <Text variant="footnote" tone={status.tone}>
           {status.label} · {Math.round(p.percentUsed)}% used
-          {p.status === 'projected_over' ? ` · heading for ${money(p.projected)}` : ''}
+          {p.remaining < 0 ? ` · ${money(-p.remaining)} over` : ` · ${money(p.remaining)} left`}
         </Text>
       </Row>
     </View>
   );
 }
 
-function GaugeStat({
-  icon,
-  value,
-  label,
-  tone,
-}: {
-  icon: string;
-  value: string;
-  label: string;
-  tone?: 'negative';
-}) {
+function GaugeStat({ icon, value, label }: { icon: string; value: string; label: string }) {
+  const { colors } = useTheme();
   return (
-    <Card variant="muted" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-      <IconBadge icon={icon} size={36} />
-      <View style={{ flex: 1 }}>
+    <Row gap={spacing.md}>
+      <View
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 14,
+          ...continuous,
+          backgroundColor: colors.fill,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon name={icon} size={22} tone="primary" />
+      </View>
+      <View>
         <Text
-          variant="bodyStrong"
-          tone={tone ?? 'primary'}
-          numberOfLines={1}
-          style={{ fontVariant: ['tabular-nums'] }}
+          style={[
+            typography.headline,
+            { fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
+          ]}
         >
           {value}
         </Text>
-        <Text variant="caption" tone="secondary" numberOfLines={1}>
+        <Text variant="footnote" tone="secondary">
           {label}
         </Text>
       </View>
-    </Card>
+    </Row>
   );
 }

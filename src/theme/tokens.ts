@@ -72,6 +72,13 @@ export interface Palette {
   cardGradient: readonly [string, string];
   /** The warm gauge (coral → amber): progress against a limit. */
   gaugeGradient: readonly [string, string];
+  /** The weekly income/expense chart. Always shown with a legend. */
+  income: string;
+  expense: string;
+  /** Payment-method cards in the Home carousel, assigned in order (white text ≥ 4.5:1 at the dark stop, ≥ 3:1 large text at the light stop). */
+  accountGradients: readonly (readonly [string, string])[];
+  /** Category tiles under "Expenses" — every tile is named, colour is decoration. */
+  tileGradients: readonly (readonly [string, string])[];
   /** Amber — "today" on the hero's pace track, and auto-captured badges. */
   highlight: string;
   /** Colour of the soft, wide card shadow (light mode only). */
@@ -80,6 +87,24 @@ export interface Palette {
   chromeStroke: string;
   chromeFill: string;
 }
+
+const ACCOUNT_GRADIENTS = [
+  ['#6A4BE8', '#4A30C8'], // violet
+  ['#D93D4A', '#B42A42'], // coral
+  ['#2F6BE0', '#1F49B8'], // blue
+  ['#0C8076', '#0A6A62'], // teal
+  ['#8E44C8', '#6B2FA6'], // purple
+  ['#3A3A4C', '#1E1E28'], // graphite
+] as const;
+
+const TILE_GRADIENTS = [
+  ['#2F6BE0', '#1F49B8'], // blue
+  ['#4338CA', '#2E2694'], // indigo
+  ['#8E44C8', '#6B2FA6'], // purple
+  ['#C2337E', '#9A2266'], // magenta
+  ['#0C8076', '#0A6A62'], // teal
+  ['#B35F0F', '#8E480A'], // amber
+] as const;
 
 export const lightPalette: Palette = {
   background: '#F3F3F8',
@@ -116,6 +141,10 @@ export const lightPalette: Palette = {
   heroTrack: 'rgba(255, 255, 255, 0.2)',
   cardGradient: ['#34344A', '#15151E'],
   gaugeGradient: ['#FF9A3C', '#F2554B'],
+  income: '#3D63E0',
+  expense: '#E5484D',
+  accountGradients: ACCOUNT_GRADIENTS,
+  tileGradients: TILE_GRADIENTS,
   highlight: '#FFC14D',
   shadow: '#2B2266',
   chromeStroke: 'rgba(255, 255, 255, 0.7)',
@@ -157,6 +186,10 @@ export const darkPalette: Palette = {
   heroTrack: 'rgba(255, 255, 255, 0.18)',
   cardGradient: ['#3A3A4C', '#1E1E28'],
   gaugeGradient: ['#FFA24A', '#F6625A'],
+  income: '#7B9BFF',
+  expense: '#FF7A7E',
+  accountGradients: ACCOUNT_GRADIENTS,
+  tileGradients: TILE_GRADIENTS,
   highlight: '#FFC14D',
   shadow: '#000000',
   chromeStroke: 'rgba(255, 255, 255, 0.08)',

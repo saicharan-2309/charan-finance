@@ -52,11 +52,16 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
 - Canvas: cool lavender-grey `#F3F3F8` (dark `#0A0A0F`) with **borderless** white cards (dark
   `#18181F`) that float on soft, wide, accent-tinted shadows in light mode and lift by tone in
   dark. Grouped lists use hairline dividers inset to the text, like iOS Settings.
-- One accent: iris violet `#5B3FD9` (dark `#A193FF`). The Home hero is a violet gradient card
-  (`heroGradient`, with a sheen and faint corner rings) — the one rich surface per screen. Credit
-  cards in the accounts strip are graphite cards (`cardGradient`). Amber `#FFC14D` marks "today"
-  on the pace track and the review badge. The coral → amber `gaugeGradient` is only for progress
-  against a limit (the budget arc gauge, `components/charts/Gauge.tsx`).
+- **Layout follows Charan's reference** (a Dribbble finance concept: "Home" with total balance, a
+  violet bank-card carousel, a "This week" bar chart, per-transaction cards; "Monthly budget" with
+  a coral arc gauge, "Left today / Spent today", period pills and gradient category tiles). Match
+  it closely; don't drift back to a generic layout.
+- One accent: iris violet `#5B3FD9` (dark `#A193FF`). Payment methods are gradient bank cards
+  (`accountGradients`, assigned in order), category tiles use `tileGradients`, the weekly chart
+  uses `income` (blue) and `expense` (coral) with a legend. Amber `#FFC14D` marks the review
+  badge. The coral → amber `gaugeGradient` is only for progress against a limit
+  (`components/charts/Gauge.tsx`). Gradients come from `components/ui/gradient.tsx`, which
+  measures its box — never size an SVG canvas with "100%" (it clipped the hero on iOS).
 - Categories and charts use banknote inks (₹50 blue, ₹200 marigold, ₹100 lavender, ₹20 olive,
   ₹2000 magenta, ₹10 chocolate, teal; ₹500 stone for "Other"). The order is validated for
   colour-blind separation in both modes — don't reorder or cycle it; fold extras into "Other".
@@ -65,16 +70,18 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   package is still installed but no longer loaded.)
 - Shape: continuous (squircle) corners via `continuous`; radius follows hierarchy (hero 30, cards
   22, controls 14, buttons/chips/segmented control are capsules). Icon badges are tinted squircles.
-- Chrome: floating tab bar — a Liquid Glass capsule (`expo-glass-effect`, iOS 26; blur fallback)
-  with a sliding lens on the selected tab, and the Add button as its own round gradient control.
-  Segmented control thumb springs (`springs.snappy`); selected plain chips are solid ink capsules.
+- Tab bar (as in the reference): plain white bar, icons only — active tab a solid ink glyph,
+  others grey outlines — with Add as a violet gradient square in the middle. Every tab keeps its
+  VoiceOver name. Segmented control thumb springs; selected plain chips are solid ink capsules.
 - Colour never carries meaning alone: money always has a sign or label, chart series are named.
 - Every screen must work in **light and dark**; check both. Contrast is checked in `tokens.ts`.
 - Sentence case everywhere, Indian number format (₹1,24,499).
-- Home: header is "Good evening · Tue, 6 Oct" over the first name as the large title. Order:
-  money-month hero (safe to spend, per day, pace vs last month, In/Out/Kept tiles) → bank card →
-  accounts strip → upcoming → spending → recent (inset grouped list) → budgets (overall arc gauge,
-  then category rows) → goals.
+- Home order: header (insights · "Home" · avatar) → total balance (liquid accounts) with a
+  "Safe to spend … · …/day until payday" pill → payment-method card carousel → bank-sync card →
+  This week (income/expense by day, tap for exact values) → Recent (one card per transaction,
+  grouped by day) → Expenses (Today/1W/1M/1Y pills + gradient category tiles) → Monthly budget
+  (arc gauge, left today, spent today, then category rows) → upcoming → goals.
+- Budgets screen: per budget, title + Edit pill, big gauge, category limit rows; Expenses panel.
 
 ## Product rules that must not regress
 
