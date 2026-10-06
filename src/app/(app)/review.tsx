@@ -1,7 +1,9 @@
 /**
  * Review — the inbox for everything bank sync added on its own.
  *
- * Two kinds of item:
+ * Three kinds of item:
+ *   * Accounts found in your messages: every waiting SMS for an account that
+ *     isn't in the app yet, grouped by bank and digits, added in one tap.
  *   * Messages the app could not place on its own (unknown card digits, a card
  *     payment with no matching bank side). One tap puts each in the right
  *     account, and the app remembers the digits for next time.
@@ -24,6 +26,7 @@ import {
   categoryOptions,
   splitCategoryValue,
 } from '@/features/shared/options';
+import { FoundAccountsList, useFoundAccounts } from '@/features/bank-sync/FoundAccounts';
 import { signedAmount, transactionTitle } from '@/features/transactions/TransactionRow';
 import {
   useAccounts,
@@ -48,6 +51,7 @@ import type { BankMessage, Transaction } from '@/types/domain';
 
 export default function ReviewScreen() {
   const pending = usePendingMessages();
+  const found = useFoundAccounts();
   const queue = useReviewQueue();
   const accounts = useAccounts();
   const { index } = useCategoryIndex();
@@ -97,9 +101,14 @@ export default function ReviewScreen() {
     return accountOptions(all);
   }, [accounts.data, picking]);
 
-  const msgs = pending.data ?? [];
+  // Messages for an account in "Found in your messages" are handled there, as
+  // a group — they're not asked about one by one.
+  const foundKeys = new Set(found.items.map((d) => `${d.bank ?? ''}:${d.last4}`));
+  const msgs = (pending.data ?? []).filter(
+    (m) => !(m.status === 'needs_account' && m.last4 && foundKeys.has(`${m.bank ?? ''}:${m.last4}`)),
+  );
   const txns = queue.data ?? [];
-  const loading = pending.data === undefined || queue.data === undefined;
+  const loading = pending.data === undefined || queue.data === undefined || found.data === undefined;
 
   return (
     <Screen
@@ -130,7 +139,7 @@ export default function ReviewScreen() {
 
       {loading ? (
         <SkeletonList rows={6} />
-      ) : msgs.length === 0 && txns.length === 0 ? (
+      ) : msgs.length === 0 && txns.length === 0 && found.items.length === 0 ? (
         <EmptyState
           icon="checkmark-done-circle-outline"
           title="All caught up"
@@ -140,6 +149,16 @@ export default function ReviewScreen() {
         />
       ) : (
         <>
+          {found.items.length > 0 ? (
+            <Section title="Found in your messages">
+              <Text variant="footnote" tone="secondary" style={{ marginBottom: spacing.md }}>
+                Your bank texts mention {found.items.length === 1 ? 'this' : 'these'} — add{' '}
+                {found.items.length === 1 ? 'it' : 'each one'} and all of its transactions come in at once.
+              </Text>
+              <FoundAccountsList />
+            </Section>
+          ) : null}
+
           {msgs.length > 0 ? (
             <Section title="Needs your help">
               <View style={{ gap: spacing.md }}>

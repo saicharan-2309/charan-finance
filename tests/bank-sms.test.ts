@@ -3,6 +3,7 @@ import {
   describeParsed,
   detectBank,
   extractDate,
+  isBankSender,
   normaliseAmount,
   parseBankSms,
   type ParsedTransaction,
@@ -444,6 +445,20 @@ describe('messages that must never become transactions', () => {
       kind: 'ignored',
       reason: 'not_financial',
     });
+  });
+
+  it('never reads a text from a phone number or email as a bank alert', () => {
+    const fake = 'Rs.5,000.00 credited to HDFC Bank A/c **1234 on 03-10-26. Avl bal Rs 95,000';
+    for (const sender of ['+919876543210', '98765 43210', 'someone@icloud.com']) {
+      expect(parseBankSms({ body: fake, sender, receivedAt: RECEIVED })).toMatchObject({
+        kind: 'ignored',
+        reason: 'not_bank_sender',
+      });
+    }
+    expect(isBankSender('AX-HDFCBK')).toBe(true);
+    expect(isBankSender('JM-SBIUPI-S')).toBe(true);
+    expect(isBankSender('56161')).toBe(true);
+    expect(isBankSender(null)).toBe(true);
   });
 
   it('turns a balance-only message into a balance update', () => {

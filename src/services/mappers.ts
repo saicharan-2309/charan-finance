@@ -12,6 +12,7 @@ import type {
   BankSyncStatus,
   CategoryRule,
   DetectedRecurring,
+  DiscoveredAccount,
   Budget,
   BudgetItem,
   BudgetStatusRow,
@@ -219,6 +220,21 @@ export function mapBankMessage(r: Row): BankMessage {
     accountId: str(r.account_id),
     transactionId: str(r.transaction_id),
     note: str(r.note),
+  };
+}
+
+export function mapDiscoveredAccount(r: Row): DiscoveredAccount {
+  return {
+    bank: str(r.bank),
+    last4: str(r.last4),
+    instrument: (str(r.instrument) as DiscoveredAccount['instrument']) ?? 'account',
+    messageCount: num(r.message_count),
+    firstAt: r.first_at,
+    lastAt: r.last_at,
+    latestBalance: moneyOrNull(r.latest_balance),
+    balanceKind: r.balance_kind === 'balance' || r.balance_kind === 'limit' ? r.balance_kind : null,
+    suggestedType: r.suggested_type,
+    sampleMerchants: Array.isArray(r.sample_merchants) ? r.sample_merchants.map(String) : [],
   };
 }
 

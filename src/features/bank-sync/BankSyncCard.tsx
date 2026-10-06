@@ -8,12 +8,14 @@ import { Pressable, View } from 'react-native';
 
 import { Icon, Row, Text } from '@/components/ui/primitives';
 import { useBankSyncStatus } from '@/hooks/data';
+import { useFoundAccounts } from './FoundAccounts';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
 
 export function BankSyncCard() {
   const { colors } = useTheme();
   const q = useBankSyncStatus();
+  const found = useFoundAccounts();
   const s = q.data;
   if (!s) return null;
 
@@ -47,7 +49,11 @@ export function BankSyncCard() {
     );
   }
 
-  const total = s.toReview + s.pending;
+  // Messages grouped under a found account are counted as that one account.
+  const foundCount = found.items.length;
+  const grouped = found.items.reduce((n, d) => n + d.messageCount, 0);
+  const loose = Math.max(0, s.pending - grouped);
+  const total = s.toReview + loose + foundCount;
   if (total === 0) return null;
 
   return (
@@ -84,13 +90,18 @@ export function BankSyncCard() {
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="bodyStrong">
-          {s.toReview > 0 ? `New from your bank` : 'Your bank sent something new'}
+          {foundCount > 0
+            ? `${foundCount} new account${foundCount === 1 ? '' : 's'} in your messages`
+            : s.toReview > 0
+              ? `New from your bank`
+              : 'Your bank sent something new'}
         </Text>
         <Row gap={spacing.xs}>
           <Text variant="footnote" tone="secondary" numberOfLines={1}>
             {[
+              foundCount > 0 ? `${grouped} transaction${grouped === 1 ? '' : 's'} ready to add` : null,
               s.toReview > 0 ? `${s.toReview} to check` : null,
-              s.pending > 0 ? `${s.pending} need${s.pending === 1 ? 's' : ''} an account` : null,
+              loose > 0 ? `${loose} need${loose === 1 ? 's' : ''} an account` : null,
             ]
               .filter(Boolean)
               .join(', ')}

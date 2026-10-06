@@ -1,11 +1,18 @@
 /**
  * Face ID / Touch ID app lock with device-passcode fallback.
  *
+ * Expo Go cannot use Face ID: iOS only allows Face ID in an app that declares
+ * it (NSFaceIDUsageDescription), and inside Expo Go the running app is Expo's,
+ * not this one — so iOS falls back to the device passcode. In an installed
+ * build (EAS development, preview or production) Face ID is tried first and
+ * the passcode is the fallback. The label and settings say which applies.
+ *
  * Privacy: whenever the app leaves the foreground (including the "inactive"
  * state iOS uses for the app switcher snapshot) an opaque cover is rendered
  * immediately, so financial data is never visible in the switcher or during
  * the transition to the locked state.
  */
+import { isRunningInExpoGo } from 'expo';
 import { BlurView } from 'expo-blur';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
@@ -30,10 +37,14 @@ interface AppLockContextValue {
   enabled: boolean;
   available: boolean;
   biometryLabel: string;
+  /** True in Expo Go on iOS, where Face ID is unavailable and the passcode is used. */
+  faceIdNeedsInstalledApp: boolean;
   setEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
 const AppLockContext = createContext<AppLockContextValue | null>(null);
+
+const FACE_ID_BLOCKED = Platform.OS === 'ios' && isRunningInExpoGo();
 
 async function describeBiometry(): Promise<{ available: boolean; label: string }> {
   if (Platform.OS === 'web') return { available: false, label: 'Passcode' };
@@ -43,11 +54,13 @@ async function describeBiometry(): Promise<{ available: boolean; label: string }
     LocalAuthentication.supportedAuthenticationTypesAsync(),
   ]);
   const level = await LocalAuthentication.getEnrolledLevelAsync();
-  const label = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
-    ? 'Face ID'
-    : types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
-      ? 'Touch ID'
-      : 'Passcode';
+  const label = FACE_ID_BLOCKED
+    ? 'Passcode'
+    : types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
+      ? 'Face ID'
+      : types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+        ? 'Touch ID'
+        : 'Passcode';
   // Device passcode alone is acceptable as a fallback.
   return { available: (hasHardware && enrolled) || level !== LocalAuthentication.SecurityLevel.NONE, label };
 }
@@ -130,7 +143,7 @@ export function AppLockProvider({ children, active }: { children: ReactNode; act
   }, []);
 
   const value = useMemo(
-    () => ({ enabled, available, biometryLabel, setEnabled }),
+    () => ({ enabled, available, biometryLabel, faceIdNeedsInstalledApp: FACE_ID_BLOCKED, setEnabled }),
     [enabled, available, biometryLabel, setEnabled],
   );
 

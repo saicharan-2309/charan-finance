@@ -20,18 +20,26 @@ const KEY_HASH = createHash('sha256').update(KEY).digest('hex');
 const acc: Record<string, string> = {};
 let clock = Date.parse('2026-10-03T04:00:00Z');
 
-/** Sends one SMS the way the Edge Function does. */
-async function sms(body: string, sender = 'AX-HDFCBK', key = KEY_HASH): Promise<Record<string, string>> {
+/**
+ * Sends one SMS the way the Edge Function does. `at` sets when it arrived
+ * (for history); `backfill` sends it as an imported past message.
+ */
+async function sms(
+  body: string,
+  sender = 'AX-HDFCBK',
+  key = KEY_HASH,
+  opts: { at?: string; backfill?: boolean } = {},
+): Promise<Record<string, string>> {
   clock += 60_000;
-  const receivedAt = new Date(clock).toISOString();
+  const receivedAt = opts.at ?? new Date(clock).toISOString();
   const parsed = parseBankSms({ body, sender, receivedAt });
   const c = db.admin;
   await c.query('begin');
   try {
     await c.query('set local role service_role');
     const { rows } = await c.query<{ r: Record<string, string> }>(
-      `select ingest_bank_sms($1, $2, $3, $4, $5::jsonb) as r`,
-      [key, sender, body, receivedAt, JSON.stringify(parsed)],
+      `select ingest_bank_sms($1, $2, $3, $4, $5::jsonb, $6) as r`,
+      [key, sender, body, receivedAt, JSON.stringify(parsed), opts.backfill ?? false],
     );
     await c.query('commit');
     return rows[0].r;
@@ -87,11 +95,11 @@ after(async () => {
 describe('bank sync — access', () => {
   it('lets only the service role ingest', async () => {
     await expectError(
-      asUser(db, uid, (q) => q(`select ingest_bank_sms($1, 'x', 'y', now(), '{}')`, [KEY_HASH])),
+      asUser(db, uid, (q) => q(`select ingest_bank_sms($1, 'x', 'y', now(), '{}', false)`, [KEY_HASH])),
       /permission denied/,
     );
     await expectError(
-      asUser(db, null, (q) => q(`select ingest_bank_sms($1, 'x', 'y', now(), '{}')`, [KEY_HASH])),
+      asUser(db, null, (q) => q(`select ingest_bank_sms($1, 'x', 'y', now(), '{}', false)`, [KEY_HASH])),
       /permission denied/,
     );
   });
@@ -168,9 +176,10 @@ describe('bank sync — spending', () => {
   it('links to an expense the user already typed in instead of duplicating it', async () => {
     await asUser(db, uid, (q) =>
       q(
-        `select save_transaction('create', gen_random_uuid(), 'expense', 320, $1, now(),
+        `select save_transaction('create', gen_random_uuid(), 'expense', 320, $1, $2::timestamptz,
            null, (select id from transaction_categories where name = 'Groceries'), null, null, 'Corner store')`,
-        [acc['HDFC Savings']],
+        // typed in a few minutes before the bank's SMS arrives
+        [acc['HDFC Savings'], new Date(clock).toISOString()],
       ),
     );
     const before = await expenseCount();
@@ -330,6 +339,203 @@ describe('bank sync — accounts it does not know yet', () => {
   });
 });
 
+describe('accounts found in your messages', () => {
+  const AXIS = 'AX-AXISBK';
+  const old = (d: string) => ({ at: `${d}T06:30:00Z`, backfill: true });
+
+  it('never treats a text from a phone number as a bank alert, even with a forged parse', async () => {
+    const body = 'Rs.5,000.00 credited to HDFC Bank A/c **1234 on 03-10-26. Avl bal Rs 95,000';
+    const before = await balance('HDFC Savings');
+    assert.equal((await sms(body, '+919876543210')).status, 'ignored');
+    // Even if a client sent a "transaction" parse for it, the database refuses.
+    const forged = await db.admin.query<{ r: Record<string, string> }>(
+      `select ingest_bank_sms($1, '+91 98765 43210', $2, now(), $3::jsonb) as r`,
+      [KEY_HASH, body, JSON.stringify(parseBankSms({ body, sender: 'AX-HDFCBK' }))],
+    );
+    assert.equal(forged.rows[0].r.status, 'ignored');
+    assert.equal(await balance('HDFC Savings'), before);
+    const stored = await one<{ n: number }>(`select count(*)::int as n from bank_messages where body = $1`, [
+      body,
+    ]);
+    assert.equal(stored.n, 0);
+  });
+
+  it('groups waiting history by account, with its latest balance', async () => {
+    await sms(
+      'INR 2,000.00 credited\nA/c no. XX7890\n02-10-26, 10:01:11 IST\nUPI/P2A/627700004444/PRIYA S\nAxis Bank',
+      AXIS,
+      KEY_HASH,
+      old('2026-09-20'),
+    );
+    await sms(
+      'Avl bal in A/c XX7890 is Rs 12,000.50 as on 21-09-26. -Axis Bank',
+      AXIS,
+      KEY_HASH,
+      old('2026-09-21'),
+    );
+    await sms(
+      'INR 799.00 debited\nA/c no. XX7890\n03-10-26, 12:15:01\nUPI/P2M/627712340000/BIGBASKET\nAxis Bank',
+      AXIS,
+      KEY_HASH,
+      old('2026-09-25'),
+    );
+    await sms(
+      'INR 3,499.00 spent using ICICI Bank Card XX4321 on 24-Sep-26 on Flipkart. Avl Limit: INR 1,46,501.00.',
+      'JD-ICICIT',
+      KEY_HASH,
+      old('2026-09-24'),
+    );
+    await sms(
+      'ICICI Bank Acct XX234 debited for Rs 1,250.00 on 23-Sep-26; ZOMATO credited. UPI:627712345678.',
+      'JD-ICICIB',
+      KEY_HASH,
+      old('2026-09-23'),
+    );
+
+    const found = await asUser(db, uid, (q) =>
+      q<{
+        bank: string;
+        last4: string;
+        instrument: string;
+        message_count: number;
+        latest_balance: string | null;
+        suggested_type: string;
+      }>(`select * from discovered_accounts()`),
+    );
+    const axis = found.find((f) => f.bank === 'axis' && f.last4 === '7890');
+    assert.ok(axis, 'Axis account should be found');
+    assert.equal(axis.message_count, 2, 'the balance-only text is not counted as a message');
+    assert.equal(Number(axis.latest_balance), 12000.5);
+    assert.equal(axis.suggested_type, 'savings');
+    const card = found.find((f) => f.bank === 'icici' && f.last4 === '4321');
+    assert.equal(card?.suggested_type, 'credit_card');
+    assert.ok(found.find((f) => f.bank === 'icici' && f.last4 === '234'));
+  });
+
+  it('adds the account, files all its messages at once and starts from the bank balance', async () => {
+    const r = await one<{ r: { account_id: string; created: boolean; messages: number } }>(
+      `select account_from_messages('axis', '7890', null, 'savings') as r`,
+    );
+    assert.equal(r.r.created, true);
+    assert.equal(r.r.messages, 2);
+    const a = await one<{
+      name: string;
+      institution: string;
+      last4: string;
+      current_balance: string;
+      reported_balance: string;
+    }>(
+      `select name, institution, last4, current_balance::text, reported_balance::text from accounts where id = $1`,
+      [r.r.account_id],
+    );
+    assert.equal(a.name, 'Axis Bank account 7890');
+    assert.equal(a.institution, 'Axis Bank');
+    assert.equal(a.last4, '7890');
+    // ₹12,000.50 on the 21st, then BigBasket ₹799 on the 25th.
+    assert.equal(Number(a.current_balance), 11201.5);
+    assert.equal(Number(a.reported_balance), 12000.5);
+    const t = await asUser(db, uid, (q) =>
+      q<{ type: string; needs_review: boolean }>(
+        `select type, needs_review from transactions where account_id = $1 order by occurred_at`,
+        [r.r.account_id],
+      ),
+    );
+    assert.deepEqual(
+      t.map((x) => x.type),
+      ['income', 'expense'],
+    );
+    assert.ok(
+      t.every((x) => !x.needs_review),
+      'imported history is not queued for review',
+    );
+    // and the next live message goes straight in
+    const live = await sms(
+      'INR 150.00 debited\nA/c no. XX7890\n04-10-26, 09:15:01\nUPI/P2M/627712349999/SWIGGY\nAxis Bank',
+      AXIS,
+    );
+    assert.equal(live.status, 'created');
+  });
+
+  it('adds a credit card without guessing its balance', async () => {
+    const r = await one<{ r: { account_id: string; messages: number } }>(
+      `select account_from_messages('icici', '4321', 'ICICI Amazon Pay', 'credit_card') as r`,
+    );
+    assert.equal(r.r.messages, 1);
+    const a = await one<{ current_balance: string; reported_balance_kind: string }>(
+      `select current_balance::text, reported_balance_kind from accounts where id = $1`,
+      [r.r.account_id],
+    );
+    // what's owed isn't in the messages, so it starts at zero for the user to set
+    assert.equal(Number(a.current_balance), 0);
+    assert.equal(a.reported_balance_kind, 'limit');
+  });
+
+  it('links 3-digit references to an account you already have', async () => {
+    const before = await balance('SBI Salary');
+    const r = await one<{ r: { account_id: string; created: boolean; messages: number } }>(
+      `select account_from_messages('icici', '234', null, null, $1) as r`,
+      [acc['SBI Salary']],
+    );
+    assert.equal(r.r.created, false);
+    assert.equal(r.r.account_id, acc['SBI Salary']);
+    assert.equal(r.r.messages, 1);
+    const alias = await one<{ n: number }>(
+      `select count(*)::int as n from account_aliases where last4 = '234' and account_id = $1`,
+      [acc['SBI Salary']],
+    );
+    assert.equal(alias.n, 1);
+    // that ₹1,250 was before the account was added, so today's balance holds
+    assert.equal(await balance('SBI Salary'), before);
+    const left = await asUser(db, uid, (q) => q(`select * from discovered_accounts()`));
+    assert.equal(
+      left.filter(
+        (f: Record<string, unknown>) => f.last4 === '234' || f.last4 === '7890' || f.last4 === '4321',
+      ).length,
+      0,
+    );
+  });
+
+  it('adds imported history to reports without moving today’s balance', async () => {
+    const before = await balance('HDFC Savings');
+    const spentBefore = await expenseCount();
+    const r = await sms(
+      'Sent Rs.1,200.00\nFrom HDFC Bank A/C *1234\nTo BOOKMYSHOW\nOn 12/08/26\nRef 622400001111',
+      'AX-HDFCBK',
+      KEY_HASH,
+      old('2026-08-12'),
+    );
+    assert.equal(r.status, 'created');
+    assert.equal(await expenseCount(), spentBefore + 1);
+    assert.equal(await balance('HDFC Savings'), before);
+    const t = await one<{ needs_review: boolean; source: string }>(
+      `select needs_review, source from transactions where id = $1`,
+      [r.transaction_id],
+    );
+    assert.deepEqual(t, { needs_review: false, source: 'sms' });
+  });
+
+  it('counts the same text once whether it arrived live or from the backup', async () => {
+    const body =
+      'INR 150.00 debited\nA/c no. XX7890\n04-10-26, 09:15:01\nUPI/P2M/627712349999/SWIGGY\nAxis Bank';
+    const live = await one<{ received_at: Date }>(`select received_at from bank_messages where body = $1`, [
+      body,
+    ]);
+    const again = await sms(body, 'AXISBK', KEY_HASH, { at: live.received_at.toISOString(), backfill: true });
+    assert.equal(again.status, 'duplicate');
+  });
+
+  it('refuses another user’s account and bad digits', async () => {
+    await expectError(
+      asUser(db, other, (q) =>
+        q(`select account_from_messages('hdfc', '1234', null, null, $1)`, [acc['HDFC Savings']]),
+      ),
+      /CF201/,
+    );
+    await expectError(one(`select account_from_messages('hdfc', '12a4', null, 'savings')`), /CF830/);
+    await expectError(one(`select account_from_messages('hdfc', '9999')`), /CF831/);
+  });
+});
+
 describe('review, learning and splitting', () => {
   it('remembers a corrected category for the merchant', async () => {
     const r = await sms(
@@ -420,6 +626,17 @@ describe('subscriptions and integrity', () => {
       q(`select * from verify_account_balances() where not is_consistent`),
     );
     assert.deepEqual(bad, []);
+  });
+
+  it('keeps a time zone the database understands, whatever the device reports', async () => {
+    await asUser(db, uid, (q) => q(`update profiles set timezone = 'Asia/Calcutta' where id = auth.uid()`));
+    const tz = await one<{ timezone: string }>(`select timezone from profiles where id = auth.uid()`);
+    assert.ok(['Asia/Kolkata', 'Asia/Calcutta'].includes(tz.timezone));
+    // and every date calculation still works
+    await one(`select get_dashboard('2026-10-01', '2026-10-31') as d`);
+    await asUser(db, uid, (q) => q(`update profiles set timezone = 'Mars/Olympus' where id = auth.uid()`));
+    const fallback = await one<{ timezone: string }>(`select timezone from profiles where id = auth.uid()`);
+    assert.equal(fallback.timezone, 'Asia/Kolkata');
   });
 
   it('reports sync status', async () => {

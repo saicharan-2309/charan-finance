@@ -2,6 +2,7 @@ import {
   addMonthsISO,
   combineDateTime,
   elapsedDays,
+  normaliseTimeZone,
   isISODate,
   previousRange,
   rangeForPreset,
@@ -183,5 +184,14 @@ describe('money-month report ranges', () => {
       start: '2026-04-25',
       end: '2026-07-24',
     });
+  });
+});
+
+describe('time zones', () => {
+  it('sends the current name for zones devices still report by an old alias', () => {
+    expect(normaliseTimeZone('Asia/Calcutta')).toBe('Asia/Kolkata');
+    expect(normaliseTimeZone('Asia/Kolkata')).toBe('Asia/Kolkata');
+    expect(normaliseTimeZone('Europe/London')).toBe('Europe/London');
+    expect(normaliseTimeZone(undefined)).toBe('Asia/Kolkata');
   });
 });

@@ -32,7 +32,8 @@ export type SmsChannel =
   | 'cash'
   | 'other';
 
-export type IgnoreReason = 'otp' | 'promotional' | 'declined' | 'notice' | 'statement' | 'not_financial';
+export type IgnoreReason =
+  'otp' | 'promotional' | 'declined' | 'notice' | 'statement' | 'not_financial' | 'not_bank_sender';
 
 export interface ParsedTransaction {
   kind: 'transaction';
@@ -507,6 +508,20 @@ function detectChannel(text: string, instrument: SmsInstrument | null): SmsChann
 // Entry point
 // ---------------------------------------------------------------------------
 
+/**
+ * Could a bank have sent this? Indian banks send transaction alerts only from
+ * registered sender IDs (AX-HDFCBK, JD-ICICIB) or short codes. A text from an
+ * ordinary phone number or an email address is a person — or a fraudster
+ * pasting a fake "Rs 5,000 credited" — so it is never read as a bank alert.
+ * An unknown (empty) sender is allowed: the Shortcut may not pass one.
+ */
+export function isBankSender(sender: string | null | undefined): boolean {
+  const s = (sender ?? '').trim();
+  if (!s) return true;
+  if (s.includes('@')) return false;
+  return !/^\+?[0-9][0-9 ()-]{6,}$/.test(s);
+}
+
 export function parseBankSms(input: SmsInput): ParsedSms {
   const raw = input.body ?? '';
   const text = squash(raw.replace(/\r/g, ''));
@@ -518,6 +533,7 @@ export function parseBankSms(input: SmsInput): ParsedSms {
   const bank = detectBank(input.sender, text);
 
   if (!text) return { kind: 'ignored', reason: 'not_financial', bank };
+  if (!isBankSender(input.sender)) return { kind: 'ignored', reason: 'not_bank_sender', bank };
   if (OTP.test(text)) return { kind: 'ignored', reason: 'otp', bank };
 
   const balance = extractBalance(text);
@@ -622,7 +638,7 @@ export function parseBankSms(input: SmsInput): ParsedSms {
 
 /** A one-line, human summary — what the Shortcut shows as a notification. */
 export function describeParsed(p: ParsedSms): string {
-  if (p.kind === 'ignored') return `Ignored (${p.reason.replace('_', ' ')})`;
+  if (p.kind === 'ignored') return `Ignored (${p.reason.replace(/_/g, ' ')})`;
   if (p.kind === 'balance') return `Balance update: ₹${p.balance}`;
   const verb = p.isCardPaymentReceived ? 'Card payment' : p.direction === 'debit' ? 'Spent' : 'Received';
   const who = p.merchant ? (p.direction === 'debit' ? ` at ${p.merchant}` : ` from ${p.merchant}`) : '';

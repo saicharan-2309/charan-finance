@@ -6,9 +6,14 @@
 //   headers: x-sync-key: <the key shown in the app>
 //   body:    { "text": "<SMS body>", "sender": "<sender id>", "received_at": "<ISO, optional>" }
 //   or       { "test": true }   — checks the key and connection, records nothing
+//   or       { "messages": [{ text, sender, received_at }, …], "backfill": true }
+//            — past messages imported from an iPhone backup (up to 200 a call,
+//            oldest first). History has a daily rather than hourly limit and
+//            is not queued for review one by one.
 //
 // Response: { status, summary, message_id? } — `summary` is a short line the
 // Shortcut can show as a notification ("Spent ₹450.00 · Swiggy").
+// Batch response: { status: 'ok', counts: { created: 12, duplicate: 3, … } }
 //
 // Security
 //   * JWT verification is OFF for this function (a Shortcut has no Supabase
@@ -28,6 +33,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { describeParsed, parseBankSms } from '../_shared/bank-sms.ts';
 
 const MAX_BODY = 2000;
+const MAX_BATCH = 200;
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -91,12 +97,66 @@ Deno.serve(async (req) => {
     return json(200, { status: 'ok', summary: 'Connected to Charan Finance' });
   }
 
-  const body = asText(payload.text) ?? asText(payload.body) ?? asText(payload.message);
-  if (!body || !body.trim()) return json(400, { status: 'error', summary: 'No message text' });
-  if (body.length > MAX_BODY) return json(413, { status: 'error', summary: 'Message too long' });
+  const rpc: Rpc = async (args) => {
+    const { data, error } = await supabase.rpc('ingest_bank_sms', args);
+    return { data, error: error ? { message: error.message, code: error.code } : null };
+  };
 
-  const sender = (asText(payload.sender) ?? '').slice(0, 64) || null;
-  const receivedRaw = asText(payload.received_at);
+  if (Array.isArray(payload.messages)) {
+    const items = payload.messages as Record<string, unknown>[];
+    if (items.length > MAX_BATCH) {
+      return json(413, { status: 'error', summary: `Send at most ${MAX_BATCH} messages at a time` });
+    }
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+      const outcome = await ingestOne(rpc, keyHash, item ?? {}, payload.backfill === true);
+      if (outcome.fatal) return outcome.fatal;
+      counts[outcome.status] = (counts[outcome.status] ?? 0) + 1;
+    }
+    return json(200, { status: 'ok', counts });
+  }
+
+  const outcome = await ingestOne(rpc, keyHash, payload, false);
+  if (outcome.fatal) return outcome.fatal;
+  return json(200, {
+    status: outcome.status,
+    summary: outcome.summary,
+    message_id: outcome.messageId,
+  });
+});
+
+type Rpc = (
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+
+interface Outcome {
+  status: string;
+  summary?: string;
+  messageId?: unknown;
+  /** Stop the whole request (bad key, rate limit). */
+  fatal?: Response;
+}
+
+async function ingestOne(
+  rpc: Rpc,
+  keyHash: string,
+  item: Record<string, unknown>,
+  backfill: boolean,
+): Promise<Outcome> {
+  const body = asText(item.text) ?? asText(item.body) ?? asText(item.message);
+  if (!body || !body.trim()) {
+    return backfill
+      ? { status: 'skipped' }
+      : { status: 'error', fatal: json(400, { status: 'error', summary: 'No message text' }) };
+  }
+  if (body.length > MAX_BODY) {
+    return backfill
+      ? { status: 'skipped' }
+      : { status: 'error', fatal: json(413, { status: 'error', summary: 'Message too long' }) };
+  }
+
+  const sender = (asText(item.sender) ?? '').slice(0, 64) || null;
+  const receivedRaw = asText(item.received_at);
   const receivedAt =
     receivedRaw && !Number.isNaN(Date.parse(receivedRaw))
       ? new Date(receivedRaw).toISOString()
@@ -104,32 +164,43 @@ Deno.serve(async (req) => {
 
   const parsed = parseBankSms({ body, sender, receivedAt });
 
-  const { data, error } = await supabase.rpc('ingest_bank_sms', {
+  const { data, error } = await rpc({
     p_key_hash: keyHash,
     p_sender: sender,
     p_body: body,
     p_received_at: receivedAt,
     p_parsed: parsed,
+    p_backfill: backfill,
   });
 
   if (error) {
     const msg = error.message ?? '';
-    if (msg.includes('CF810')) return json(401, { status: 'error', summary: 'Sync key not recognised' });
-    if (msg.includes('CF811'))
-      return json(429, { status: 'error', summary: 'Too many messages — try later' });
+    if (msg.includes('CF810')) {
+      return { status: 'error', fatal: json(401, { status: 'error', summary: 'Sync key not recognised' }) };
+    }
+    if (msg.includes('CF811')) {
+      return {
+        status: 'error',
+        fatal: json(429, { status: 'error', summary: 'Too many messages — try later' }),
+      };
+    }
     console.error('ingest_failed', error.code);
-    return json(500, { status: 'error', summary: 'Could not record this message' });
+    if (backfill) return { status: 'failed' };
+    return {
+      status: 'error',
+      fatal: json(500, { status: 'error', summary: 'Could not record this message' }),
+    };
   }
 
   const result = (data ?? {}) as Record<string, unknown>;
   const status = String(result.status ?? 'ok');
-  return json(200, {
+  return {
     status,
     summary:
       notificationText(status, parsed) ?? (result.summary as string | undefined) ?? describeParsed(parsed),
-    message_id: result.message_id ?? null,
-  });
-});
+    messageId: result.message_id ?? null,
+  };
+}
 
 /** The line the Shortcut can show a second after a payment, in Indian number format. */
 function notificationText(status: string, p: ReturnType<typeof parseBankSms>): string | null {

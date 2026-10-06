@@ -14,13 +14,22 @@ import { Platform } from 'react-native';
 import { env } from '@/constants/env';
 import { supabase, unwrap } from '@/lib/supabase';
 import { toDecimalString, type Minor } from '@/lib/money';
-import { mapBankMessage, mapBankSyncStatus, mapDetectedRecurring, mapRule, mapTransaction } from './mappers';
+import {
+  mapBankMessage,
+  mapBankSyncStatus,
+  mapDetectedRecurring,
+  mapDiscoveredAccount,
+  mapRule,
+  mapTransaction,
+} from './mappers';
 import type {
+  AccountType,
   BankMessage,
   BankSyncStatus,
   CategoryKind,
   CategoryRule,
   DetectedRecurring,
+  DiscoveredAccount,
   Transaction,
 } from '@/types/domain';
 
@@ -131,6 +140,51 @@ export async function settleMessageExternally(id: string): Promise<void> {
 
 export async function dismissMessage(id: string): Promise<void> {
   unwrap(await supabase.rpc('dismiss_bank_message', { p_message_id: id }));
+}
+
+// ---------------------------------------------------------------------------
+// Accounts found in messages
+// ---------------------------------------------------------------------------
+
+/** Accounts and cards your bank texts mention that aren't in the app yet. */
+export async function fetchDiscoveredAccounts(): Promise<DiscoveredAccount[]> {
+  const rows = unwrap(await supabase.rpc('discovered_accounts')) as Record<string, unknown>[];
+  return (rows ?? []).map(mapDiscoveredAccount);
+}
+
+export interface AddFromMessagesResult {
+  accountId: string;
+  created: boolean;
+  /** Transactions filed from the waiting messages. */
+  messages: number;
+}
+
+/**
+ * Adds the account a group of messages belongs to — or, with `linkAccountId`,
+ * says those digits belong to an account you already have — and files every
+ * waiting message for it, oldest first.
+ */
+export async function addAccountFromMessages(input: {
+  bank: string | null;
+  last4: string | null;
+  name?: string | null;
+  type?: AccountType | null;
+  linkAccountId?: string | null;
+}): Promise<AddFromMessagesResult> {
+  const r = unwrap(
+    await supabase.rpc('account_from_messages', {
+      p_bank: input.bank,
+      p_last4: input.last4,
+      p_name: input.name ?? null,
+      p_type: input.linkAccountId ? null : (input.type ?? null),
+      p_link_account_id: input.linkAccountId ?? null,
+    }),
+  ) as Record<string, unknown>;
+  return {
+    accountId: String(r.account_id),
+    created: r.created === true,
+    messages: Number(r.messages ?? 0),
+  };
 }
 
 export async function retryMessages(): Promise<number> {

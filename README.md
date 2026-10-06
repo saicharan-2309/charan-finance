@@ -160,6 +160,7 @@ Open **SQL Editor → New query**, then paste and run each file in `supabase/mig
 20261003000100_payment_methods_and_loans.sql
 20261004000100_bank_sync.sql
 20261004000200_banknote_palette.sql
+20261004000300_account_discovery_and_history.sql
 ```
 
 `20261001000600` creates the private `receipts` bucket (10 MB limit; images and PDFs only) and its storage policies.
@@ -180,6 +181,14 @@ transactions and subscription detection. `20261004000200` moves the default
 category colours to the banknote palette — again only where a colour is still
 the exact previous default. Both are additive: nothing you already have is
 changed or removed.
+
+`20261004000300` adds "Found in your messages" (accounts and cards your bank
+texts mention, added in one tap with all their messages), importing past
+messages from an iPhone backup, protection against fake "bank" texts from
+ordinary phone numbers, stricter bank-aware account matching, and a fix for
+devices that report the old time-zone name `Asia/Calcutta`. It only adds
+functions; the one data change replaces a time-zone name the database doesn't
+recognise with `Asia/Kolkata`.
 
 Verify: **Table Editor** should show the tables with RLS enabled, and **Storage** should show a private `receipts` bucket.
 
@@ -378,15 +387,16 @@ Trade-offs against a native build: you launch through Expo Go rather than your o
 If the app is already on your phone, this is the whole upgrade:
 
 1. **Get the code** — `git pull` in your `charan-finance` folder, then
-   `npm install` (this release adds two packages: the Bricolage Grotesque font
-   and `expo-clipboard`; both run in Expo Go).
+   `npm install`. (This release adds `sql.js`, used only by the history
+   import script on your PC; nothing new runs in the app.)
 2. **Apply the new migrations.** Run `npx supabase db push`, or paste each new
-   file from `supabase/migrations/` into the SQL Editor, oldest first. For this
-   release that is `20261004000100_bank_sync.sql`, then
-   `20261004000200_banknote_palette.sql`. They only add things — your
-   accounts, transactions and balances are untouched.
-3. **Deploy the bank-sync function** (once). The first time, log the CLI in
-   and link it to your project; after that, only the last line is needed:
+   file from `supabase/migrations/` into the SQL Editor, oldest first. If you
+   already applied `20261004000100` and `20261004000200`, the only new file is
+   `20261004000300_account_discovery_and_history.sql`. Migrations only add
+   things — your accounts, transactions and balances are untouched.
+3. **Redeploy the bank-sync function** (it learnt batch imports). The first
+   time, log the CLI in and link it to your project; after that, only the last
+   line is needed:
    ```powershell
    npx supabase login
    npx supabase link --project-ref YOUR-PROJECT-REF
@@ -395,14 +405,16 @@ If the app is already on your phone, this is the whole upgrade:
    Your project ref is the part before `.supabase.co` in your project URL.
 4. **Publish the new JavaScript.**
    ```powershell
-   npx eas-cli@latest update --branch main --message "bank sync, review inbox, redesign"
+   npx eas-cli@latest update --branch main --message "found accounts, history import"
    ```
    Choose the **preview** environment when asked.
 5. **Reopen the app** (fully close it first). It fetches the new bundle on launch.
-   Then follow §9a to switch on bank sync.
+6. **Optional — bring in past messages** from an iPhone backup (§9a, "Messages
+   from before").
 
-Do them in that order: the new screens read the new tables, so the migrations
-go first. If you publish first, the app will show errors until they are applied.
+Do them in that order: the new screens call the new database functions, so the
+migration goes first. If you publish first, the app will show errors until it
+is applied.
 
 ---
 
@@ -439,14 +451,22 @@ Bank SMS ─▶ iPhone Shortcut ─▶ ingest-sms Edge Function ─▶ ingest_ba
                                                              categorises, flags for review
 ```
 
-- **Parsing** (`supabase/functions/_shared/bank-sms.ts`, 39 unit tests) handles
+- **Parsing** (`supabase/functions/_shared/bank-sms.ts`, 40 unit tests) handles
   the formats of HDFC, ICICI, SBI, Axis, Kotak, IDFC, Federal, PNB, Amex and
   others: UPI, card, ATM, NEFT/IMPS, mandates, refunds, salary and interest. It
   reads the amount separately from the "Avl Bal" figure, and ignores OTPs,
   declined payments, "will be debited" notices, statements and promotions.
 - **Matching** uses the last digits in the SMS against each account's last 4
   (and any extra digits you've told it about, such as a debit card on a savings
-  account). Two possible accounts is never guessed at — it goes to Review.
+  account). An account set to a different bank is never a match, even if the
+  digits line up. Two possible accounts is never guessed at — it goes to Review.
+- **Accounts it doesn't know yet** aren't asked about one message at a time.
+  Review → **Found in your messages** groups every waiting message by bank and
+  last digits ("Axis Bank account ••7890 — 14 transactions — balance
+  ₹12,000.50"). **Add account** creates it and files all of its messages at
+  once, oldest first, with the balance starting from the bank's own latest
+  figure; **It's one I have** links the digits to an existing account instead.
+  Every bank and card you get texts from can be added this way.
 - **Duplicates**: the same SMS twice, the same UPI reference on the same
   account, and a transaction you already typed in by hand (same account and
   amount within two days) are all recognised.
@@ -456,8 +476,11 @@ Bank SMS ─▶ iPhone Shortcut ─▶ ingest-sms Edge Function ─▶ ingest_ba
   Cash account.
 - **Privacy**: every text your phone receives passes through your own Supabase
   function, but only bank transactions and balance updates are stored. OTPs,
-  promotions and personal messages are discarded on arrival. The sync key is
-  stored only as a SHA-256 hash; turning sync off revokes it instantly.
+  promotions and personal messages are discarded on arrival. A "Rs 5,000
+  credited" text from an ordinary phone number or email address is never
+  treated as a bank alert — banks only use registered sender IDs such as
+  `AX-HDFCBK`. The sync key is stored only as a SHA-256 hash; turning sync off
+  revokes it instantly.
 
 **Set up (once, ~3 minutes)**
 
@@ -473,16 +496,44 @@ Bank SMS ─▶ iPhone Shortcut ─▶ ingest-sms Edge Function ─▶ ingest_ba
 5. Make sure each bank account and card in the app has its **last 4 digits**
    set — the Bank sync screen lists any that don't.
 
-Older history isn't in your SMS inbox's reach: for months before you switched
-sync on, use **More → Import CSV** with your bank's statement export.
+**Messages from before** — importing history once
+
+iOS doesn't let any app read the Messages inbox, so the Shortcut starts from
+the day you set it up. Your old texts _are_ in the backup Apple Devices (or
+iTunes) makes on your PC, so a one-time script reads them from there:
+
+1. Connect the iPhone to your PC, open **Apple Devices** (or iTunes), choose
+   **Back up all of the data on your iPhone to this computer**, make sure
+   **Encrypt local backup** is **off**, and click **Back up now**. (Turning
+   encryption off asks for the backup password; you can turn it back on after.)
+2. In the project folder, look first — nothing is sent:
+   ```powershell
+   npm run import:sms -- --dry-run
+   ```
+   It finds the newest backup, reads the texts on your PC, and lists how many
+   bank messages it found per account.
+3. Import (the last 12 months by default; `--since 2026-01-01` to choose):
+   ```powershell
+   npm run import:sms
+   ```
+   Paste your sync key when asked (Bank sync → Your Shortcut details → Key).
+4. Open **Review → Found in your messages** and add each account or card.
+
+Only texts that parse as bank transactions or balances **and** come from a
+bank sender ID leave your PC; OTPs, promotions and personal messages are read
+locally and dropped. Running it again is safe — anything already recorded is
+skipped. History fills your reports and trends **without changing today's
+balances**: an account's balance as you entered it already includes the past,
+so older transactions are absorbed into its opening balance. Older months
+before any SMS alerts can still come in by **More → Import CSV**.
 
 ---
 
 ## 10. Testing & quality checks
 
 ```powershell
-npm run verify        # TypeScript strict + ESLint + 119 Jest tests
-npm run test:db       # 58 SQL tests (needs a local, disposable PostgreSQL 15+)
+npm run verify        # TypeScript strict + ESLint + 127 Jest tests
+npm run test:db       # 67 SQL tests (needs a local, disposable PostgreSQL 15+)
 npm run verify:all    # both of the above
 npm run bundle:ios    # Metro production bundle for iOS
 ```
@@ -500,7 +551,7 @@ npm run bundle:ios    # Metro production bundle for iOS
 - budget periods and timezone-correct sums, goal contributions, net-worth snapshots, dashboard and reports, merchant merge;
 - **payment methods**: five types side by side with only their own fields populated, an expense from each one, statement/due-day validation, `current_balance` still unwritable with the new columns in place, billing-cycle computation, and the proof that paying a card bill from a bank account does **not** increase reported spending;
 - **EMIs**: a loan paid from a bank account and another from a credit card, progress counted from posted instalments, exact `instalment × tenure`, the loan record surviving deletion of its schedule, amount and rate validation, and loan isolation between users;
-- **bank sync** (`bank-sync.test.ts`): real bank SMS through the same parser, ingested exactly as the Edge Function does — only the service role may ingest, unknown keys are refused, expenses are created and auto-categorised, duplicates and OTPs never create anything (and an OTP is never stored), a hand-entered expense is linked not duplicated, transfers between your own accounts and card-bill payments are never counted as spending (with one card, and with two cards where the payment waits for the card's own SMS), ATM cash moves to a Cash account, unknown digits are learnt once assigned, a card payment from an untracked account becomes a correction not income, another user can't see or assign your messages, corrected categories are remembered per merchant, splits keep balances unchanged, monthly subscriptions are detected, and every balance still reconciles;
+- **bank sync** (`bank-sync.test.ts`): real bank SMS through the same parser, ingested exactly as the Edge Function does — only the service role may ingest, unknown keys are refused, expenses are created and auto-categorised, duplicates and OTPs never create anything (and an OTP is never stored), a hand-entered expense is linked not duplicated, transfers between your own accounts and card-bill payments are never counted as spending (with one card, and with two cards where the payment waits for the card's own SMS), ATM cash moves to a Cash account, unknown digits are learnt once assigned, a card payment from an untracked account becomes a correction not income, another user can't see or assign your messages, corrected categories are remembered per merchant, splits keep balances unchanged, monthly subscriptions are detected, and every balance still reconciles. It also covers accounts found in messages — a text from a phone number is refused even with a forged parse, waiting history is grouped per account with its latest balance, one tap adds the account and files every message with the balance starting from the bank's figure, a card starts at zero, 3-digit references link to an existing account, imported history fills reports without moving today's balance, the same text arriving live and from a backup counts once, and an old time-zone name never breaks date maths;
 - the development seed (`seed.test.ts`): it applies against the real schema, spends from every payment method, leaves no balance drift, and refuses to run over real data.
 
 Running the SQL tests on Windows: install PostgreSQL 16 from <https://www.postgresql.org/download/windows/> (or use Docker Desktop: `docker run -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16`), then:
@@ -540,21 +591,21 @@ This creates HDFC Bank, Cash and HDFC Credit Card; six months of salary, rent, e
 
 ## 13. Troubleshooting
 
-| Problem                                | Fix                                                                                                                                                                                                         |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "Configuration needed" screen          | `.env` is missing or wrong (locally), or the EAS environment variables aren't set for that profile. Restart with `npx expo start --clear`                                                                   |
-| Phone can't connect to Metro           | Use `npm run start:tunnel`; allow Node.js through Windows Firewall; make sure the phone and PC are on the same Wi-Fi                                                                                        |
-| Sign-up email never arrives            | Supabase's default mailer is rate-limited. Check spam, or set up custom SMTP (§4.3)                                                                                                                         |
-| Email link opens Safari, not the app   | The link only opens the app in a development, preview or TestFlight build with the `charanfinance` scheme. Check the Redirect URLs (§4.3)                                                                   |
-| Face ID option disabled                | Expo Go doesn't support it; use a development build. Also check that Face ID or a passcode is set up on the phone                                                                                           |
-| "permission denied for table …"        | A migration didn't apply. Re-run `supabase db push`, or run the missing SQL file                                                                                                                            |
-| Receipt scan says OCR not set up       | Expected until `GOOGLE_VISION_API_KEY` is set (§9)                                                                                                                                                          |
-| Account deletion fails                 | Deploy the `delete-account` function (§4.4)                                                                                                                                                                 |
-| EAS: "bundle identifier not available" | Change `ios.bundleIdentifier` in `app.json` to something unique, for example `com.yourname.charanfinance`                                                                                                   |
-| EAS: device can't install the build    | Register it with `eas device:create`, rebuild, and enable Developer Mode on the iPhone                                                                                                                      |
-| `npm install` errors on Windows        | Delete `node_modules` and `package-lock.json` only as a last resort, then `npm install`. Use Node 22 LTS, and keep the project path short (for example `C:\dev\charan-finance`) to avoid path-length issues |
-| Dependency version warnings            | `npx expo install --fix`, then `npm run doctor`                                                                                                                                                             |
-| Wrong day in reports when travelling   | The profile timezone follows the device and updates on the next app launch                                                                                                                                  |
+| Problem                                 | Fix                                                                                                                                                                                                         |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Configuration needed" screen           | `.env` is missing or wrong (locally), or the EAS environment variables aren't set for that profile. Restart with `npx expo start --clear`                                                                   |
+| Phone can't connect to Metro            | Use `npm run start:tunnel`; allow Node.js through Windows Firewall; make sure the phone and PC are on the same Wi-Fi                                                                                        |
+| Sign-up email never arrives             | Supabase's default mailer is rate-limited. Check spam, or set up custom SMTP (§4.3)                                                                                                                         |
+| Email link opens Safari, not the app    | The link only opens the app in a development, preview or TestFlight build with the `charanfinance` scheme. Check the Redirect URLs (§4.3)                                                                   |
+| App lock asks for passcode, not Face ID | Expected in Expo Go: iOS only allows Face ID in an app that declares it, and inside Expo Go the app is Expo's. Face ID (with passcode fallback) works in a development, preview or TestFlight build         |
+| "permission denied for table …"         | A migration didn't apply. Re-run `supabase db push`, or run the missing SQL file                                                                                                                            |
+| Receipt scan says OCR not set up        | Expected until `GOOGLE_VISION_API_KEY` is set (§9)                                                                                                                                                          |
+| Account deletion fails                  | Deploy the `delete-account` function (§4.4)                                                                                                                                                                 |
+| EAS: "bundle identifier not available"  | Change `ios.bundleIdentifier` in `app.json` to something unique, for example `com.yourname.charanfinance`                                                                                                   |
+| EAS: device can't install the build     | Register it with `eas device:create`, rebuild, and enable Developer Mode on the iPhone                                                                                                                      |
+| `npm install` errors on Windows         | Delete `node_modules` and `package-lock.json` only as a last resort, then `npm install`. Use Node 22 LTS, and keep the project path short (for example `C:\dev\charan-finance`) to avoid path-length issues |
+| Dependency version warnings             | `npx expo install --fix`, then `npm run doctor`                                                                                                                                                             |
+| Wrong day in reports when travelling    | The profile timezone follows the device and updates on the next app launch                                                                                                                                  |
 
 ---
 
@@ -562,11 +613,11 @@ This creates HDFC Bank, Cash and HDFC Credit Card; six months of salary, rent, e
 
 - **No Mac, so no iOS Simulator.** You test on a real iPhone through Expo Go, a development build or TestFlight. Every native iOS build runs on EAS's macOS servers, and the free EAS plan has a queue and a monthly build quota.
 - **Apple Developer membership ($99/year) is required** for any app installed as its own icon on an iPhone: development builds, preview builds, TestFlight and the App Store. Apple issues provisioning profiles for physical devices only to paid members, and the free alternative (personal-team signing) needs Xcode on a Mac. The free way to run without a dev server is Expo Go plus a published update (§8a). One membership covers up to 100 devices, so a family shares one.
-- **Face ID app lock** is untested in Expo Go. `expo-local-authentication` is bundled there, so the toggle under More → Security may well work; if it is greyed out, it needs a development build. It is verified to work in a development build.
+- **Face ID doesn't work in Expo Go.** Expo's docs say so directly: Face ID needs the app's own `NSFaceIDUsageDescription`, and in Expo Go the running app is Expo's, so iOS falls back to your iPhone passcode. The app says so under More → Security and on the lock screen. Face ID first, passcode as fallback, works in any installed build (`npm run build:dev` / `build:preview`), which needs the Apple Developer membership above.
 - **Interest is not amortised.** An EMI shows the instalment, how much has been paid, how many payments are left and the exact difference between `instalment × tenure` and the loan amount. It does not split each payment into principal and interest, and it does not track a declining outstanding principal — those need the lender's own schedule, and inventing them would put wrong numbers in front of you.
 - **Android is untested.** Every iOS-only API in the app sits behind a platform check with an Android branch, and `app.json` carries Android config, but the app has only ever been run on iOS. Android needs a test pass before trusting it. An Android APK built through EAS needs no developer account and no fee.
 - **Multi-currency.** Accounts can use any currency, and each is tracked exactly. Dashboard, report and net-worth totals include only accounts in your default currency; no exchange rates are invented. Transfers between currencies aren't supported yet. The schema is ready for a `currency_rates` table.
-- **Bank sync needs SMS alerts and an iPhone Shortcut.** It can't read SMS already in your inbox (iOS doesn't allow it), so earlier history comes in by CSV import. A bank that only sends email alerts, or an alert format the parser hasn't seen, shows up as a message in Review rather than being guessed at. UPI apps' own wallets (e.g. Paytm wallet balance) don't send bank SMS. An "Ask about my spending" chat assistant isn't included — it would need an AI API key on the server.
+- **Bank sync needs SMS alerts and an iPhone Shortcut.** It can't read SMS already in your inbox (iOS doesn't allow it), so earlier history comes in once from an unencrypted iPhone backup on your PC (§9a), or by CSV import. A bank that only sends email alerts, or an alert format the parser hasn't seen, shows up as a message in Review rather than being guessed at. UPI apps' own wallets (e.g. Paytm wallet balance) don't send bank SMS. An "Ask about my spending" chat assistant isn't included — it would need an AI API key on the server.
 - **Investments** are valued manually (Reconcile on the account). No market data is fetched.
 - **OCR** needs a Google Cloud Vision key (§9). PDFs are attached but not text-scanned.
 - **Receipts attached while offline** aren't queued. Save offline, then attach the receipt from the transaction once you're online.

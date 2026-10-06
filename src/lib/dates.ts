@@ -236,9 +236,34 @@ export function formatTime(value: Date | string): string {
   return format(typeof value === 'string' ? new Date(value) : value, 'h:mm a');
 }
 
+/**
+ * Old names some devices and browsers still report (Windows Chrome says
+ * "Asia/Calcutta"). Not every database keeps these aliases, so the current
+ * name is always sent instead.
+ */
+const LEGACY_ZONES: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Dacca': 'Asia/Dhaka',
+  'Asia/Thimbu': 'Asia/Thimphu',
+  'Asia/Ujung_Pandang': 'Asia/Makassar',
+  'US/Eastern': 'America/New_York',
+  'US/Central': 'America/Chicago',
+  'US/Mountain': 'America/Denver',
+  'US/Pacific': 'America/Los_Angeles',
+  GB: 'Europe/London',
+};
+
+export function normaliseTimeZone(zone: string | null | undefined): string {
+  if (!zone) return 'Asia/Kolkata';
+  return LEGACY_ZONES[zone] ?? zone;
+}
+
 export function deviceTimeZone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+    return normaliseTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   } catch {
     return 'Asia/Kolkata';
   }

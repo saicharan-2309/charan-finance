@@ -215,6 +215,24 @@ export interface BankMessage {
   note: string | null;
 }
 
+/**
+ * An account or card that bank messages talk about but that isn't in the app
+ * yet — grouped from every waiting message by bank and last digits.
+ */
+export interface DiscoveredAccount {
+  bank: string | null;
+  last4: string | null;
+  instrument: NonNullable<BankMessage['instrument']>;
+  messageCount: number;
+  firstAt: string;
+  lastAt: string;
+  /** The most recent balance (or available limit) the bank printed. */
+  latestBalance: Minor | null;
+  balanceKind: 'balance' | 'limit' | null;
+  suggestedType: AccountType;
+  sampleMerchants: string[];
+}
+
 export interface BankSyncStatus {
   connected: boolean;
   connectedAt: string | null;

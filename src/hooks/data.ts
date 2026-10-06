@@ -30,6 +30,7 @@ import {
   fetchBankSyncStatus,
   fetchDetectedRecurring,
   fetchPendingMessages,
+  fetchDiscoveredAccounts,
   fetchRecentMessages,
   fetchReviewQueue,
   fetchRules,
@@ -61,6 +62,8 @@ export const useSnapshots = () => useQuery({ queryKey: qk.snapshots, queryFn: fe
 export const useBankSyncStatus = () => useQuery({ queryKey: qk.bankSync, queryFn: fetchBankSyncStatus });
 export const usePendingMessages = () =>
   useQuery({ queryKey: qk.bankMessages('pending'), queryFn: fetchPendingMessages });
+export const useDiscoveredAccounts = () =>
+  useQuery({ queryKey: qk.bankMessages('discovered'), queryFn: fetchDiscoveredAccounts });
 export const useRecentMessages = () =>
   useQuery({ queryKey: qk.bankMessages('recent'), queryFn: () => fetchRecentMessages(60) });
 export const useReviewQueue = () => useQuery({ queryKey: qk.reviewQueue, queryFn: fetchReviewQueue });

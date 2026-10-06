@@ -53,10 +53,12 @@ export default function SecuritySettings() {
       <Section title="App lock">
         <Card style={{ paddingVertical: spacing.xs }}>
           <SwitchRow
-            title={`Require ${lock.biometryLabel}`}
+            title={lock.biometryLabel === 'Passcode' ? 'Require passcode' : `Require ${lock.biometryLabel}`}
             subtitle={
               lock.available
-                ? 'Locks when the app goes to the background. Your device passcode works as a fallback.'
+                ? lock.faceIdNeedsInstalledApp
+                  ? 'Locks when the app goes to the background.'
+                  : 'Locks when the app goes to the background. Your device passcode works as a fallback.'
                 : 'Set up Face ID, Touch ID or a passcode on this iPhone to use app lock.'
             }
             value={lock.enabled}
@@ -64,6 +66,13 @@ export default function SecuritySettings() {
             onValueChange={(v) => void toggleLock(v)}
           />
         </Card>
+        {lock.faceIdNeedsInstalledApp ? (
+          <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.sm }}>
+            You’re running inside Expo Go, which iOS doesn’t allow to use Face ID for another app — so your
+            iPhone passcode is used instead. Face ID, with the passcode as a fallback, works in the installed
+            app.
+          </Text>
+        ) : null}
         <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.sm }}>
           Your screen is hidden in the app switcher whether or not app lock is on.
         </Text>

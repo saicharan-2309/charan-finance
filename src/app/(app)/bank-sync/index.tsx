@@ -30,6 +30,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
 import { describeParsed, parseBankSms } from '@/lib/bank-sms';
+import { FoundAccountsList, useFoundAccounts } from '@/features/bank-sync/FoundAccounts';
 
 const NEEDS_DIGITS = new Set(['bank', 'savings', 'credit_card', 'debit_card']);
 
@@ -38,6 +39,7 @@ export default function BankSyncScreen() {
   const toast = useToast();
   const status = useBankSyncStatus();
   const accounts = useAccounts();
+  const found = useFoundAccounts();
   const [key, setKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
@@ -134,6 +136,12 @@ export default function BankSyncScreen() {
                 />
               ) : null}
             </Card>
+
+            {s.connected && found.items.length > 0 ? (
+              <Section title="Found in your messages">
+                <FoundAccountsList compact />
+              </Section>
+            ) : null}
 
             {missingDigits.length > 0 ? (
               <Section title="Add the last digits">
@@ -278,6 +286,31 @@ export default function BankSyncScreen() {
                   </Card>
                 </Section>
               </>
+            ) : null}
+
+            {s.connected ? (
+              <Section title="Messages from before">
+                <Card style={{ gap: spacing.sm }}>
+                  <Row gap={spacing.md} align="flex-start">
+                    <Icon name="time-outline" size={20} tone="brand" />
+                    <View style={{ flex: 1, gap: spacing.xs }}>
+                      <Text variant="callout">
+                        iPhone doesn’t let apps read old texts, so the Shortcut starts from today. To bring in
+                        the months before, import them once from an iPhone backup on your PC.
+                      </Text>
+                      <Text variant="footnote" tone="secondary">
+                        Back up your iPhone in Apple Devices or iTunes with “Encrypt local backup” off, then
+                        run{' '}
+                        <Text variant="footnote" style={{ fontWeight: '600' }}>
+                          npm run import:sms
+                        </Text>{' '}
+                        in the project folder. Only bank alerts leave your PC. History fills your reports
+                        without changing today’s balances.
+                      </Text>
+                    </View>
+                  </Row>
+                </Card>
+              </Section>
             ) : null}
 
             <Section title="Try a message">
