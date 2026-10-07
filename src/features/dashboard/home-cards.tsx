@@ -22,7 +22,7 @@ import { formatDayLabel, formatShortDate, formatTime, fromISODate, todayISO, toI
 import { formatMoney } from '@/lib/money';
 import { balanceDisplay, cardDates, FLOW_ICONS, providerByKey, transactionFlow } from '@/lib/payment-methods';
 import { useTheme } from '@/theme/ThemeProvider';
-import { continuous, GUTTER, radius, spacing, typography } from '@/theme/tokens';
+import { cardGradientFor, continuous, GUTTER, radius, spacing, typography } from '@/theme/tokens';
 import type { Account, Transaction } from '@/types/domain';
 
 const mono = Platform.select({ ios: 'Menlo', default: 'monospace' });
@@ -35,7 +35,8 @@ const mono = Platform.select({ ios: 'Menlo', default: 'monospace' });
 export function AccountCarousel({ accounts }: { accounts: Account[] }) {
   const { colors } = useTheme();
   const { width: screen } = useWindowDimensions();
-  const active = accounts.filter((a) => a.isActive);
+  // The system "Friends" balance is shown in Friends, not as a card.
+  const active = accounts.filter((a) => a.isActive && !a.systemKind);
   const cardW = Math.min(screen - GUTTER * 2 - 28, 360);
   const cardH = Math.round(cardW * 0.58);
   const today = todayISO();
@@ -51,8 +52,9 @@ export function AccountCarousel({ accounts }: { accounts: Account[] }) {
       style={{ marginHorizontal: -GUTTER, marginVertical: -spacing.xxxl }}
       contentContainerStyle={{ gap: spacing.md, paddingHorizontal: GUTTER, paddingVertical: spacing.xxxl }}
     >
-      {active.map((a, i) => {
-        const grad = colors.accountGradients[i % colors.accountGradients.length];
+      {active.map((a) => {
+        // The colour you chose for this payment method, always — never one picked by position.
+        const grad = cardGradientFor(a.color, colors.cardGradient);
         const display = balanceDisplay(a);
         const issuer = providerByKey(a.provider)?.label ?? a.institution ?? ACCOUNT_TYPE_LABELS[a.type];
         const isCard = a.type === 'credit_card';

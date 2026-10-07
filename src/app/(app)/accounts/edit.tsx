@@ -31,7 +31,7 @@ import {
   type AccountInput,
 } from '@/services/core';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, spacing } from '@/theme/tokens';
+import { BUD_SWATCHES, radius, spacing } from '@/theme/tokens';
 import type { Account, AccountType } from '@/types/domain';
 
 export default function AccountEditScreen() {
@@ -94,7 +94,8 @@ function AccountForm({
     existing?.minimumDue != null ? minorToInput(existing.minimumDue) : '',
   );
   const [includeInNetWorth, setInclude] = useState(existing?.includeInNetWorth ?? true);
-  const [color, setColor] = useState<string | null>(existing?.color ?? null);
+  // New methods start with a BUD colour picked, so what you see is exactly what's saved.
+  const [color, setColor] = useState<string | null>(existing?.color ?? BUD_SWATCHES[0].base);
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [showMore, setShowMore] = useState(!!(existing?.notes || existing?.currency !== defaultCurrency));
   const [errors, setErrors] = useState<Record<string, string | null>>({});
@@ -202,7 +203,12 @@ function AccountForm({
       name: name.trim() ? null : 'Give it a name.',
       last4: last4 && !/^\d{4}$/.test(last4) ? 'Enter exactly 4 digits.' : null,
       opening: opening === null ? 'Enter a valid amount.' : null,
-      limit: limitText && limit === null ? 'Enter a valid amount.' : null,
+      limit:
+        limitText && limit === null
+          ? 'Enter a valid amount.'
+          : type === 'credit_card' && !existing && !limitText
+            ? 'Enter the card’s credit limit.'
+            : null,
       minDue: minDueText && minDue === null ? 'Enter a valid amount.' : null,
       statementDay: Number.isNaN(stmt) ? 'Enter a day between 1 and 31.' : null,
       dueDay: Number.isNaN(due) ? 'Enter a day between 1 and 31.' : null,
@@ -399,8 +405,8 @@ function AccountForm({
             existing
               ? 'Changing this shifts the current balance by the same difference. To match a real balance, use “Reconcile” on the account.'
               : type === 'credit_card'
-                ? 'How much is outstanding on the card right now. Leave empty if nothing is owed.'
-                : undefined
+                ? 'What you owe on the card right now — not your limit. Leave empty if nothing is owed.'
+                : 'What’s in it today. From here BUD keeps the balance up to date: money in adds, spending takes away — you never edit this again.'
           }
         />
         {!liability ? (
@@ -417,13 +423,13 @@ function AccountForm({
         <Section title="Card details" style={{ marginTop: spacing.xxl }}>
           <View style={{ gap: spacing.lg }}>
             <TextField
-              label="Credit limit (optional)"
+              label={type === 'credit_card' ? 'Credit limit' : 'Credit limit (optional)'}
               value={limitText}
               onChangeText={(t) => setLimitText(sanitizeAmountKeystrokes(t))}
               keyboardType="decimal-pad"
               placeholder="0"
               error={errors.limit}
-              helper="Used to show available credit. Available credit is always calculated, never stored."
+              helper="Your limit is never counted as cash. Available credit = limit − what you owe, worked out every time."
             />
             <Row gap={spacing.md} align="flex-start">
               <View style={{ flex: 1 }}>
@@ -463,7 +469,7 @@ function AccountForm({
       ) : null}
 
       <Section title="Colour">
-        <ColorPicker value={color} onChange={setColor} />
+        <ColorPicker value={color} onChange={setColor} previewLabel={name || undefined} />
       </Section>
 
       {showMore ? (

@@ -493,3 +493,22 @@ describe('merchant names', () => {
     ).toBe('Spent ₹450.00 at Swiggy');
   });
 });
+
+describe('short card alerts', () => {
+  it('reads "Rs 1,250 spent at Amazon using HDFC Card"', () => {
+    const p = txn('Rs 1,250 spent at Amazon using HDFC Card', 'AX-HDFCBK');
+    expect(p).toMatchObject({
+      direction: 'debit',
+      amount: '1250.00',
+      bank: 'hdfc',
+      instrument: 'card',
+      last4: null,
+      merchant: 'Amazon',
+    });
+  });
+
+  it('reads "at X via UPI"', () => {
+    const p = txn('INR 320 debited from A/c XX6202 at Zomato via UPI', 'VM-AXISBK');
+    expect(p).toMatchObject({ amount: '320.00', last4: '6202', merchant: 'Zomato' });
+  });
+});

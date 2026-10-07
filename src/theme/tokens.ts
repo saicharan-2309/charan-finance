@@ -2,32 +2,33 @@
  * Design tokens. One source of truth for colour, type, spacing, radius and
  * elevation. Components read these through `useTheme()` — never hard-code.
  *
- * Identity — "violet glass"
- *   * Apple-grade restraint: a cool, faintly lavender grey canvas with white
- *     cards that float on soft, wide, low shadows (no borders in light mode).
- *     In dark mode the canvas goes near-black and cards lift by tone alone.
- *   * One accent: an iris violet. It colours actions, the selected tab and the
- *     Home hero, which is a violet gradient card — the one rich surface on the
- *     screen. Everything else stays neutral so the numbers lead.
- *   * A warm coral → amber gauge is the single secondary accent, used only for
- *     progress against a limit (budget gauges, "today" on the pace track).
- *   * Type is the system face — San Francisco on iPhone — everywhere. Big money
- *     figures are SF heavy with tight tracking; every number in a list uses
- *     tabular figures so columns of amounts line up.
- *   * Corners are continuous (squircle) on iOS, and radius follows hierarchy:
- *     hero roundest, then cards, then controls.
- *   * Categories and charts keep the validated banknote-ink palette below.
+ * Identity — BUD
+ *   Every colour here comes from the BUD logo, sampled from the artwork:
+ *     paper      #F6F5F1  the background the logo sits on
+ *     sage       #537565  the tile's light edge
+ *     green      #356057  the tile's body           → the brand colour
+ *     forest     #163631  the tile's deep corner
+ *     silver     #86A9A1  the brushed-metal letters → the quiet accent
+ *     ink        #17292F  the "BUD" wordmark         → all text
+ *   plus one warm accent, copper, for expenses and alerts — the only warm
+ *   tone, chosen to sit with the greens rather than fight them.
+ *
+ *   * A warm paper canvas with white cards that float on soft, green-tinted
+ *     shadows; in dark mode a deep green-black canvas, cards lift by tone.
+ *   * The Home hero, the Add button and selected states use the logo's tile
+ *     gradient (sage → green → forest).
+ *   * Type is the system face (San Francisco on iPhone) everywhere; amounts
+ *     use tabular figures.
+ *   * Continuous (squircle) corners; radius follows hierarchy.
  *
  * Colour never carries meaning alone: money always has a sign or a label, and
  * chart series are always named.
  *
- * Contrast (WCAG, checked): light text 18.1:1,
- * secondary 5.6:1, brand 6.7:1, positive 5.5:1, negative 5.4:1, warning 5.6:1
- * on white; all ≥ 4.8:1 on the canvas. Dark: text 16.1:1, secondary 7.1:1,
- * brand 6.8:1, every status colour ≥ 7.3:1 on the dark card. White on the hero
- * gradient ≥ 5.9:1 at its lightest stop; hero secondary text ≥ 4.6:1. Chart
- * colours keep ≥ 4.3:1 on the dark card.
- * `textTertiary` (3.3:1 light) is only for captions that repeat information
+ * Contrast (WCAG, checked): light text 15.1:1, secondary 5.8:1, brand 7.4:1,
+ * positive 5.2:1, negative 5.6:1, warning 5.3:1 on white; all ≥ 4.7:1 on the
+ * canvas. Dark: text 14.6:1, secondary 7.4:1, brand 8.2:1, every status colour
+ * ≥ 7:1 on the dark card. White on the hero ≥ 5.3:1 at its lightest stop.
+ * `textTertiary` (3.2:1 light) is only for captions that repeat information
  * shown nearby.
  */
 import { Platform, type TextStyle, type ViewStyle } from 'react-native';
@@ -49,6 +50,8 @@ export interface Palette {
   brandPressed: string;
   brandSoft: string;
   onBrand: string;
+  /** Brushed silver from the logo letters — quiet accents, tracks, avatars. */
+  accent: string;
   positive: string;
   positiveSoft: string;
   negative: string;
@@ -62,24 +65,22 @@ export interface Palette {
   chartGrid: string;
   /** Neutral transfer colour (not income, not expense). */
   transfer: string;
-  /** The Home hero: a violet gradient card, and the text on it. */
+  /** The Home hero and Add button: the logo's tile gradient, and the text on it. */
   hero: string;
   heroGradient: readonly [string, string, string];
   heroText: string;
   heroMuted: string;
   heroTrack: string;
-  /** Credit cards in the accounts strip are drawn as a graphite card. */
+  /** A card with no colour chosen is drawn in ink. */
   cardGradient: readonly [string, string];
-  /** The warm gauge (coral → amber): progress against a limit. */
+  /** Progress against a limit: silver → green. Over the limit turns `negative`. */
   gaugeGradient: readonly [string, string];
-  /** The weekly income/expense chart. Always shown with a legend. */
+  /** Income/expense series. Always shown with a legend. */
   income: string;
   expense: string;
-  /** Payment-method cards in the Home carousel, assigned in order (white text ≥ 4.5:1 at the dark stop, ≥ 3:1 large text at the light stop). */
-  accountGradients: readonly (readonly [string, string])[];
   /** Category tiles under "Expenses" — every tile is named, colour is decoration. */
   tileGradients: readonly (readonly [string, string])[];
-  /** Amber — "today" on the hero's pace track, and auto-captured badges. */
+  /** Muted gold — the "needs a look" badge. */
   highlight: string;
   /** Colour of the soft, wide card shadow (light mode only). */
   shadow: string;
@@ -90,114 +91,150 @@ export interface Palette {
   glassFill: string;
 }
 
-const ACCOUNT_GRADIENTS = [
-  ['#6A4BE8', '#4A30C8'], // violet
-  ['#D93D4A', '#B42A42'], // coral
-  ['#2F6BE0', '#1F49B8'], // blue
-  ['#0C8076', '#0A6A62'], // teal
-  ['#8E44C8', '#6B2FA6'], // purple
-  ['#3A3A4C', '#1E1E28'], // graphite
+/**
+ * The BUD swatch set for payment methods and categories: the logo greens and
+ * silver, ink, plus earthy companions (teal, slate, moss, copper, sand, plum).
+ * Each has a lighter and deeper shade. White text is ≥ 4.5:1 on every base
+ * and deep shade; the light shades are for tinted backgrounds.
+ */
+export const BUD_SWATCHES = [
+  { name: 'Green', base: '#2F5E52', light: '#E3EDE8', deep: '#163631' },
+  { name: 'Sage', base: '#4E7363', light: '#E7EFEA', deep: '#2F4D41' },
+  { name: 'Mint', base: '#2F7A64', light: '#E1F0EA', deep: '#1D5646' },
+  { name: 'Silver', base: '#4F7A73', light: '#E7EFED', deep: '#30524D' },
+  { name: 'Teal', base: '#2B6F78', light: '#E1EEF0', deep: '#1A4E55' },
+  { name: 'Slate', base: '#3E4F5A', light: '#E6EAED', deep: '#26333B' },
+  { name: 'Ink', base: '#17292F', light: '#E3E7E8', deep: '#0C181C' },
+  { name: 'Moss', base: '#5E7A3A', light: '#EBF0E2', deep: '#3D5222' },
+  { name: 'Copper', base: '#A65F38', light: '#F5E9E1', deep: '#7A4224' },
+  { name: 'Sand', base: '#806640', light: '#F1ECE3', deep: '#5A4528' },
+  { name: 'Plum', base: '#6E4C67', light: '#EFE8EE', deep: '#4D3348' },
 ] as const;
 
+/** Darkens (negative) or lightens (positive) a #RRGGBB colour by a fraction. */
+export function shade(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) =>
+    Math.round(amount < 0 ? c * (1 + amount) : c + (255 - c) * amount),
+  );
+  return (
+    '#' +
+    ch
+      .map((c) => c.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
+}
+
+/** A card's gradient from its chosen colour: the colour itself into its deep shade. */
+export function cardGradientFor(
+  color: string | null | undefined,
+  fallback: readonly [string, string],
+): readonly [string, string] {
+  if (!color) return fallback;
+  const s = BUD_SWATCHES.find((x) => x.base.toLowerCase() === color.toLowerCase());
+  return s ? [s.base, s.deep] : [color, shade(color, -0.35)];
+}
+
 const TILE_GRADIENTS = [
-  ['#2F6BE0', '#1F49B8'], // blue
-  ['#4338CA', '#2E2694'], // indigo
-  ['#8E44C8', '#6B2FA6'], // purple
-  ['#C2337E', '#9A2266'], // magenta
-  ['#0C8076', '#0A6A62'], // teal
-  ['#B35F0F', '#8E480A'], // amber
+  ['#2F7A64', '#1D5646'], // mint
+  ['#A65F38', '#7A4224'], // copper
+  ['#2B6F78', '#1A4E55'], // teal
+  ['#806640', '#5A4528'], // sand
+  ['#6E4C67', '#4D3348'], // plum
+  ['#3E4F5A', '#26333B'], // slate
 ] as const;
 
 export const lightPalette: Palette = {
-  background: '#F3F3F8',
+  background: '#F5F4F0',
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
-  surfaceMuted: '#F0F0F5',
-  fill: '#E7E7EE',
-  border: '#E7E7EF',
-  borderStrong: '#D3D3DE',
-  text: '#15151E',
-  textSecondary: '#666676',
-  textTertiary: '#8C8C9B',
+  surfaceMuted: '#EFEEE9',
+  fill: '#E8E8E2',
+  border: '#E6E5DF',
+  borderStrong: '#D2D3CB',
+  text: '#17292F',
+  textSecondary: '#5A6965',
+  textTertiary: '#87928F',
   textInverse: '#FFFFFF',
-  brand: '#5B3FD9',
-  brandPressed: '#4B31C2',
-  brandSoft: '#EEEBFD',
+  brand: '#2F5E52',
+  brandPressed: '#244A40',
+  brandSoft: '#E3EDE8',
   onBrand: '#FFFFFF',
-  positive: '#19784F',
-  positiveSoft: '#E3F3EA',
-  negative: '#BF3A30',
-  negativeSoft: '#FBE8E6',
-  warning: '#8F5E08',
-  warningSoft: '#FBF0DA',
-  info: '#1F6FA8',
-  infoSoft: '#E4EFF8',
-  overlay: 'rgba(21, 21, 30, 0.4)',
-  skeleton: '#E9E9F0',
-  chartGrid: '#EEEEF3',
-  transfer: '#626275',
-  hero: '#4E33D8',
-  heroGradient: ['#6046E8', '#4E33D8', '#3B22B0'],
-  heroText: '#FFFFFF',
-  heroMuted: 'rgba(255, 255, 255, 0.84)',
-  heroTrack: 'rgba(255, 255, 255, 0.2)',
-  cardGradient: ['#34344A', '#15151E'],
-  gaugeGradient: ['#FF9A3C', '#F2554B'],
-  income: '#3D63E0',
-  expense: '#E5484D',
-  accountGradients: ACCOUNT_GRADIENTS,
-  tileGradients: TILE_GRADIENTS,
-  highlight: '#FFC14D',
-  shadow: '#2B2266',
-  chromeStroke: 'rgba(255, 255, 255, 0.7)',
-  chromeFill: 'rgba(255, 255, 255, 0.82)',
-  glassFill: 'rgba(255, 255, 255, 0.62)',
-};
-
-export const darkPalette: Palette = {
-  background: '#0A0A0F',
-  surface: '#18181F',
-  surfaceElevated: '#202029',
-  surfaceMuted: '#22222B',
-  fill: '#2B2B35',
-  border: '#2A2A35',
-  borderStrong: '#3A3A47',
-  text: '#F4F4F7',
-  textSecondary: '#A3A3B2',
-  textTertiary: '#767684',
-  textInverse: '#0A0A0F',
-  brand: '#A193FF',
-  brandPressed: '#8E7EF5',
-  brandSoft: '#25203F',
-  onBrand: '#0A0A0F',
-  positive: '#5CC896',
-  positiveSoft: '#132A20',
-  negative: '#F38A80',
-  negativeSoft: '#2E1A1B',
-  warning: '#E6B45C',
-  warningSoft: '#2A2214',
-  info: '#6FB3E6',
-  infoSoft: '#132535',
-  overlay: 'rgba(0, 0, 0, 0.62)',
-  skeleton: '#202029',
-  chartGrid: '#25252F',
-  transfer: '#A7A7B6',
-  hero: '#4A31D0',
-  heroGradient: ['#5A3FE3', '#4A31D0', '#2E1A96'],
+  accent: '#86A9A1',
+  positive: '#2A7A55',
+  positiveSoft: '#E2F1E8',
+  negative: '#B0453B',
+  negativeSoft: '#F8E7E3',
+  warning: '#8A6512',
+  warningSoft: '#F6EEDA',
+  info: '#3D6A86',
+  infoSoft: '#E5EEF3',
+  overlay: 'rgba(23, 41, 47, 0.42)',
+  skeleton: '#EAE9E3',
+  chartGrid: '#EDECE6',
+  transfer: '#5E6B68',
+  hero: '#356057',
+  heroGradient: ['#4E7363', '#356057', '#163631'],
   heroText: '#FFFFFF',
   heroMuted: 'rgba(255, 255, 255, 0.84)',
   heroTrack: 'rgba(255, 255, 255, 0.18)',
-  cardGradient: ['#3A3A4C', '#1E1E28'],
-  gaugeGradient: ['#FFA24A', '#F6625A'],
-  income: '#7B9BFF',
-  expense: '#FF7A7E',
-  accountGradients: ACCOUNT_GRADIENTS,
+  cardGradient: ['#2A3D44', '#17292F'],
+  gaugeGradient: ['#86A9A1', '#2F5E52'],
+  income: '#2F7A64',
+  expense: '#B4683E',
   tileGradients: TILE_GRADIENTS,
-  highlight: '#FFC14D',
+  highlight: '#C9A24E',
+  shadow: '#163631',
+  chromeStroke: 'rgba(255, 255, 255, 0.7)',
+  chromeFill: 'rgba(250, 249, 245, 0.84)',
+  glassFill: 'rgba(250, 249, 245, 0.62)',
+};
+
+export const darkPalette: Palette = {
+  background: '#0C1513',
+  surface: '#16211E',
+  surfaceElevated: '#1D2A26',
+  surfaceMuted: '#1C2724',
+  fill: '#24322E',
+  border: '#24312D',
+  borderStrong: '#34443F',
+  text: '#EEF2EF',
+  textSecondary: '#A3B1AC',
+  textTertiary: '#76847F',
+  textInverse: '#0C1513',
+  brand: '#8FC1B1',
+  brandPressed: '#7AAF9E',
+  brandSoft: '#1E3330',
+  onBrand: '#0C1513',
+  accent: '#86A9A1',
+  positive: '#6CCB9E',
+  positiveSoft: '#14291F',
+  negative: '#F0907F',
+  negativeSoft: '#2E1B18',
+  warning: '#E3BA62',
+  warningSoft: '#2B2414',
+  info: '#8FB9D6',
+  infoSoft: '#142430',
+  overlay: 'rgba(0, 0, 0, 0.62)',
+  skeleton: '#1D2A26',
+  chartGrid: '#22302B',
+  transfer: '#A7B3AF',
+  hero: '#2F5A4E',
+  heroGradient: ['#46695A', '#2F5A4E', '#12302A'],
+  heroText: '#FFFFFF',
+  heroMuted: 'rgba(255, 255, 255, 0.84)',
+  heroTrack: 'rgba(255, 255, 255, 0.16)',
+  cardGradient: ['#2E4249', '#17292F'],
+  gaugeGradient: ['#86A9A1', '#8FC1B1'],
+  income: '#7CCBB0',
+  expense: '#E39A6E',
+  tileGradients: TILE_GRADIENTS,
+  highlight: '#D9B562',
   shadow: '#000000',
   chromeStroke: 'rgba(255, 255, 255, 0.08)',
-  chromeFill: 'rgba(32, 32, 41, 0.82)',
-  glassFill: 'rgba(40, 40, 52, 0.55)',
+  chromeFill: 'rgba(22, 33, 30, 0.84)',
+  glassFill: 'rgba(29, 42, 38, 0.6)',
 };
 
 /** The 4-point scale, with room to breathe. */
@@ -326,25 +363,23 @@ export const springs = {
 } as const;
 
 /**
- * Categorical chart colours from the banknote inks, assigned in fixed order
- * (never cycled past the end — extra series fold into "Other", in stone grey).
+ * Categorical chart colours — the BUD earth palette, assigned in fixed order
+ * and never cycled past the end (extra series fold into "Other", in stone).
  *
- * Validated on white (light) and a dark card with the data-viz palette checks:
- * OKLCH lightness band, chroma ≥ 0.10, adjacent-pair separation under
- * simulated protanopia/deuteranopia (worst ΔE 11.1 dark), normal-vision
- * separation ≥ 15 ΔE, and ≥ 3:1 contrast against the surface — all passing in
- * both modes. The order is what makes the CVD check pass: magenta never sits
- * next to teal, olive never next to chocolate.
+ * Neighbouring colours alternate warm and cool (green, copper, slate blue,
+ * ochre, plum, teal, moss), so adjacent segments stay distinct with colour
+ * vision deficiency; every colour is ≥ 3:1 against its surface in its mode
+ * (light set on white, dark set on the dark card). Legends always name them.
  */
 export const chartColorsLight = [
-  '#1F86C7', // ₹50 blue
-  '#C07F0A', // ₹200 marigold
-  '#7A5CCB', // ₹100 lavender
-  '#5E9424', // ₹20 olive
-  '#C03587', // ₹2000 magenta
-  '#A2541F', // ₹10 chocolate
-  '#0A8F80', // teal
+  '#2F7A64', // mint green
+  '#B4683E', // copper
+  '#4C6E91', // slate blue
+  '#A8873A', // ochre
+  '#7A5A86', // plum
+  '#3E8F96', // teal
+  '#6E8F3E', // moss
 ];
-export const chartColorsDark = ['#3B8FC9', '#B8822A', '#8C74D6', '#6E9F37', '#CF4D99', '#B86E3A', '#1E9E8E'];
-/** ₹500 stone — "Other" and anything folded. */
-export const chartOther = { light: '#8A9097', dark: '#7C849C' } as const;
+export const chartColorsDark = ['#5FB295', '#D88A5C', '#7E9EC2', '#C9A65A', '#A887B4', '#62B5BB', '#93B562'];
+/** Stone — "Other" and anything folded. */
+export const chartOther = { light: '#8C938F', dark: '#8F9894' } as const;

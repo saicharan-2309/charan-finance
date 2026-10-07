@@ -77,6 +77,17 @@ export const qk = {
   reviewQueue: ['review-queue'] as const,
   rules: ['rules'] as const,
   detectedRecurring: ['detected-recurring'] as const,
+  balanceGroups: ['balance-groups'] as const,
+  friendships: ['friendships'] as const,
+  friendBalances: ['friend-balances'] as const,
+  conversations: ['conversations'] as const,
+  messages: (conversationId: string) => ['messages', conversationId] as const,
+  splitGroups: ['split-groups'] as const,
+  groupBalances: (groupId: string) => ['group-balances', groupId] as const,
+  sharedExpenses: (filter: unknown) => ['shared-expenses', filter] as const,
+  sharedExpense: (id: string) => ['shared-expense', id] as const,
+  settlements: (withUser?: string) => ['settlements', withUser ?? 'all'] as const,
+  notifications: ['notifications'] as const,
 };
 
 /** Everything derived from transactions (balances, reports, budgets…). */
@@ -101,6 +112,14 @@ export const FINANCIAL_QUERY_ROOTS = [
   'bank-messages',
   'review-queue',
   'detected-recurring',
+  'balance-groups',
+  'friend-balances',
+  'group-balances',
+  'shared-expenses',
+  'shared-expense',
+  'settlements',
+  'conversations',
+  'notifications',
 ];
 
 export function invalidateFinancialData(): Promise<void> {

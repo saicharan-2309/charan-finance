@@ -16,7 +16,7 @@ import { Pressable, View } from 'react-native';
 
 import { CategoryAvatar } from '@/components/CategoryAvatar';
 import { Button } from '@/components/ui/controls';
-import { EmptyState, SkeletonList } from '@/components/ui/feedback';
+import { EmptyState, ErrorState, SkeletonList } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
 import { SelectSheet } from '@/components/ui/pickers';
 import { Card, Divider, Icon, MoneyText, Row, Text } from '@/components/ui/primitives';
@@ -108,7 +108,15 @@ export default function ReviewScreen() {
     (m) => !(m.status === 'needs_account' && m.last4 && foundKeys.has(`${m.bank ?? ''}:${m.last4}`)),
   );
   const txns = queue.data ?? [];
-  const loading = pending.data === undefined || queue.data === undefined || found.data === undefined;
+  // A query is "done" once it has data, has failed, or is paused offline with
+  // nothing cached. Waiting only for data left this screen on a skeleton
+  // forever whenever one source failed (e.g. a database function missing).
+  const sources = [pending, queue, found];
+  const done = (q: (typeof sources)[number]) =>
+    q.data !== undefined || !!q.error || (q.fetchStatus === 'paused' && q.data === undefined);
+  const loading = !sources.every(done);
+  const failed = sources.find((q) => q.error)?.error ?? null;
+  const offline = sources.some((q) => q.fetchStatus === 'paused' && q.data === undefined);
 
   return (
     <Screen
@@ -137,9 +145,24 @@ export default function ReviewScreen() {
         }}
       />
 
+      {!loading && (failed || offline) ? (
+        <Card style={{ marginBottom: spacing.xl }}>
+          <ErrorState
+            compact
+            error={failed ?? new Error('offline')}
+            onRetry={() => sources.forEach((q) => void q.refetch())}
+          />
+        </Card>
+      ) : null}
+
       {loading ? (
         <SkeletonList rows={6} />
-      ) : msgs.length === 0 && txns.length === 0 && found.items.length === 0 ? (
+      ) : failed &&
+        msgs.length === 0 &&
+        txns.length === 0 &&
+        found.items.length === 0 ? null : msgs.length === 0 &&
+        txns.length === 0 &&
+        found.items.length === 0 ? (
         <EmptyState
           icon="checkmark-done-circle-outline"
           title="All caught up"

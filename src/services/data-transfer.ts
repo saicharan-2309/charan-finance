@@ -41,7 +41,7 @@ async function writeAndShare(
   file.create();
   file.write(content);
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(file.uri, { mimeType, UTI: uti, dialogTitle: 'Export Charan Finance data' });
+    await Sharing.shareAsync(file.uri, { mimeType, UTI: uti, dialogTitle: 'Export BUD data' });
   } else {
     throw new Error('Sharing is not available on this device.');
   }

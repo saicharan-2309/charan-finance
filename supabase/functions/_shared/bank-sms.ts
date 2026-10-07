@@ -331,7 +331,7 @@ function extractHint(text: string): Hint | null {
   if (card) hints.push({ instrument: cardKind(card[1]), last4: lastDigits(card[2]), index: card.index });
   if (acct) hints.push({ instrument: 'account', last4: lastDigits(acct[1]), index: acct.index });
   if (hints.length === 0) {
-    const bare = CARD_NO_DIGITS.exec(text);
+    const bare = CARD_NO_DIGITS.exec(text) ?? /\b(card)\b/i.exec(text);
     if (bare) return { instrument: cardKind(bare[1]), last4: null, index: bare.index };
     if (/\bwallet\b/i.test(text)) return { instrument: 'wallet', last4: null, index: 0 };
     return null;
@@ -432,6 +432,9 @@ const MERCHANT_PATTERNS: RegExp[] = [
   /\bto\s+([^\n]+?)\s*(?:\n|\s+on\s+\d)/i,
   // Card spends: "At AMAZON PAY INDIA On 2026-..."
   /\bat\s+(.+?)\s+(?:on\s+(?:\d|[a-z]{3}\b)|\.|avl|avail|bal|not you|ref|txn|$)/i,
+  // Short forms: "spent at Amazon using HDFC Card", "at Zomato via UPI"
+  /\bat\s+(.+?)\s+(?:using|via|with|through|by)\b/i,
+  /\bat\s+([a-z0-9&'.\- ]{2,40}?)\s*(?:\.|$)/i,
   // ICICI: "; ZOMATO credited."
   /;\s*([^;.]+?)\s+credited\b/i,
   // SBI: "trf to CHAI POINT Refno"

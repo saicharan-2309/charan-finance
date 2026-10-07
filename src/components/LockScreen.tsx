@@ -116,12 +116,12 @@ export function LockScreen({
       <View style={{ alignItems: 'center', gap: spacing.md }}>
         <BrandMark size={64} />
         <Text variant="title" align="center" style={{ color: P.heroText }}>
-          {passcode ? 'Enter passcode' : 'Charan Finance is locked'}
+          {passcode ? 'Enter passcode' : 'BUD is locked'}
         </Text>
         <Text variant="callout" align="center" style={{ color: P.heroMuted, minHeight: 21 }}>
           {waiting
             ? `Too many attempts. Try again in ${formatWait(Math.ceil((lockedUntil - now) / 1000))}.`
-            : (message ?? (passcode ? 'Your Charan Finance passcode' : `Unlock with ${bioName}`))}
+            : (message ?? (passcode ? 'Your BUD passcode' : `Unlock with ${bioName}`))}
         </Text>
       </View>
 

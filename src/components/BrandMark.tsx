@@ -1,35 +1,49 @@
 import { useId } from 'react';
-import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
-
-import { lightPalette } from '@/theme/tokens';
+import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 /**
- * Charan Finance mark: a rounded tile with an upward arc that resolves into a
- * dot — growth and a single point of clarity. Same geometry as the app icon.
- * The tile is the hero's violet gradient; the dot is the amber highlight.
+ * The BUD mark, redrawn from the logo artwork: a deep-green squircle tile
+ * lit from the top-left (sage → green → forest), carrying the brushed-silver
+ * "BD" monogram. Colours are the ones sampled from the logo (see tokens.ts);
+ * they're fixed here because the mark is the same in light and dark mode.
  */
+const TILE = ['#B6CBB5', '#537565', '#356057', '#163631'] as const;
+const SILVER = ['#F1F6F3', '#B9D0C8', '#86A9A1'] as const;
+
 export function BrandMark({ size = 48 }: { size?: number }) {
-  const id = `brand${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const [a, b, c] = lightPalette.heroGradient;
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   return (
-    <Svg width={size} height={size} viewBox="0 0 1024 1024" accessibilityLabel="Charan Finance">
+    <Svg width={size} height={size} viewBox="0 0 1024 1024" accessibilityLabel="BUD">
       <Defs>
-        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={a} />
-          <Stop offset="0.5" stopColor={b} />
-          <Stop offset="1" stopColor={c} />
+        <LinearGradient id={`t${id}`} x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={TILE[0]} />
+          <Stop offset="0.28" stopColor={TILE[1]} />
+          <Stop offset="0.6" stopColor={TILE[2]} />
+          <Stop offset="1" stopColor={TILE[3]} />
+        </LinearGradient>
+        <RadialGradient id={`g${id}`} cx="0.15" cy="0.05" r="0.7">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.28} />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+        </RadialGradient>
+        <LinearGradient id={`s${id}`} x1="0" y1="0" x2="0.6" y2="1">
+          <Stop offset="0" stopColor={SILVER[0]} />
+          <Stop offset="0.5" stopColor={SILVER[1]} />
+          <Stop offset="1" stopColor={SILVER[2]} />
         </LinearGradient>
       </Defs>
-      <Rect x="0" y="0" width="1024" height="1024" rx="230" fill={`url(#${id})`} />
-      <Path
-        d="M250 700 C 330 700, 420 640, 480 540 C 540 440, 610 360, 720 330"
-        stroke={lightPalette.heroText}
-        strokeWidth="92"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Circle cx="744" cy="322" r="70" fill={lightPalette.highlight} />
-      <Rect x="250" y="760" width="524" height="34" rx="17" fill={lightPalette.heroText} opacity="0.35" />
+      <Rect x="0" y="0" width="1024" height="1024" rx="232" fill={`url(#t${id})`} />
+      <Rect x="0" y="0" width="1024" height="1024" rx="232" fill={`url(#g${id})`} />
+      <SvgText
+        x="512"
+        y="676"
+        textAnchor="middle"
+        fontSize="520"
+        fontWeight="800"
+        letterSpacing="-60"
+        fill={`url(#s${id})`}
+      >
+        BD
+      </SvgText>
     </Svg>
   );
 }

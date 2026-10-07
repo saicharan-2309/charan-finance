@@ -1,31 +1,41 @@
 /**
- * Home, laid out after the reference design.
+ * Home, built on balance groups.
  *
- * Order: header (insights · Home · you) → total balance with what is safe to
- * spend until payday → payment-method cards → anything bank sync wants checked
- * → this week's income and spending → recent transactions → expenses by
- * category → the monthly budget gauge → upcoming → goals. Every number comes
- * from the database; nothing is illustrative.
+ * Order: header (insights · BUD · you) → your balance groups (the first on the
+ * BUD gradient, with what is safe to spend until payday; cash and credit are
+ * never added together) → quick actions → payment-method cards → anything
+ * bank sync wants checked → the top insight → friends → this week → recent
+ * transactions → expenses by category → the monthly budget → upcoming → goals.
+ * Every number comes from the database; nothing is illustrative.
  */
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { HeaderButton } from '@/components/ui/controls';
-import { AnimatedMoney, EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
+import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { GradientFill } from '@/components/ui/gradient';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { BankSyncCard } from '@/features/bank-sync/BankSyncCard';
 import { AccountCarousel, ExpenseTiles, TransactionCards, WeekChart } from '@/features/dashboard/home-cards';
+import {
+  BalanceGroupsHero,
+  FriendsSummaryCard,
+  InsightTeaser,
+  QuickActions,
+} from '@/features/dashboard/home-top';
 import { BudgetGauge, BudgetRow } from '@/features/dashboard/widgets';
+import { useInsights } from '@/features/insights/useInsights';
 import { PendingTransactions, SyncBanner } from '@/features/transactions/SyncStatus';
 import {
   useAccounts,
+  useBalanceGroups,
   useBudgetStatus,
   useCategoryIndex,
   useCycle,
   useDashboard,
+  useFriendsTotals,
   useGoals,
   useProfile,
   useRecentTransactions,
@@ -53,6 +63,9 @@ export default function HomeScreen() {
   const goals = useGoals();
   const recent = useRecentTransactions(6);
   const week = useWeekSeries();
+  const balanceGroups = useBalanceGroups();
+  const friendsTotals = useFriendsTotals();
+  const insights = useInsights();
   const settings = useSettings();
   const { index: cats } = useCategoryIndex();
   const [refreshing, setRefreshing] = useState(false);
@@ -147,7 +160,7 @@ export default function HomeScreen() {
 
   const overallBudget = budgets.data?.find((r) => r.categoryId === null) ?? null;
   const name = profile.data?.displayName ?? '';
-  const noAccounts = accounts.data && accounts.data.length === 0;
+  const noAccounts = accounts.data && accounts.data.filter((a) => !a.systemKind).length === 0;
   const spentToday = week.data ? (week.days.find((x) => x.date === today)?.expense ?? 0) : null;
   const left = daysLeft(month, today);
   const perDay = derived && derived.available > 0 && left > 0 ? derived.available / left : null;
@@ -155,11 +168,15 @@ export default function HomeScreen() {
 
   return (
     <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh}>
-      {/* Header: insights · Home · you */}
+      {/* Header: insights · BUD · you */}
       <Row justify="space-between" style={{ marginBottom: spacing.xl }}>
         <HeaderButton icon="sparkles" label="Insights" onPress={() => router.push('/insights')} />
-        <Text variant="headline" accessibilityRole="header">
-          Home
+        <Text
+          accessibilityRole="header"
+          accessibilityLabel="BUD, Home"
+          style={{ fontSize: 22, fontWeight: '800', letterSpacing: 3, color: colors.text }}
+        >
+          BUD
         </Text>
         <Pressable
           onPress={() => router.push('/more')}
@@ -189,61 +206,23 @@ export default function HomeScreen() {
         <ErrorState error={dashboard.error} onRetry={() => void dashboard.refetch()} />
       ) : null}
 
-      {/* Total balance, and what is safe to spend until payday */}
-      <View style={{ marginBottom: spacing.xl, gap: 2 }}>
-        <Text variant="subhead" tone="secondary" style={{ fontWeight: '400' }}>
-          Total balance
-        </Text>
-        {derived ? (
-          <AnimatedMoney
-            minor={derived.liquid}
-            from={0}
-            currency={currency}
-            variant="display"
-            style={{ fontSize: 38, lineHeight: 44, color: colors.text }}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          />
-        ) : (
-          <Skeleton width={200} height={44} style={{ marginTop: 2 }} />
-        )}
-        {derived?.hasAccounts ? (
-          <Pressable
-            onPress={() => router.push('/reports')}
-            accessibilityRole="button"
-            accessibilityHint="Opens spending reports"
-            style={({ pressed }) => ({
-              alignSelf: 'flex-start',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              marginTop: spacing.sm,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: radius.pill,
-              backgroundColor: derived.available < 0 ? colors.negativeSoft : colors.brandSoft,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Icon
-              name={derived.available < 0 ? 'alert-circle' : 'shield-checkmark'}
-              size={14}
-              tone={derived.available < 0 ? 'negative' : 'brand'}
-            />
-            <Text
-              variant="footnote"
-              tone={derived.available < 0 ? 'negative' : 'brand'}
-              style={{ fontWeight: '600', flexShrink: 1 }}
-            >
-              {derived.available < 0
-                ? `Bills and card dues exceed your balance by ${formatShort(-derived.available, currency)}`
-                : `Safe to spend ${formatShort(derived.available, currency)}${
-                    perDay !== null ? ` · ${formatShort(perDay, currency)}/day` : ''
-                  } until ${endLabel}`}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {/* Your balance groups — cash and credit kept apart — and what is safe to spend until payday */}
+      <BalanceGroupsHero
+        groups={balanceGroups.data}
+        accounts={accounts.data}
+        currency={currency}
+        safe={
+          derived?.hasAccounts
+            ? {
+                amount: derived.available,
+                perDay: perDay === null ? null : (Math.floor(perDay) as Minor),
+                until: endLabel,
+              }
+            : null
+        }
+      />
+
+      <QuickActions />
 
       {/* Cards */}
       {accounts.data?.length ? (
@@ -264,6 +243,9 @@ export default function HomeScreen() {
       ) : null}
 
       <BankSyncCard />
+
+      <InsightTeaser insight={insights.insights?.[0]} />
+      <FriendsSummaryCard owe={friendsTotals.owe} owed={friendsTotals.owed} currency={currency} />
 
       {/* This week */}
       <View style={{ marginBottom: spacing.xxl }}>

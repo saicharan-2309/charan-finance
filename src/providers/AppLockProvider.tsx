@@ -4,7 +4,7 @@
  *
  *   · Face ID (Touch ID on older iPhones) through expo-local-authentication,
  *     with the iPhone passcode as the system fallback.
- *   · App passcode: a 6-digit code just for Charan Finance, checked against a
+ *   · App passcode: a 6-digit code just for BUD, checked against a
  *     salted, stretched hash in the Keychain, with escalating lockouts after
  *     five wrong attempts (see lib/passcode and services/app-passcode).
  *   · Both on: Face ID is offered first; the keypad is always there as the
@@ -142,7 +142,7 @@ export function AppLockProvider({ children, active }: { children: ReactNode; act
     authenticating.current = true;
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Charan Finance',
+        promptMessage: 'Unlock BUD',
         fallbackLabel: 'Use iPhone passcode',
         disableDeviceFallback: false,
         cancelLabel: passcodeEnabled ? 'Use app passcode' : 'Cancel',
@@ -185,7 +185,7 @@ export function AppLockProvider({ children, active }: { children: ReactNode; act
 
   const setBiometricsEnabled = useCallback(async (next: boolean) => {
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: next ? 'Turn on Face ID for Charan Finance' : 'Turn off Face ID for Charan Finance',
+      promptMessage: next ? 'Turn on Face ID for BUD' : 'Turn off Face ID for BUD',
       disableDeviceFallback: false,
     });
     if (!result.success) return false;

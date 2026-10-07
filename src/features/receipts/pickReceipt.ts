@@ -29,7 +29,7 @@ function askSource(): Promise<Source | null> {
 function permissionDenied(what: string) {
   Alert.alert(
     `${what} access is off`,
-    `Allow ${what.toLowerCase()} access for Charan Finance in Settings to attach receipts.`,
+    `Allow ${what.toLowerCase()} access for BUD in Settings to attach receipts.`,
     [
       { text: 'Not now', style: 'cancel' },
       { text: 'Open Settings', onPress: () => void Linking.openSettings() },

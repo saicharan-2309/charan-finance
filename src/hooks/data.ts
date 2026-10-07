@@ -44,6 +44,22 @@ import {
   fetchTransactionsPage,
   type TransactionFilters,
 } from '@/services/transactions';
+import { useUserId } from '@/providers/AuthProvider';
+import { fetchBalanceGroups } from '@/services/balance-groups';
+import {
+  fetchConversations,
+  fetchFriendBalances,
+  fetchFriendships,
+  fetchGroupBalances,
+  fetchMessages,
+  fetchMyGroupPositions,
+  fetchNotifications,
+  fetchSettlements,
+  fetchSharedExpense,
+  fetchSharedExpenses,
+  fetchSplitGroups,
+  personCards,
+} from '@/services/friends';
 import type { Category } from '@/types/domain';
 
 export const useProfile = () =>
@@ -244,4 +260,68 @@ export function useCategorySpend(period: SpendPeriod) {
     queryFn: () => fetchCategoryBreakdown(start, today),
   });
   return { ...q, start, end: today };
+}
+
+// ---------------------------------------------------------------------------
+// Balance groups and Friends
+// ---------------------------------------------------------------------------
+export const useBalanceGroups = () => useQuery({ queryKey: qk.balanceGroups, queryFn: fetchBalanceGroups });
+
+export function useFriendships() {
+  const me = useUserId();
+  return useQuery({ queryKey: qk.friendships, queryFn: () => fetchFriendships(me!), enabled: !!me });
+}
+export const useFriendBalances = () =>
+  useQuery({ queryKey: qk.friendBalances, queryFn: fetchFriendBalances });
+export const useConversations = () =>
+  useQuery({ queryKey: qk.conversations, queryFn: fetchConversations, refetchInterval: 30_000 });
+export const useMessages = (conversationId: string | undefined) =>
+  useQuery({
+    queryKey: qk.messages(conversationId ?? 'none'),
+    queryFn: () => fetchMessages(conversationId!),
+    enabled: !!conversationId,
+  });
+export const useSplitGroups = () => useQuery({ queryKey: qk.splitGroups, queryFn: fetchSplitGroups });
+export const useGroupBalances = (groupId: string | undefined) =>
+  useQuery({
+    queryKey: qk.groupBalances(groupId ?? 'none'),
+    queryFn: () => fetchGroupBalances(groupId!),
+    enabled: !!groupId,
+  });
+export const useSharedExpenses = (filter: { groupId?: string; withUser?: string } = {}) =>
+  useQuery({ queryKey: qk.sharedExpenses(filter), queryFn: () => fetchSharedExpenses(filter) });
+export const useSharedExpense = (id: string | undefined) =>
+  useQuery({
+    queryKey: qk.sharedExpense(id ?? 'none'),
+    queryFn: () => fetchSharedExpense(id!),
+    enabled: !!id,
+  });
+export const useSettlements = (withUser?: string) =>
+  useQuery({ queryKey: qk.settlements(withUser), queryFn: () => fetchSettlements(withUser) });
+export const useNotifications = () => useQuery({ queryKey: qk.notifications, queryFn: fetchNotifications });
+
+/** Public cards (name, username, status) for a set of user ids. */
+export function usePeople(ids: string[]) {
+  const key = [...new Set(ids)].sort();
+  return useQuery({
+    queryKey: ['people', ...key],
+    queryFn: () => personCards(key),
+    enabled: key.length > 0,
+    staleTime: 10 * 60_000,
+  });
+}
+
+export const useMyGroupPositions = () =>
+  useQuery({ queryKey: ['group-balances', 'mine'], queryFn: fetchMyGroupPositions });
+
+/** You owe / owed to you, across friends (outside groups) and your groups. */
+export function useFriendsTotals() {
+  const balances = useFriendBalances();
+  const groups = useMyGroupPositions();
+  const lines = [...(balances.data ?? []).map((b) => b.net), ...(groups.data ?? []).map((g) => g.net)];
+  return {
+    loading: balances.data === undefined || groups.data === undefined,
+    owe: lines.filter((n) => n < 0).reduce((s, n) => s - n, 0) as Minor,
+    owed: lines.filter((n) => n > 0).reduce((s, n) => s + n, 0) as Minor,
+  };
 }

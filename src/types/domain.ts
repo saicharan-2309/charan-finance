@@ -31,6 +31,9 @@ export interface Profile {
   displayName: string | null;
   defaultCurrency: string;
   timezone: string;
+  username: string | null;
+  status: string | null;
+  discoverable: boolean;
 }
 
 export interface AppSettings {
@@ -44,6 +47,11 @@ export interface AppSettings {
   billReminderDaysBefore: number;
   /** Day of month the user's money month starts (payday). 1 = calendar months. */
   cycleStartDay: number;
+  notifyFriendRequests: boolean;
+  notifyMessages: boolean;
+  notifySharedExpenses: boolean;
+  notifySettlements: boolean;
+  notifyReminders: boolean;
 }
 
 export interface Account {
@@ -74,6 +82,8 @@ export interface Account {
   reportedBalance: Minor | null;
   reportedBalanceKind: 'balance' | 'limit' | null;
   reportedBalanceAt: string | null;
+  /** 'friends' for the system account that holds money owed between you and friends. */
+  systemKind: 'friends' | null;
 }
 
 /**
@@ -176,6 +186,10 @@ export interface Transaction {
   needsReview: boolean;
   externalRef: string | null;
   splitGroupId: UUID | null;
+  /** Linked to a shared expense with friends (booked or converted). */
+  sharedExpenseId?: UUID | null;
+  /** A payment to or from a friend. */
+  settlementId?: UUID | null;
   /** True while the write is waiting in the offline queue. */
   pending?: boolean;
 }
@@ -433,4 +447,150 @@ export interface DashboardData {
   merchants: MerchantTotal[];
   trend: SeriesPoint[];
   accounts: DashboardAccount[];
+}
+
+// ---------------------------------------------------------------------------
+// Balance groups
+// ---------------------------------------------------------------------------
+export interface BalanceGroup {
+  id: UUID;
+  name: string;
+  kind: 'cash' | 'credit' | 'custom';
+  sortOrder: number;
+  accountIds: UUID[];
+}
+
+// ---------------------------------------------------------------------------
+// Friends
+// ---------------------------------------------------------------------------
+/** The only things anyone else ever sees about you. */
+export interface PersonCard {
+  id: UUID;
+  name: string;
+  username: string | null;
+  status: string | null;
+}
+
+export type Relation = 'friend' | 'requested' | 'incoming' | 'none';
+
+export interface SearchResult extends PersonCard {
+  relation: Relation;
+}
+
+export interface Friendship {
+  id: UUID;
+  other: PersonCard;
+  status: 'pending' | 'accepted' | 'declined' | 'blocked';
+  /** True when I sent the request. */
+  outgoing: boolean;
+  blockedByMe: boolean;
+  createdAt: string;
+}
+
+export interface FriendBalance {
+  userId: UUID;
+  name: string;
+  username: string | null;
+  /** Positive: they owe me. Negative: I owe them. */
+  net: Minor;
+  currency: string;
+}
+
+export interface Conversation {
+  id: UUID;
+  kind: 'direct' | 'group';
+  title: string;
+  otherUserId: UUID | null;
+  groupId: UUID | null;
+  lastBody: string | null;
+  lastKind: MessageKind | null;
+  lastAt: string | null;
+  unread: number;
+}
+
+export type MessageKind = 'text' | 'expense' | 'reminder' | 'settlement' | 'system';
+
+export interface ChatMessage {
+  id: UUID;
+  conversationId: UUID;
+  senderId: UUID;
+  kind: MessageKind;
+  body: string;
+  sharedExpenseId: UUID | null;
+  settlementId: UUID | null;
+  createdAt: string;
+}
+
+export interface SplitGroup {
+  id: UUID;
+  name: string;
+  createdBy: UUID;
+  memberIds: UUID[];
+}
+
+export interface SharedExpenseShare {
+  userId: UUID;
+  amount: Minor;
+  input: number | null;
+  booked: boolean;
+  /** How much of this share has been paid back (from settlement allocations). */
+  settled: Minor;
+}
+
+export interface SharedExpense {
+  id: UUID;
+  groupId: UUID | null;
+  createdBy: UUID;
+  paidBy: UUID;
+  title: string;
+  categoryName: string | null;
+  icon: string | null;
+  total: Minor;
+  currency: string;
+  occurredOn: ISODate;
+  notes: string | null;
+  splitMethod: 'equal' | 'amount' | 'percent' | 'shares' | 'items';
+  status: 'active' | 'cancelled';
+  payerBooked: boolean;
+  linkedTransactionId: UUID | null;
+  createdAt: string;
+  shares: SharedExpenseShare[];
+}
+
+export interface Settlement {
+  id: UUID;
+  groupId: UUID | null;
+  fromUser: UUID;
+  toUser: UUID;
+  amount: Minor;
+  currency: string;
+  settledOn: ISODate;
+  note: string | null;
+  createdBy: UUID;
+  fromBooked: boolean;
+  toBooked: boolean;
+  createdAt: string;
+  allocations: { sharedExpenseId: UUID; amount: Minor }[];
+}
+
+export type NotificationKind =
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'message'
+  | 'expense_added'
+  | 'expense_updated'
+  | 'expense_cancelled'
+  | 'settlement_marked'
+  | 'settlement_completed'
+  | 'reminder';
+
+export interface AppNotification {
+  id: UUID;
+  actorId: UUID | null;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  data: Record<string, string>;
+  readAt: string | null;
+  createdAt: string;
 }

@@ -1,10 +1,12 @@
-# Charan Finance — project brief for Claude Code
+# BUD — project brief for Claude Code
 
 @AGENTS.md
 
-A private personal-finance app for one person (Charan, in India), built to be better than
-Emma (the UK budgeting app) in design and at least equal in features. Read this file and
-`README.md` before changing anything; this file is the short version of every decision so far.
+BUD (formerly "Charan Finance") is a personal-finance app for Charan, in India, plus friends he
+shares bills with. Built to be better than Emma in design and at least equal in features. Read
+this file and `README.md` before changing anything; this file is the short version of every
+decision so far. The repo, Expo slug (`charan-finance`), bundle id and URL scheme keep the old
+name on purpose — changing them would detach EAS and the update channel.
 
 ## How Charan runs it
 
@@ -27,91 +29,93 @@ Emma (the UK budgeting app) in design and at least equal in features. Read this 
 
 ## Stack
 
-Expo SDK 57, React Native 0.86, React 19.2, TypeScript strict, Expo Router (`src/app/`),
-TanStack React Query, Supabase JS. Check versioned Expo docs before touching any Expo API
-(see AGENTS.md).
+Expo SDK 57, React Native 0.86, React 19.2 (React Compiler on), TypeScript strict, Expo Router
+(`src/app/`), TanStack React Query, Supabase JS (incl. Realtime). Check versioned Expo docs before
+touching any Expo API (see AGENTS.md).
 
 ```
-src/app/            screens (Expo Router). (tabs)/: Home, Transactions, Reports, Goals, More
-src/components/ui/  primitives.tsx (Text, Card, Row, Icon, MoneyText…), controls.tsx (Button,
-                    Chip, TextField, ListRow…), layout.tsx (Screen, Section), pickers.tsx
-                    (SelectSheet…), feedback.tsx (EmptyState, Skeleton, Toast, AnimatedMoney)
-src/components/charts/  hand-built SVG charts
-src/features/       feature components (dashboard/MoneyMonthHero, bank-sync/FoundAccounts…)
-src/theme/tokens.ts THE design system — colours, type, spacing, radius, elevation, chart palette
+src/app/            screens. (tabs)/: Home, Activity (transactions), Friends, Reports — Goals and
+                    More are tabs too but live off-bar (Home sections, avatar)
+                    friends/, chat/, split/new (THE one split flow), shared/[id], groups/,
+                    notifications, balance-groups, review, insights …
+src/components/ui/  primitives, controls (Button, Chip, SegmentedControl, HeaderButton…), layout,
+                    pickers, feedback, glass.tsx (Liquid Glass), gradient.tsx (measured SVG fills)
+src/components/charts/  hand-built SVG charts + Gauge
+src/features/       dashboard/ (home-top, home-cards), friends/, reports/overview, insights/
+src/theme/tokens.ts THE design system — BUD palette, type, spacing, radius, elevation, charts
 src/hooks/data.ts   every React Query hook; src/lib/query.ts the query keys
-src/services/       Supabase calls + mappers (snake_case rows → domain types in src/types)
-src/lib/            pure logic (money in paise, dates, payday cycles, parsers) — unit-tested
-supabase/migrations SQL, applied in filename order; additive only, never destructive
-supabase/functions  Edge Functions (Deno). _shared/bank-sms.ts is the SMS parser (also used by the app)
-scripts/            import-iphone-sms.ts (history import from an iPhone backup), icon generator
-tests/              Jest (136). supabase/tests/ — SQL tests against a disposable Postgres (67)
+src/services/       Supabase calls + mappers; friends.ts, balance-groups.ts, app-passcode.ts
+src/lib/            pure, unit-tested logic: money (paise), dates, cycles, parsers, splits.ts
+                    (bill splitting + fewest-payments settlement), balance-groups.ts, insights.ts
+supabase/migrations SQL in filename order; additive, and written to be safe to re-run
+supabase/functions  Edge Functions (Deno). _shared/bank-sms.ts is the SMS parser
+supabase/tests/     SQL tests (database, seed, bank-sync, friends) against a throwaway Postgres
+tests/              Jest
 ```
 
-## Design system — "violet glass" (Apple-grade, since Oct 2026)
+## Design system — BUD
 
 All values live in `src/theme/tokens.ts`; components read them via `useTheme()` (which also
 returns scheme-aware `elevation`). Never hard-code a colour, size or font.
 
-- Canvas: cool lavender-grey `#F3F3F8` (dark `#0A0A0F`) with **borderless** white cards (dark
-  `#18181F`) that float on soft, wide, accent-tinted shadows in light mode and lift by tone in
-  dark. Grouped lists use hairline dividers inset to the text, like iOS Settings.
-- **Layout follows Charan's reference** (a Dribbble finance concept: "Home" with total balance, a
-  violet bank-card carousel, a "This week" bar chart, per-transaction cards; "Monthly budget" with
-  a coral arc gauge, "Left today / Spent today", period pills and gradient category tiles). Match
-  it closely; don't drift back to a generic layout.
-- One accent: iris violet `#5B3FD9` (dark `#A193FF`). Payment methods are gradient bank cards
-  (`accountGradients`, assigned in order), category tiles use `tileGradients`, the weekly chart
-  uses `income` (blue) and `expense` (coral) with a legend. Amber `#FFC14D` marks the review
-  badge. The coral → amber `gaugeGradient` is only for progress against a limit
-  (`components/charts/Gauge.tsx`). Gradients come from `components/ui/gradient.tsx`, which
-  measures its box — never size an SVG canvas with "100%" (it clipped the hero on iOS).
-- Categories and charts use banknote inks (₹50 blue, ₹200 marigold, ₹100 lavender, ₹20 olive,
-  ₹2000 magenta, ₹10 chocolate, teal; ₹500 stone for "Other"). The order is validated for
-  colour-blind separation in both modes — don't reorder or cycle it; fold extras into "Other".
-- Type: the **system face only** (San Francisco on iPhone), Apple's text-style ramp; big money is
-  SF bold with tight tracking; every number in a list uses tabular figures. (The Bricolage font
-  package is still installed but no longer loaded.)
-- Shape: continuous (squircle) corners via `continuous`; radius follows hierarchy (hero 30, cards
-  22, controls 14, buttons/chips/segmented control are capsules). Icon badges are tinted squircles.
-- Tab bar (as in the reference): a white glass bar, icons only — active tab a solid ink glyph,
-  others grey outlines — with Add as a violet gradient square in the middle. Every tab keeps its
-  VoiceOver name.
-- **Glass for controls** (`components/ui/glass.tsx`): real Liquid Glass on iOS 26 (expo-glass-effect,
-  in Expo Go), system blur on older iOS, CSS blur on web. Used for the tab bar, segmented-control
-  track, unselected chips, round header buttons, toasts and the passcode keypad — never for content
-  cards. Switches are the native iOS switch (Liquid Glass on iOS 26). Selected plain chips are solid
-  ink capsules; the segmented thumb springs.
-- Colour never carries meaning alone: money always has a sign or label, chart series are named.
-- Every screen must work in **light and dark**; check both. Contrast is checked in `tokens.ts`.
-- Sentence case everywhere, Indian number format (₹1,24,499).
-- Home order: header (insights · "Home" · avatar) → total balance (liquid accounts) with a
-  "Safe to spend … · …/day until payday" pill → payment-method card carousel → bank-sync card →
-  This week (income/expense by day, tap for exact values) → Recent (one card per transaction,
-  grouped by day) → Expenses (Today/1W/1M/1Y pills + gradient category tiles) → Monthly budget
-  (arc gauge, left today, spent today, then category rows) → upcoming → goals.
-- Budgets screen: per budget, title + Edit pill, big gauge, category limit rows; Expenses panel.
+- **The BUD logo is the source of truth.** Colours were sampled from it: paper `#F6F5F1`, sage
+  `#537565`, green `#356057` (brand `#2F5E52`), forest `#163631`, silver `#86A9A1`, ink
+  `#17292F` (all text). One warm accent, copper (`expense` `#B4683E`), for expenses/alerts.
+  `BUD_SWATCHES` (11 hues × base/deep/light) is the only palette for payment methods,
+  categories, avatars and menu icons. Chart palette: BUD earth tones, warm/cool alternating.
+- Canvas: warm paper with borderless white cards on soft green-tinted shadows; dark mode is a
+  deep green-black with cards lifted by tone. Hero, Add button and avatars use the logo's tile
+  gradient. Brand mark: `components/BrandMark.tsx` (redrawn from the logo).
+- Payment-method cards use **the colour the user chose** (`cardGradientFor(account.color)`) —
+  never a colour picked by position. The colour picker is `features/shared/ColorPicker.tsx`.
+- Type: system face only (SF on iPhone); tabular figures for amounts.
+- Shape: continuous corners via `continuous`; radius hierarchy (hero 30, cards 22, controls 14).
+- **Glass** (`components/ui/glass.tsx`): real Liquid Glass on iOS 26 (in Expo Go), blur on older
+  iOS, CSS blur on web — for chrome and controls only, never content cards.
+- **Tab bar**: floating glass capsule, 5 equal slots — Home · Activity · [+] · Friends · Reports —
+  so Add is exactly centred; a lens springs to the selected tab.
+- Gradients come from `components/ui/gradient.tsx`, which measures its box — never size an SVG
+  canvas with "100%" (it clipped the hero on iOS). Headless-Chrome screenshots show a thin strip
+  on the hero's right edge (it measures before hiding its scrollbar) — not a real-device bug.
+- React Compiler: don't write `obj!.prop` inside callbacks — the compiler reads it eagerly as a
+  memo dependency and crashes when `obj` is null. Guard instead.
+- Colour never carries meaning alone; every screen works in light and dark; sentence case;
+  Indian number format.
+- Home order: header (insights · BUD · avatar) → balance groups (first on the gradient, with safe
+  to spend until payday) → quick actions → payment-method cards → bank-sync card → top insight →
+  friends summary → this week → recent → expenses tiles → monthly budget → upcoming → goals.
 
 ## Product rules that must not regress
 
-- Money is integer paise in the app, `numeric(18,2)` in SQL. Balances are maintained by triggers;
-  the client can't write `current_balance`.
-- Payday "money month" (`cycle_start_day` 1–28) drives Home, budgets and report presets.
-- Bank sync = bank SMS forwarded by an iPhone Shortcut → `ingest-sms` → `ingest_bank_sms()`.
-  Transfers between own accounts and card-bill payments are never spending. Unknown accounts wait
-  in Review → "Found in your messages" (add or link in one tap). Imported history never moves
-  today's balance.
-- Privacy: OTPs, promotions and personal texts are never stored; texts from phone numbers are
-  never bank alerts; sync keys stored only as SHA-256; the service-role key never ships in the
-  app; **`.env` is never committed** (only `.env.example`). Never store bank login credentials —
-  the legitimate route to direct bank data is Account Aggregator via a licensed partner.
+- Money is integer paise in the app, `numeric(18,2)` in SQL. Balances are maintained by triggers
+  from the opening balance plus every transaction; the client can't write `current_balance`.
+- **Cash and credit never add up together automatically.** Totals come from user-defined balance
+  groups (`balance_groups`, `balance_group_accounts`); cash-type methods add their balance, cards
+  contribute owed and available credit — a limit is never cash (`lib/balance-groups.ts`).
+- Payday "money month" (`cycle_start_day` 1–28) drives Home, budgets, insights and reports.
+- Bank sync = bank SMS forwarded by an iPhone Shortcut → `ingest-sms` → `ingest_bank_sms()`. iOS
+  gives apps **no access to SMS**; history comes only from an iPhone backup
+  (`scripts/import-iphone-sms.ts`). Low confidence (unknown or ambiguous account) → Review, never
+  a guess; duplicates are refused by message hash. Transfers and card-bill payments are never
+  spending. Imported history never moves today's balance.
+- **Friends money model** (`20261007000200_friends.sql`): double-entry on the existing ledger.
+  Each user has one system account, "Friends" (`system_kind = 'friends'`, other_asset). Payer:
+  expense = own share + transfer bank→Friends for the rest. Participant: expense of their share
+  from Friends. Settlement: transfers bank↔Friends on each side. Personal spending = your share;
+  bank balances = real money; Friends balance = net owed. Each user books only their own side.
+  All writes go through SECURITY DEFINER functions; RLS limits reads to participants; nobody can
+  read another user's accounts, transactions or profile row. Person-to-person balances cover
+  non-group items; group debts live in `group_balances()` (fewest-payments plan may route money).
+- Privacy: OTPs, promotions and personal texts are never stored; sync keys and the app passcode
+  are stored only as hashes; the service-role key never ships in the app; **`.env` is never
+  committed**. Never store bank login credentials.
 
 ## Before saying a task is done
 
 ```powershell
 npm run format:check
 npm run verify          # tsc + eslint (0 warnings) + Jest
-npm run test:db         # needs a throwaway Postgres: docker run -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
+npm run test:db         # throwaway Postgres; no Docker here — use a scratch cluster (initdb + pg_ctl on port 5433) and TEST_DATABASE_URL
 npm run bundle:ios      # Metro production bundle
 ```
 

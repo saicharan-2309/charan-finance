@@ -50,6 +50,9 @@ export function mapProfile(r: Row): Profile {
     displayName: str(r.display_name),
     defaultCurrency: r.default_currency ?? 'INR',
     timezone: r.timezone ?? 'Asia/Kolkata',
+    username: str(r.username),
+    status: str(r.status),
+    discoverable: r.discoverable !== false,
   };
 }
 
@@ -64,6 +67,11 @@ export function mapSettings(r: Row): AppSettings {
     notifyMonthlySummary: !!r.notify_monthly_summary,
     billReminderDaysBefore: num(r.bill_reminder_days_before),
     cycleStartDay: r.cycle_start_day === null || r.cycle_start_day === undefined ? 1 : num(r.cycle_start_day),
+    notifyFriendRequests: r.notify_friend_requests !== false,
+    notifyMessages: r.notify_messages !== false,
+    notifySharedExpenses: r.notify_shared_expenses !== false,
+    notifySettlements: r.notify_settlements !== false,
+    notifyReminders: r.notify_reminders !== false,
   };
 }
 
@@ -94,6 +102,7 @@ export function mapAccount(r: Row): Account {
         ? r.reported_balance_kind
         : null,
     reportedBalanceAt: str(r.reported_balance_at),
+    systemKind: r.system_kind === 'friends' ? 'friends' : null,
   };
 }
 
@@ -199,6 +208,8 @@ export function mapTransaction(r: Row): Transaction {
     needsReview: !!r.needs_review,
     externalRef: str(r.external_ref),
     splitGroupId: str(r.split_group_id),
+    sharedExpenseId: str(r.shared_expense_id),
+    settlementId: str(r.settlement_id),
   };
 }
 

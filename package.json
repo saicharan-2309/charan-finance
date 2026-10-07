@@ -81,7 +81,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:db": "tsx --test supabase/tests/database.test.ts supabase/tests/seed.test.ts supabase/tests/bank-sync.test.ts",
+    "test:db": "tsx --test supabase/tests/database.test.ts supabase/tests/seed.test.ts supabase/tests/bank-sync.test.ts supabase/tests/friends.test.ts",
     "verify": "npm run typecheck && npm run lint && npm run test",
     "verify:all": "npm run verify && npm run test:db",
     "doctor": "expo-doctor",

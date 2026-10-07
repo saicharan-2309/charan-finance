@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Charan Finance",
+    "name": "BUD",
     "slug": "charan-finance",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -25,9 +25,9 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Charan Finance uses Face ID to keep your financial data private.",
-        "NSCameraUsageDescription": "Charan Finance uses the camera to photograph receipts you choose to attach to transactions.",
-        "NSPhotoLibraryUsageDescription": "Charan Finance lets you attach receipt photos from your library to transactions."
+        "NSFaceIDUsageDescription": "BUD uses Face ID to keep your financial data private.",
+        "NSCameraUsageDescription": "BUD uses the camera to photograph receipts you choose to attach to transactions.",
+        "NSPhotoLibraryUsageDescription": "BUD lets you attach receipt photos from your library to transactions."
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -82,14 +82,14 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Charan Finance uses Face ID to keep your financial data private."
+          "faceIDPermission": "BUD uses Face ID to keep your financial data private."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Charan Finance lets you attach receipt photos from your library to transactions.",
-          "cameraPermission": "Charan Finance uses the camera to photograph receipts you choose to attach to transactions.",
+          "photosPermission": "BUD lets you attach receipt photos from your library to transactions.",
+          "cameraPermission": "BUD uses the camera to photograph receipts you choose to attach to transactions.",
           "microphonePermission": false
         }
       ],

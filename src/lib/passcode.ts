@@ -1,7 +1,7 @@
 /**
  * App passcode rules — pure logic, unit-tested.
  *
- * The app passcode is a 6-digit code that belongs to Charan Finance (separate
+ * The app passcode is a 6-digit code that belongs to BUD (separate
  * from the iPhone passcode). Only a salted, stretched SHA-256 of it is stored,
  * in the iOS Keychain; the code itself is never stored or sent anywhere.
  *

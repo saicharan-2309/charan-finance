@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { useFriendsLive } from '@/features/friends/live';
 import { useSessionBootstrap } from '@/hooks/useSessionBootstrap';
 import { useUserId } from '@/providers/AuthProvider';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -8,6 +9,7 @@ export default function AppLayout() {
   const userId = useUserId();
   const { colors } = useTheme();
   useSessionBootstrap(userId);
+  useFriendsLive(userId);
 
   return (
     <Stack
@@ -60,6 +62,15 @@ export default function AppLayout() {
       <Stack.Screen name="bank-sync/messages" options={{ title: 'Bank messages' }} />
       <Stack.Screen name="review" options={{ title: 'Review' }} />
       <Stack.Screen name="rules" options={{ title: 'Auto-categorise' }} />
+      <Stack.Screen name="friends/find" options={{ title: 'Find friends' }} />
+      <Stack.Screen name="friends/[id]" options={{ title: '' }} />
+      <Stack.Screen name="chat/[id]" options={{ title: '' }} />
+      <Stack.Screen name="split/new" options={{ presentation: 'modal', title: 'Split a bill' }} />
+      <Stack.Screen name="shared/[id]" options={{ title: 'Shared expense' }} />
+      <Stack.Screen name="groups/new" options={{ presentation: 'modal', title: 'New group' }} />
+      <Stack.Screen name="groups/[id]" options={{ title: '' }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+      <Stack.Screen name="balance-groups" options={{ title: 'Balance groups' }} />
       <Stack.Screen
         name="transaction/split"
         options={{ presentation: 'modal', title: 'Split transaction' }}

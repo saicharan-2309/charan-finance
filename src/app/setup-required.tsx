@@ -15,7 +15,7 @@ export default function SetupRequired() {
           Configuration needed
         </Text>
         <Text variant="callout" tone="secondary" align="center">
-          This build of Charan Finance doesn’t have its Supabase connection configured.
+          This build of BUD doesn’t have its Supabase connection configured.
         </Text>
       </View>
       <Card style={{ marginTop: spacing.xxl, gap: spacing.sm }}>

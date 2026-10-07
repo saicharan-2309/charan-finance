@@ -644,3 +644,34 @@ describe('subscriptions and integrity', () => {
     assert.equal(s.s.connected, true);
   });
 });
+
+describe('bank sync — confidence and duplicates', () => {
+  it('reads a short card alert, but sends an ambiguous card to Review instead of guessing', async () => {
+    const before = await expenseCount();
+    const r = await sms('Rs 1,250 spent at Amazon using HDFC Card', 'AX-HDFCBK');
+    // HDFC Savings (with its debit card) and HDFC Card both fit "HDFC Card".
+    assert.equal(r.status, 'needs_account');
+    assert.equal(await expenseCount(), before, 'nothing booked while the account is uncertain');
+    const waiting = await one<{ n: number }>(
+      `select count(*)::int as n from bank_messages where status = 'needs_account' and body like '%Amazon%'`,
+    );
+    assert.equal(waiting.n, 1);
+  });
+
+  it('never books the same message twice', async () => {
+    const count799 = async () =>
+      (
+        await one<{ n: number }>(
+          `select count(*)::int as n from transactions where type = 'expense' and amount = 799`,
+        )
+      ).n;
+    const before = await count799();
+    const body =
+      'Rs.799.00 spent on HDFC Bank Card x5678 at MYNTRA on 2026-10-05:10:15:00.Not You? Call 18002586161';
+    const first = await sms(body, 'AX-HDFCBK', KEY_HASH, { at: '2026-10-05T04:45:00Z' });
+    const again = await sms(body, 'AX-HDFCBK', KEY_HASH, { at: '2026-10-05T04:45:00Z' });
+    assert.equal(first.status, 'created');
+    assert.equal(again.status, 'duplicate');
+    assert.equal(await count799(), before + 1);
+  });
+});

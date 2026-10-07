@@ -46,24 +46,27 @@ export function categoryLabel(
 }
 
 export function accountOptions(accounts: Account[], filter?: (a: Account) => boolean): SelectOption[] {
-  return accounts
-    .filter((a) => a.isActive && (!filter || filter(a)))
-    .map((a) => {
-      const visual = accountVisual(a);
-      const display = balanceDisplay(a);
-      const issuer = providerByKey(a.provider)?.label ?? a.institution;
-      return {
-        value: a.id,
-        label: a.name,
-        subtitle: [
-          issuer && issuer !== a.name ? issuer : null,
-          a.last4 ? `ends ${a.last4}` : null,
-          `${formatMoney(display.amount, a.currency, { decimals: 'never' })}${display.caption ? ` ${display.caption}` : ''}`,
-        ]
-          .filter(Boolean)
-          .join(', '),
-        icon: visual.icon,
-        color: visual.color,
-      };
-    });
+  return (
+    accounts
+      // Never offer the system "Friends" balance as somewhere to pay from.
+      .filter((a) => a.isActive && !a.systemKind && (!filter || filter(a)))
+      .map((a) => {
+        const visual = accountVisual(a);
+        const display = balanceDisplay(a);
+        const issuer = providerByKey(a.provider)?.label ?? a.institution;
+        return {
+          value: a.id,
+          label: a.name,
+          subtitle: [
+            issuer && issuer !== a.name ? issuer : null,
+            a.last4 ? `ends ${a.last4}` : null,
+            `${formatMoney(display.amount, a.currency, { decimals: 'never' })}${display.caption ? ` ${display.caption}` : ''}`,
+          ]
+            .filter(Boolean)
+            .join(', '),
+          icon: visual.icon,
+          color: visual.color,
+        };
+      })
+  );
 }

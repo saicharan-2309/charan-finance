@@ -51,6 +51,11 @@ export async function updateSettings(userId: string, patch: Partial<AppSettings>
     notifyMonthlySummary: 'notify_monthly_summary',
     billReminderDaysBefore: 'bill_reminder_days_before',
     cycleStartDay: 'cycle_start_day',
+    notifyFriendRequests: 'notify_friend_requests',
+    notifyMessages: 'notify_messages',
+    notifySharedExpenses: 'notify_shared_expenses',
+    notifySettlements: 'notify_settlements',
+    notifyReminders: 'notify_reminders',
   };
   const body: Row = {};
   for (const [k, v] of Object.entries(patch)) body[map[k as keyof AppSettings]] = v;

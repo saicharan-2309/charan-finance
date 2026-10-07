@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (error) return json(500, { status: 'error', summary: 'Server error' });
     if (!data) return json(401, { status: 'error', summary: 'Sync key not recognised' });
-    return json(200, { status: 'ok', summary: 'Connected to Charan Finance' });
+    return json(200, { status: 'ok', summary: 'Connected to BUD' });
   }
 
   const rpc: Rpc = async (args) => {

@@ -11,7 +11,7 @@ import { useAppMutation, useCategoryIndex } from '@/hooks/data';
 import { describeError } from '@/lib/errors';
 import { qk, queryClient } from '@/lib/query';
 import { createCategory, deleteCategory, updateCategory } from '@/services/core';
-import { spacing } from '@/theme/tokens';
+import { BUD_SWATCHES, spacing } from '@/theme/tokens';
 import type { Category, CategoryKind, SpendClass } from '@/types/domain';
 
 export default function CategoryEditScreen() {
@@ -57,7 +57,7 @@ function CategoryForm({
     existing?.classification ?? parent?.classification ?? 'none',
   );
   const [icon, setIcon] = useState<string | null>(existing?.icon ?? parent?.icon ?? 'pricetag-outline');
-  const [color, setColor] = useState<string | null>(existing?.color ?? parent?.color ?? '#D97757');
+  const [color, setColor] = useState<string | null>(existing?.color ?? parent?.color ?? BUD_SWATCHES[1].base);
   const [error, setError] = useState<string | null>(null);
 
   const save = useAppMutation(

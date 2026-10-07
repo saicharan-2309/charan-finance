@@ -11,7 +11,13 @@ import { describeError } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { hasUnsyncedChanges, signOut } from '@/services/auth';
 import { useTheme } from '@/theme/ThemeProvider';
-import { spacing } from '@/theme/tokens';
+import { BUD_SWATCHES, spacing } from '@/theme/tokens';
+
+/** BUD palette colours by name, for the menu icons. */
+const SW = Object.fromEntries(BUD_SWATCHES.map((s) => [s.name, s.base])) as Record<
+  (typeof BUD_SWATCHES)[number]['name'],
+  string
+>;
 
 type Item = { title: string; icon: string; href: string; color?: string; subtitle?: string };
 
@@ -25,9 +31,9 @@ export default function MoreScreen() {
     {
       title: 'Automatic',
       items: [
-        { title: 'Bank sync', icon: 'flash-outline', href: '/bank-sync', color: '#C07F0A' },
-        { title: 'Review inbox', icon: 'file-tray-full-outline', href: '/review', color: '#1F86C7' },
-        { title: 'Auto-categorise rules', icon: 'git-branch-outline', href: '/rules', color: '#7A5CCB' },
+        { title: 'Bank sync', icon: 'flash-outline', href: '/bank-sync', color: SW.Sand },
+        { title: 'Review inbox', icon: 'file-tray-full-outline', href: '/review', color: SW.Teal },
+        { title: 'Auto-categorise rules', icon: 'git-branch-outline', href: '/rules', color: SW.Plum },
       ],
     },
     {
@@ -37,29 +43,31 @@ export default function MoreScreen() {
           title: 'Accounts & payment methods',
           icon: 'wallet-outline',
           href: '/accounts',
-          color: '#1F86C7',
+          color: SW.Teal,
         },
-        { title: 'Categories', icon: 'pricetags-outline', href: '/categories', color: '#C07F0A' },
-        { title: 'Merchants', icon: 'storefront-outline', href: '/merchants', color: '#C03587' },
-        { title: 'Budgets', icon: 'speedometer-outline', href: '/budgets', color: '#C23F5E' },
+        { title: 'Balance groups', icon: 'albums-outline', href: '/balance-groups', color: SW.Green },
+        { title: 'Categories', icon: 'pricetags-outline', href: '/categories', color: SW.Sand },
+        { title: 'Merchants', icon: 'storefront-outline', href: '/merchants', color: SW.Copper },
+        { title: 'Budgets', icon: 'speedometer-outline', href: '/budgets', color: SW.Mint },
       ],
     },
     {
       title: 'Planning',
       items: [
-        { title: 'Loans & EMIs', icon: 'calendar-number-outline', href: '/emi', color: '#6E5BB0' },
-        { title: 'Recurring payments', icon: 'repeat', href: '/recurring', color: '#0F7F73' },
-        { title: 'Subscriptions', icon: 'albums-outline', href: '/subscriptions', color: '#8B55C4' },
-        { title: 'Calendar', icon: 'calendar-outline', href: '/calendar', color: '#127F9E' },
-        { title: 'Net worth', icon: 'trending-up-outline', href: '/net-worth', color: '#2F8A57' },
-        { title: 'Insights', icon: 'sparkles-outline', href: '/insights', color: '#A2541F' },
+        { title: 'Savings goals', icon: 'flag-outline', href: '/goals', color: SW.Moss },
+        { title: 'Loans & EMIs', icon: 'calendar-number-outline', href: '/emi', color: SW.Slate },
+        { title: 'Recurring payments', icon: 'repeat', href: '/recurring', color: SW.Green },
+        { title: 'Subscriptions', icon: 'albums-outline', href: '/subscriptions', color: SW.Plum },
+        { title: 'Calendar', icon: 'calendar-outline', href: '/calendar', color: SW.Teal },
+        { title: 'Net worth', icon: 'trending-up-outline', href: '/net-worth', color: SW.Mint },
+        { title: 'Insights', icon: 'sparkles-outline', href: '/insights', color: SW.Copper },
       ],
     },
     {
       title: 'Data',
       items: [
-        { title: 'Import CSV', icon: 'cloud-upload-outline', href: '/import', color: '#7B828C' },
-        { title: 'Export data', icon: 'cloud-download-outline', href: '/export', color: '#7B828C' },
+        { title: 'Import CSV', icon: 'cloud-upload-outline', href: '/import', color: SW.Silver },
+        { title: 'Export data', icon: 'cloud-download-outline', href: '/export', color: SW.Silver },
       ],
     },
     {
@@ -69,23 +77,23 @@ export default function MoreScreen() {
           title: 'Notifications',
           icon: 'notifications-outline',
           href: '/settings/notifications',
-          color: '#C23F5E',
+          color: SW.Mint,
         },
         {
           title: 'Security & app lock',
           icon: 'lock-closed-outline',
           href: '/settings/security',
-          color: '#2F8A57',
+          color: SW.Mint,
         },
-        { title: 'Appearance', icon: 'contrast-outline', href: '/settings/appearance', color: '#5A64C8' },
+        { title: 'Appearance', icon: 'contrast-outline', href: '/settings/appearance', color: SW.Sage },
         {
           title: 'Money month & region',
           icon: 'globe-outline',
           href: '/settings/preferences',
-          color: '#127F9E',
+          color: SW.Teal,
         },
-        { title: 'Privacy', icon: 'shield-checkmark-outline', href: '/settings/privacy', color: '#7B828C' },
-        { title: 'About', icon: 'information-circle-outline', href: '/settings/about', color: '#7B828C' },
+        { title: 'Privacy', icon: 'shield-checkmark-outline', href: '/settings/privacy', color: SW.Silver },
+        { title: 'About', icon: 'information-circle-outline', href: '/settings/about', color: SW.Silver },
       ],
     },
   ];

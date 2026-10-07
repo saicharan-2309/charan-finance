@@ -33,11 +33,18 @@ export default function AddScreen() {
       go: () => router.replace('/transaction/new'),
     },
     {
-      label: 'Income',
-      hint: 'Salary, refund or anything received',
+      label: 'Money in',
+      hint: 'Salary, deposit, refund — adds to the account’s balance',
       icon: 'arrow-down-circle-outline',
       color: 'positive',
       go: () => router.replace({ pathname: '/transaction/new', params: { type: 'income' } }),
+    },
+    {
+      label: 'Split a bill',
+      hint: 'You paid for friends, or they paid for you',
+      icon: 'git-branch-outline',
+      color: 'info',
+      go: () => router.replace('/split/new'),
     },
     {
       label: 'Transfer or card payment',

@@ -153,3 +153,178 @@ export function generateInsights(input: InsightInput, max = 6): Insight[] {
 
   return out.sort((a, b) => b.priority - a.priority).slice(0, max);
 }
+
+// ---------------------------------------------------------------------------
+// More signals: merchants, categories on pace, days, cards, recurring, budget
+// ---------------------------------------------------------------------------
+export interface ExtraInsightInput {
+  currency: string;
+  month: DateRange;
+  today: ISODate;
+  categories: readonly CategoryTotal[];
+  previousCategories: readonly CategoryTotal[];
+  /** Top merchants this money month. */
+  merchants: readonly { name: string; total: Minor; count: number }[];
+  /** Spending per day this money month. */
+  days: readonly { date: ISODate; expense: Minor }[];
+  /** Spending on credit cards this month and last (same number of days). */
+  cardSpend: { current: Minor; previous: Minor } | null;
+  /** Active recurring expenses, each as a monthly cost. */
+  recurringMonthly: readonly { name: string; monthly: Minor; subscription: boolean }[];
+  /** The overall budget, if one is set. */
+  budget: { amount: Minor; spent: Minor } | null;
+}
+
+export function generateExtraInsights(input: ExtraInsightInput): Insight[] {
+  const fmt = (m: number) => formatMoney(m, input.currency, { decimals: 'never' });
+  const out: Insight[] = [];
+  const elapsed = Math.max(elapsedDays(input.month, input.today), 1);
+  const monthDays = daysBetweenInclusive(input.month.start, input.month.end);
+  const total = input.categories.reduce((s, c) => s + c.total, 0);
+
+  // Largest category.
+  const top = [...input.categories].sort((a, b) => b.total - a.total)[0];
+  if (top && total > 0) {
+    out.push({
+      id: 'largest-category',
+      icon: 'pie-chart',
+      tone: 'neutral',
+      text: `Your largest spending category is ${top.name}: ${fmt(top.total)}, ${Math.round(
+        percentOf(top.total, total),
+      )}% of everything you've spent this month.`,
+      priority: 60,
+    });
+  }
+
+  // Categories on pace to finish well above or below last month.
+  const prev = new Map(input.previousCategories.map((c) => [c.categoryId ?? c.name, c]));
+  for (const c of input.categories) {
+    const p = prev.get(c.categoryId ?? c.name);
+    if (!p || p.total < 50000 || c.total < 20000 || elapsed < 5) continue;
+    const projected = scaleMinor(c.total, monthDays / elapsed);
+    const change = Math.round(((projected - p.total) / p.total) * 100);
+    if (change >= 20) {
+      out.push({
+        id: `cat-pace-up-${c.categoryId ?? c.name}`,
+        icon: 'trending-up',
+        tone: 'negative',
+        text: `At this pace you'll spend ${change}% more on ${c.name} than last month (${fmt(projected)} vs ${fmt(p.total)}).`,
+        priority: 70 + Math.min(change / 10, 10),
+      });
+    } else if (change <= -20) {
+      out.push({
+        id: `cat-pace-down-${c.categoryId ?? c.name}`,
+        icon: 'trending-down',
+        tone: 'positive',
+        text: `Your ${c.name} spending is down ${Math.abs(change)}% on last month's pace.`,
+        priority: 55 + Math.min(Math.abs(change) / 10, 10),
+      });
+    }
+  }
+
+  // Top merchant.
+  const m = [...input.merchants].sort((a, b) => b.total - a.total)[0];
+  if (m && m.total >= 50000) {
+    out.push({
+      id: `merchant-${m.name}`,
+      icon: 'storefront',
+      tone: 'neutral',
+      text: `You spent ${fmt(m.total)} at ${m.name} this month, across ${m.count} ${m.count === 1 ? 'payment' : 'payments'}.`,
+      priority: 58,
+    });
+  }
+
+  // Highest spending day.
+  const spentDays = input.days.filter((d) => d.expense > 0);
+  if (spentDays.length >= 3) {
+    const peak = [...spentDays].sort((a, b) => b.expense - a.expense)[0]!;
+    const avg = spentDays.reduce((s, d) => s + d.expense, 0) / spentDays.length;
+    if (peak.expense >= avg * 2) {
+      const label = new Date(`${peak.date}T12:00:00`).toLocaleDateString('en-IN', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      });
+      out.push({
+        id: 'peak-day',
+        icon: 'calendar',
+        tone: 'neutral',
+        text: `Your highest spending day was ${label}: ${fmt(peak.expense)}, about ${Math.round(
+          peak.expense / avg,
+        )}× a typical day.`,
+        priority: 52,
+      });
+    }
+  }
+
+  // Credit card spending vs last month.
+  if (input.cardSpend && input.cardSpend.previous > 20000 && input.cardSpend.current > 0) {
+    const change = Math.round(
+      ((input.cardSpend.current - input.cardSpend.previous) / input.cardSpend.previous) * 100,
+    );
+    if (Math.abs(change) >= 15) {
+      out.push({
+        id: 'card-spend',
+        icon: 'card',
+        tone: change > 0 ? 'negative' : 'positive',
+        text: `You're spending ${Math.abs(change)}% ${change > 0 ? 'more' : 'less'} on credit cards than at this point last month.`,
+        priority: 62,
+      });
+    }
+  }
+
+  // Recurring and subscriptions.
+  const subs = input.recurringMonthly.filter((r) => r.subscription);
+  if (input.recurringMonthly.length > 0) {
+    const all = input.recurringMonthly.reduce((s, r) => s + r.monthly, 0);
+    out.push({
+      id: 'recurring',
+      icon: 'repeat',
+      tone: 'neutral',
+      text: `You have ${input.recurringMonthly.length} recurring ${
+        input.recurringMonthly.length === 1 ? 'expense' : 'expenses'
+      } — about ${fmt(all)} a month${
+        subs.length
+          ? `, of which ${subs.length} ${subs.length === 1 ? 'subscription is' : 'subscriptions are'} ${fmt(
+              subs.reduce((s, r) => s + r.monthly, 0),
+            )}`
+          : ''
+      }.`,
+      priority: 50,
+    });
+  }
+
+  // Close to the monthly limit.
+  if (input.budget && input.budget.amount > 0) {
+    const used = input.budget.spent / input.budget.amount;
+    const timeUsed = elapsed / monthDays;
+    if (used >= 0.8) {
+      out.push({
+        id: 'budget-close',
+        icon: used >= 1 ? 'alert-circle' : 'speedometer',
+        tone: 'negative',
+        text:
+          used >= 1
+            ? `You're over your monthly budget by ${fmt(input.budget.spent - input.budget.amount)}.`
+            : `You've used ${Math.round(used * 100)}% of your monthly budget with ${Math.round(
+                (1 - timeUsed) * 100,
+              )}% of the month still to go.`,
+        priority: 90,
+      });
+    }
+  }
+
+  return out;
+}
+
+/** A recurring amount as a monthly cost. */
+export function monthlyCost(amount: Minor, frequency: string, interval = 1): Minor {
+  const perMonth: Record<string, number> = {
+    daily: 30.44,
+    weekly: 4.345,
+    monthly: 1,
+    quarterly: 1 / 3,
+    yearly: 1 / 12,
+  };
+  return Math.round((amount * (perMonth[frequency] ?? 1)) / Math.max(interval, 1)) as Minor;
+}

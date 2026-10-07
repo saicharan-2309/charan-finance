@@ -12,7 +12,7 @@ import { useAccounts, useAppMutation, useCurrency, useGoals } from '@/hooks/data
 import { fromISODate, toISODate } from '@/lib/dates';
 import { minorToInput, parseAmountInput, sanitizeAmountKeystrokes, type Minor } from '@/lib/money';
 import { createGoal, updateGoal } from '@/services/planning';
-import { spacing } from '@/theme/tokens';
+import { BUD_SWATCHES, spacing } from '@/theme/tokens';
 import type { Goal } from '@/types/domain';
 
 export default function GoalEditScreen() {
@@ -41,7 +41,7 @@ function GoalForm({ existing }: { existing: Goal | null }) {
   const [today] = useState(() => new Date());
   const [accountId, setAccountId] = useState<string | null>(existing?.accountId ?? null);
   const [icon, setIcon] = useState<string | null>(existing?.icon ?? 'flag-outline');
-  const [color, setColor] = useState<string | null>(existing?.color ?? '#4F9A6A');
+  const [color, setColor] = useState<string | null>(existing?.color ?? BUD_SWATCHES[2].base);
   const [picker, setPicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 

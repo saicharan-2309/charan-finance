@@ -72,7 +72,7 @@ export default function SecuritySettings() {
           <Divider />
           <SwitchRow
             title="App passcode"
-            subtitle="A 6-digit code just for Charan Finance. Works everywhere, Expo Go included."
+            subtitle="A 6-digit code just for BUD. Works everywhere, Expo Go included."
             value={lock.passcodeEnabled}
             onValueChange={(v) => setSheet(v ? 'create' : 'remove')}
           />
@@ -149,8 +149,8 @@ export default function SecuritySettings() {
         <Card variant="muted" style={{ gap: spacing.xs }}>
           <Text variant="footnote" tone="secondary">
             • Your data is isolated by Row Level Security in the database — no other user can read it.{'\n'}•
-            Your session is kept in the iOS Keychain.{'\n'}• Charan Finance never asks for or stores bank
-            passwords, UPI PINs, card numbers or CVVs — only an optional last four digits.
+            Your session is kept in the iOS Keychain.{'\n'}• BUD never asks for or stores bank passwords, UPI
+            PINs, card numbers or CVVs — only an optional last four digits.
           </Text>
         </Card>
       </Section>

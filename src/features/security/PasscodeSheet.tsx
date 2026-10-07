@@ -146,7 +146,7 @@ export function PasscodeSheet({
             >
               {error ??
                 (step === 'new'
-                  ? 'You’ll use it to open Charan Finance. It’s separate from your iPhone passcode.'
+                  ? 'You’ll use it to open BUD. It’s separate from your iPhone passcode.'
                   : step === 'confirm'
                     ? 'Type the same six digits again.'
                     : ' ')}

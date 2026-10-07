@@ -40,7 +40,7 @@ export default function SignIn() {
         <View style={{ gap: spacing.xs }}>
           <Text variant="largeTitle">Welcome back</Text>
           <Text variant="callout" tone="secondary">
-            Sign in to Charan Finance.
+            Sign in to BUD.
           </Text>
         </View>
       </View>

@@ -54,7 +54,7 @@ export default function NotificationSettings() {
           <Text variant="bodyStrong">Notifications are off</Text>
           <Text variant="footnote" tone="secondary">
             {permission === 'denied'
-              ? 'Turn on notifications for Charan Finance in iPhone Settings to receive reminders.'
+              ? 'Turn on notifications for BUD in iPhone Settings to receive reminders.'
               : 'Allow notifications to get reminders before bills and renewals.'}
           </Text>
           {permission === 'denied' ? (
@@ -107,7 +107,44 @@ export default function NotificationSettings() {
                 onValueChange={(v) => update.mutate({ notifyMonthlySummary: v })}
               />
             </Card>
-            <Section title="Budget alert threshold" style={{ marginTop: spacing.xxl }}>
+            <Section title="Friends" style={{ marginTop: spacing.xxl }}>
+              <Card style={{ paddingVertical: spacing.xs }}>
+                <SwitchRow
+                  title="Friend requests"
+                  subtitle="When someone adds you or accepts your request."
+                  value={s.notifyFriendRequests}
+                  onValueChange={(v) => update.mutate({ notifyFriendRequests: v })}
+                />
+                <Divider />
+                <SwitchRow
+                  title="Messages"
+                  value={s.notifyMessages}
+                  onValueChange={(v) => update.mutate({ notifyMessages: v })}
+                />
+                <Divider />
+                <SwitchRow
+                  title="Shared expenses"
+                  subtitle="Added to a split, or a split you’re in changes."
+                  value={s.notifySharedExpenses}
+                  onValueChange={(v) => update.mutate({ notifySharedExpenses: v })}
+                />
+                <Divider />
+                <SwitchRow
+                  title="Payments"
+                  subtitle="When someone pays you back or records a payment."
+                  value={s.notifySettlements}
+                  onValueChange={(v) => update.mutate({ notifySettlements: v })}
+                />
+                <Divider />
+                <SwitchRow
+                  title="Reminders"
+                  subtitle="A friend’s gentle nudge about what’s owed."
+                  value={s.notifyReminders}
+                  onValueChange={(v) => update.mutate({ notifyReminders: v })}
+                />
+              </Card>
+            </Section>
+            <Section title="Budget alert threshold">
               <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
                 {[70, 80, 90, 100].map((p) => (
                   <Chip

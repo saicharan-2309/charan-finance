@@ -41,6 +41,7 @@ function account(over: Partial<Account> & { type: AccountType }): Account {
     reportedBalance: null,
     reportedBalanceKind: null,
     reportedBalanceAt: null,
+    systemKind: null,
     ...over,
   };
 }

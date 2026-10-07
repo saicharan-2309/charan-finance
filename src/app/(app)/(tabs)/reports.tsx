@@ -11,9 +11,10 @@ import { Pressable, View } from 'react-native';
 import { BarChart, LineChart, ShareBar } from '@/components/charts';
 import { SegmentedControl } from '@/components/ui/controls';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/feedback';
-import { Screen, Section, Stat } from '@/components/ui/layout';
+import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
 import { BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
+import { CategoryDonut, PaidWith, SpendHero, TopMerchants } from '@/features/reports/overview';
 import { defaultRange, RangePicker, type RangeValue } from '@/features/reports/RangePicker';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { useBudgetStatus, useCurrency, useSettings, useSnapshots } from '@/hooks/data';
@@ -21,17 +22,12 @@ import { ACCOUNT_TYPE_LABELS } from '@/lib/accounts';
 import { METHOD_ICONS } from '@/lib/payment-methods';
 import {
   daysBetweenInclusive,
-  elapsedDays,
-  formatDayLabel,
   formatMonthLabel,
   formatShortDate,
-  monthDiff,
   previousRange,
   rangeForPreset,
-  todayISO,
   yearAgoRange,
 } from '@/lib/dates';
-import { savingsRate } from '@/lib/insights';
 import { formatMoney, percentOf } from '@/lib/money';
 import { invalidateFinancialData, qk } from '@/lib/query';
 import {
@@ -113,7 +109,7 @@ export default function ReportsScreen() {
   const accounts = useQuery({
     queryKey: qk.report('accounts', start, end),
     queryFn: () => fetchAccountBreakdown(start, end),
-    enabled: tab === 'accounts',
+    enabled: tab === 'accounts' || tab === 'overview',
   });
   const largest = useQuery({
     queryKey: qk.report('largest', start, end),
@@ -133,8 +129,6 @@ export default function ReportsScreen() {
   const snapshots = useSnapshots();
 
   const s = summary.data;
-  const elapsed = Math.max(1, elapsedDays(range.range, todayISO()));
-  const months = Math.max(1, monthDiff(start, end > todayISO() ? todayISO() : end) + 1);
 
   return (
     <Screen
@@ -167,98 +161,20 @@ export default function ReportsScreen() {
 
       {tab === 'overview' ? (
         <>
-          <Card
-            variant="elevated"
-            style={{ padding: spacing.xl, gap: spacing.lg, marginBottom: spacing.xxl }}
-          >
-            <Row align="flex-start">
-              <Stat label="Income">
-                {s ? (
-                  <MoneyText
-                    minor={s.income}
-                    currency={currency}
-                    variant="headline"
-                    tone="positive"
-                    options={{ decimals: 'never' }}
-                  />
-                ) : (
-                  <Skeleton width={80} height={22} />
-                )}
-              </Stat>
-              <Stat label="Expenses">
-                {s ? (
-                  <MoneyText
-                    minor={s.expense}
-                    currency={currency}
-                    variant="headline"
-                    options={{ decimals: 'never' }}
-                  />
-                ) : (
-                  <Skeleton width={80} height={22} />
-                )}
-              </Stat>
-              <Stat label="Net">
-                {s ? (
-                  <MoneyText
-                    minor={s.net}
-                    currency={currency}
-                    variant="headline"
-                    colorBySign
-                    options={{ decimals: 'never' }}
-                  />
-                ) : (
-                  <Skeleton width={80} height={22} />
-                )}
-              </Stat>
-            </Row>
-            <Divider />
-            <Row align="flex-start">
-              <Stat label="Savings rate">
-                <Text variant="bodyStrong">{s && savingsRate(s) !== null ? `${savingsRate(s)}%` : '—'}</Text>
-              </Stat>
-              <Stat label="Avg / day">
-                {s ? (
-                  <MoneyText
-                    minor={Math.round(s.expense / elapsed)}
-                    currency={currency}
-                    variant="bodyStrong"
-                    options={{ decimals: 'never' }}
-                  />
-                ) : (
-                  <Text>—</Text>
-                )}
-              </Stat>
-              <Stat label="Avg / month">
-                {s ? (
-                  <MoneyText
-                    minor={Math.round(s.expense / months)}
-                    currency={currency}
-                    variant="bodyStrong"
-                    options={{ decimals: 'never' }}
-                  />
-                ) : (
-                  <Text>—</Text>
-                )}
-              </Stat>
-            </Row>
-            <Divider />
-            <Comparison label="vs previous period" current={s} other={prevSummary.data} currency={currency} />
-            <Comparison
-              label="vs same period last year"
-              current={s}
-              other={yoySummary.data}
-              currency={currency}
-            />
-          </Card>
+          <SpendHero current={s} previous={prevSummary.data} currency={currency} />
 
-          <Section title="Income vs expenses">
+          <Section title="Where it went">
+            <CategoryDonut categories={categories.data} currency={currency} range={{ start, end }} />
+          </Section>
+
+          <Section title="Month by month">
             <Card>
               {series.data ? (
                 <BarChart
                   currency={currency}
                   series={[
-                    { name: 'Income', color: colors.positive },
-                    { name: 'Expenses', color: colors.brand },
+                    { name: 'Money in', color: colors.income },
+                    { name: 'Spent', color: colors.expense },
                   ]}
                   data={series.data.map((p) => ({
                     label: bucketLabel(bucket, p.bucket),
@@ -269,29 +185,25 @@ export default function ReportsScreen() {
                 <Skeleton height={200} />
               )}
             </Card>
+            <Comparison
+              label="vs the same time last year"
+              current={s}
+              other={yoySummary.data}
+              currency={currency}
+            />
           </Section>
 
-          <Section title="Cash flow">
-            <Card>
-              {series.data ? (
-                <LineChart
-                  currency={currency}
-                  color={colors.info}
-                  title="Cumulative net (income − expenses)"
-                  points={series.data.reduce<{ label: string; value: number }[]>((acc, p) => {
-                    const prevVal = acc.length ? acc[acc.length - 1].value : 0;
-                    acc.push({
-                      label: bucket === 'month' ? formatMonthLabel(p.bucket) : formatDayLabel(p.bucket),
-                      value: prevVal + p.income - p.expense,
-                    });
-                    return acc;
-                  }, [])}
-                />
-              ) : (
-                <Skeleton height={180} />
-              )}
-            </Card>
-          </Section>
+          {(merchants.data ?? []).length ? (
+            <Section title="Top merchants" action="All" onAction={() => setTab('merchants')}>
+              <TopMerchants merchants={merchants.data} currency={currency} />
+            </Section>
+          ) : null}
+
+          {(accounts.data ?? []).some((a) => a.expense > 0) ? (
+            <Section title="Paid with">
+              <PaidWith accounts={accounts.data} currency={currency} />
+            </Section>
+          ) : null}
 
           {s && s.expense > 0 ? (
             <Section title="Spending mix">

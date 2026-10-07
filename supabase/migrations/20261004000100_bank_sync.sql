@@ -1188,6 +1188,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 9. Views
 -- ---------------------------------------------------------------------------
+drop view if exists public.transactions_view;
 create or replace view public.transactions_view
 with (security_invoker = true)
 as
@@ -1241,6 +1242,7 @@ left join lateral (
   join public.tags g on g.id = tt.tag_id
   where tt.transaction_id = t.id
 ) tg on true;
+grant select on public.transactions_view to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 10. Row level security and privileges

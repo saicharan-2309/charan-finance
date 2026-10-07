@@ -13,7 +13,7 @@ export default function About() {
     <Screen>
       <View style={{ alignItems: 'center', gap: spacing.md, marginVertical: spacing.xxl }}>
         <BrandMark size={84} />
-        <Text variant="title">Charan Finance</Text>
+        <Text variant="title">BUD</Text>
         <Text variant="footnote" tone="secondary">
           A private personal finance tracker.
         </Text>
@@ -30,8 +30,8 @@ export default function About() {
         </Row>
       </Card>
       <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.xl }}>
-        Charan Finance records and describes your own finances. It does not provide financial, investment, tax
-        or legal advice, and it does not connect to your bank.
+        BUD records and describes your own finances. It does not provide financial, investment, tax or legal
+        advice, and it does not connect to your bank.
       </Text>
     </Screen>
   );

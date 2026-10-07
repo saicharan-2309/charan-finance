@@ -96,10 +96,25 @@ export function describeError(err: unknown): AppErrorInfo {
 
   const cf = /\b(CF\d{3})\b/.exec(message);
   if (cf) {
+    // Newer database functions carry their own plain sentence after the code.
+    const own = message
+      .slice(message.indexOf(cf[1]) + cf[1].length)
+      .replace(/^[:\s]+/, '')
+      .trim();
     return {
-      message: CODE_MESSAGES[cf[1]] ?? 'That action could not be completed.',
+      message: CODE_MESSAGES[cf[1]] ?? (own || 'That action could not be completed.'),
       retryable: false,
       code: cf[1],
+    };
+  }
+  // A database function the app calls doesn't exist on the server yet: the
+  // migrations haven't been applied. Say so instead of failing vaguely.
+  if (code === 'PGRST202' || code === 'PGRST205') {
+    return {
+      message:
+        'The server hasn’t been updated for this part of BUD yet — apply the latest database migrations.',
+      retryable: false,
+      code,
     };
   }
   if (isNetworkError(err)) {

@@ -267,6 +267,9 @@ left join lateral (
 --    a credit card can be shown as a card payment. Appended at the end —
 --    `create or replace view` keeps existing column order intact.
 -- ---------------------------------------------------------------------------
+-- Dropped first so this migration can be re-run over a database that already
+-- has a later, wider version of the view (it was applied out of order once).
+drop view if exists public.transactions_view;
 create or replace view public.transactions_view
 with (security_invoker = true)
 as
@@ -316,6 +319,7 @@ left join lateral (
   join public.tags g on g.id = tt.tag_id
   where tt.transaction_id = t.id
 ) tg on true;
+grant select on public.transactions_view to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. Row level security and privileges for the new objects

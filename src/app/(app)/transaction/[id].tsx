@@ -267,7 +267,21 @@ export default function TransactionDetail() {
       ) : null}
 
       <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
-        {t.type === 'expense' || t.type === 'income' ? (
+        {t.sharedExpenseId ? (
+          <Button
+            title="View shared expense"
+            icon="people-outline"
+            onPress={() => router.push({ pathname: '/shared/[id]', params: { id: t.sharedExpenseId! } })}
+          />
+        ) : t.type === 'expense' && !t.splitGroupId && !t.pending ? (
+          <Button
+            title="Split with friends"
+            icon="people-outline"
+            accessibilityHint="Share this payment with friends. It isn't added again — your spending becomes your share."
+            onPress={() => router.push({ pathname: '/split/new', params: { transactionId: t.id } })}
+          />
+        ) : null}
+        {(t.type === 'expense' || t.type === 'income') && !t.sharedExpenseId ? (
           <Button
             title="Split across categories"
             icon="git-branch-outline"
