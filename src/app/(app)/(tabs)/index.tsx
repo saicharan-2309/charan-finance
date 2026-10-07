@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { HeaderButton } from '@/components/ui/controls';
 import { AnimatedMoney, EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { GradientFill } from '@/components/ui/gradient';
 import { Screen, Section } from '@/components/ui/layout';
@@ -156,20 +157,7 @@ export default function HomeScreen() {
     <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh}>
       {/* Header: insights · Home · you */}
       <Row justify="space-between" style={{ marginBottom: spacing.xl }}>
-        <Pressable
-          onPress={() => router.push('/insights')}
-          accessibilityRole="button"
-          accessibilityLabel="Insights"
-          hitSlop={10}
-          style={({ pressed }) => ({
-            width: 44,
-            height: 44,
-            justifyContent: 'center',
-            opacity: pressed ? 0.5 : 1,
-          })}
-        >
-          <Icon name="sparkles-outline" size={24} tone="primary" />
-        </Pressable>
+        <HeaderButton icon="sparkles" label="Insights" onPress={() => router.push('/insights')} />
         <Text variant="headline" accessibilityRole="header">
           Home
         </Text>

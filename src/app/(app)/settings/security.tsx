@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
 
-import { Button, SwitchRow, TextField } from '@/components/ui/controls';
+import { Button, ListRow, SwitchRow, TextField } from '@/components/ui/controls';
 import { useToast } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
-import { Card, Text } from '@/components/ui/primitives';
+import { Card, Divider, Text } from '@/components/ui/primitives';
+import { PasscodeSheet, type PasscodeSheetMode } from '@/features/security/PasscodeSheet';
 import { describeError } from '@/lib/errors';
 import { useAppLock } from '@/providers/AppLockProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -20,10 +21,19 @@ export default function SecuritySettings() {
   const [deleting, setDeleting] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  const toggleLock = async (v: boolean) => {
-    const ok = await lock.setEnabled(v);
+  const [sheet, setSheet] = useState<PasscodeSheetMode | null>(null);
+
+  const toggleFaceId = async (v: boolean) => {
+    const ok = await lock.setBiometricsEnabled(v);
     if (!ok) toast.show('Authentication was cancelled.', 'info');
   };
+
+  // Face ID can't run inside Expo Go (an iOS rule), so say exactly what happens.
+  const faceIdSubtitle = !lock.available
+    ? 'Set up Face ID or a passcode on this iPhone first.'
+    : lock.faceIdNeedsInstalledApp
+      ? 'In Expo Go, iOS shows your iPhone passcode instead. Face ID itself works in the installed app.'
+      : `Unlock with ${lock.biometryLabel}. Your iPhone passcode works as a fallback.`;
 
   const removeAccount = () =>
     Alert.alert(
@@ -53,32 +63,47 @@ export default function SecuritySettings() {
       <Section title="App lock">
         <Card style={{ paddingVertical: spacing.xs }}>
           <SwitchRow
-            title={lock.biometryLabel === 'Passcode' ? 'Require passcode' : `Require ${lock.biometryLabel}`}
-            subtitle={
-              lock.available
-                ? lock.faceIdNeedsInstalledApp
-                  ? 'Locks when the app goes to the background.'
-                  : 'Locks when the app goes to the background. Your device passcode works as a fallback.'
-                : 'Set up Face ID, Touch ID or a passcode on this iPhone to use app lock.'
-            }
-            value={lock.enabled}
+            title={lock.biometryLabel === 'Touch ID' ? 'Touch ID' : 'Face ID'}
+            subtitle={faceIdSubtitle}
+            value={lock.biometricsEnabled}
             disabled={!lock.available}
-            onValueChange={(v) => void toggleLock(v)}
+            onValueChange={(v) => void toggleFaceId(v)}
           />
+          <Divider />
+          <SwitchRow
+            title="App passcode"
+            subtitle="A 6-digit code just for Charan Finance. Works everywhere, Expo Go included."
+            value={lock.passcodeEnabled}
+            onValueChange={(v) => setSheet(v ? 'create' : 'remove')}
+          />
+          {lock.passcodeEnabled ? (
+            <>
+              <Divider />
+              <ListRow title="Change passcode" onPress={() => setSheet('change')} />
+            </>
+          ) : null}
         </Card>
-        {lock.faceIdNeedsInstalledApp ? (
-          <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.sm }}>
-            You’re running inside Expo Go, which iOS doesn’t allow to use Face ID for another app — so your
-            iPhone passcode is used instead. Face ID, with the passcode as a fallback, works in the installed
-            app.
-          </Text>
-        ) : null}
         <Text variant="footnote" tone="secondary" style={{ marginTop: spacing.sm }}>
-          Your screen is hidden in the app switcher whether or not app lock is on.
+          {lock.enabled
+            ? lock.biometricsEnabled && lock.passcodeEnabled
+              ? 'The app locks when it goes to the background. Face ID is offered first; the passcode always works too.'
+              : 'The app locks when it goes to the background.'
+            : 'Turn on either one — or both — to lock the app when it goes to the background.'}{' '}
+          Your screen is hidden in the app switcher either way. Only a salted hash of the passcode is kept, in
+          the iOS Keychain on this iPhone; after five wrong tries entry pauses for longer each time.
         </Text>
       </Section>
 
-      <Section title="Password">
+      <PasscodeSheet
+        mode={sheet}
+        onClose={() => setSheet(null)}
+        onDone={(message) => {
+          setSheet(null);
+          toast.show(message);
+        }}
+      />
+
+      <Section title="Account password">
         <Button
           title="Send password reset email"
           variant="secondary"

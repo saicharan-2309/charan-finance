@@ -86,6 +86,8 @@ export interface Palette {
   /** Floating chrome (tab bar): its hairline edge, and its fill where no blur exists. */
   chromeStroke: string;
   chromeFill: string;
+  /** Glass fill where only a CSS blur is available (web preview). */
+  glassFill: string;
 }
 
 const ACCOUNT_GRADIENTS = [
@@ -149,6 +151,7 @@ export const lightPalette: Palette = {
   shadow: '#2B2266',
   chromeStroke: 'rgba(255, 255, 255, 0.7)',
   chromeFill: 'rgba(255, 255, 255, 0.82)',
+  glassFill: 'rgba(255, 255, 255, 0.62)',
 };
 
 export const darkPalette: Palette = {
@@ -194,6 +197,7 @@ export const darkPalette: Palette = {
   shadow: '#000000',
   chromeStroke: 'rgba(255, 255, 255, 0.08)',
   chromeFill: 'rgba(32, 32, 41, 0.82)',
+  glassFill: 'rgba(40, 40, 52, 0.55)',
 };
 
 /** The 4-point scale, with room to breathe. */

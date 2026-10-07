@@ -75,3 +75,11 @@ export function validatePassword(pw: string): string | null {
 export function validateEmail(email: string): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim()) ? null : 'Enter a valid email address.';
 }
+
+/**
+ * Signs out on this device only, without a network call — used by "Forgot
+ * passcode?" on the lock screen, so it works offline too.
+ */
+export async function signOutThisDevice(): Promise<void> {
+  await supabase.auth.signOut({ scope: 'local' });
+}

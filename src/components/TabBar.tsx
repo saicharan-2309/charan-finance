@@ -1,5 +1,5 @@
 /**
- * Bottom tab bar, after the reference: a plain white bar of icons. The active
+ * Bottom tab bar, after the reference: a white glass bar of icons. The active
  * tab is a solid ink glyph, the others are grey outlines; the Add button sits
  * in the middle as a violet gradient square. Labels are not shown, but every
  * tab carries its name for VoiceOver.
@@ -11,12 +11,13 @@
 import type { Tabs } from 'expo-router/js-tabs';
 import type { ComponentProps } from 'react';
 import { router } from 'expo-router';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import { continuous } from '@/theme/tokens';
 import { haptic } from './ui/controls';
+import { Glass } from './ui/glass';
 import { GradientFill } from './ui/gradient';
 import { Icon } from './ui/primitives';
 import { TAB_BAR_HEIGHT } from './ui/layout';
@@ -94,23 +95,12 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         styles.container,
         {
           paddingBottom: Math.max(insets.bottom - 6, 8),
-          backgroundColor: colors.surface,
-          borderTopColor: scheme === 'dark' ? colors.border : 'transparent',
+          borderTopColor: scheme === 'dark' ? colors.border : colors.borderStrong,
         },
-        scheme === 'light'
-          ? Platform.select({
-              ios: {
-                shadowColor: colors.shadow,
-                shadowOpacity: 0.06,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: -4 },
-              },
-              web: { boxShadow: `0 -4px 16px ${colors.shadow}10` } as object,
-              default: { elevation: 8 },
-            })
-          : null,
       ]}
     >
+      {/* Glass, so the page blurs through as it scrolls under the bar. */}
+      <Glass style={StyleSheet.absoluteFill} />
       <View style={styles.row}>{ordered}</View>
     </View>
   );

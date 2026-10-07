@@ -9,6 +9,7 @@ import {
   Animated,
   Platform,
   Pressable,
+  StyleSheet,
   Switch,
   TextInput,
   View,
@@ -20,6 +21,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { useAnimatedValue, useReducedMotion } from '@/lib/animation';
 import { continuous, radius, spacing, springs, typography } from '@/theme/tokens';
+import { Glass } from './glass';
 import { Icon, Text, type TextTone } from './primitives';
 
 export const haptic = {
@@ -282,13 +284,14 @@ export function SegmentedControl<T extends string>({
       style={[
         {
           flexDirection: 'row',
-          backgroundColor: colors.fill,
           borderRadius: radius.pill,
           padding: 3,
         },
         style,
       ]}
     >
+      {/* The track is glass; the thumb is a solid lens that springs across it. */}
+      <Glass style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]} />
       {segment ? (
         <Animated.View
           pointerEvents="none"
@@ -384,16 +387,13 @@ export function Chip({
         borderRadius: radius.pill,
         borderWidth: selected && !ink ? 1.5 : 0,
         borderColor: tint,
-        backgroundColor: selected
-          ? ink
-            ? colors.text
-            : `${tint}1A`
-          : pressed
-            ? colors.fill
-            : colors.surface,
+        backgroundColor: selected ? (ink ? colors.text : `${tint}1A`) : 'transparent',
         transform: [{ scale: pressed ? 0.96 : 1 }],
       })}
     >
+      {selected ? null : (
+        <Glass interactive style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]} />
+      )}
       {icon ? <Icon name={icon} size={16} color={selected ? fg : (color ?? colors.textSecondary)} /> : null}
       <Text
         variant="subhead"
@@ -508,6 +508,8 @@ export function SwitchRow({
           }}
           disabled={disabled}
           trackColor={{ true: colors.brand, false: colors.borderStrong }}
+          // iOS draws its own thumb (Liquid Glass on iOS 26); elsewhere keep it white.
+          thumbColor={Platform.OS === 'ios' ? undefined : colors.surface}
           accessibilityLabel={title}
         />
       }
@@ -518,9 +520,8 @@ export function SwitchRow({
 // ---------------------------------------------------------------------------
 // HeaderButton
 // ---------------------------------------------------------------------------
-/** The round action beside a large title: a floating white disc with an accent glyph. */
+/** The round action beside a title: a glass disc with an accent glyph, as in iOS 26. */
 export function HeaderButton({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
-  const { colors, scheme, elevation } = useTheme();
   return (
     <Pressable
       onPress={() => {
@@ -530,20 +531,14 @@ export function HeaderButton({ icon, label, onPress }: { icon: string; label: st
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      style={({ pressed }) => [
-        {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: scheme === 'dark' ? colors.surfaceElevated : colors.surface,
-          transform: [{ scale: pressed ? 0.92 : 1 }],
-        },
-        scheme === 'light' ? elevation.card : null,
-      ]}
+      style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.92 : 1 }] })}
     >
-      <Icon name={icon} size={21} tone="brand" />
+      <Glass
+        interactive
+        style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Icon name={icon} size={21} tone="brand" />
+      </Glass>
     </Pressable>
   );
 }

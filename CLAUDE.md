@@ -15,6 +15,10 @@ Emma (the UK budgeting app) in design and at least equal in features. Read this 
   asking — he can't install a development build today.
 - **Face ID does not work in Expo Go** (Expo docs). The app falls back to the iPhone passcode and
   says so. Don't try to "fix" it in code.
+- App lock (Security) has two independent switches: **Face ID** (expo-local-authentication, iPhone
+  passcode fallback) and an **app passcode** (6 digits, only a salted stretched SHA-256 in the
+  Keychain, escalating lockout after 5 wrong tries — `lib/passcode.ts`, `services/app-passcode.ts`).
+  Either or both lock the app; "Forgot passcode?" signs out on this device.
 - Backend is his own Supabase project (Postgres, Auth, Storage, Edge Functions, RLS).
 - He pulls from GitHub (`saicharan-2309/charan-finance`) and ships with:
   1. new migrations first (`npx supabase db push`, or paste into the SQL Editor),
@@ -41,7 +45,7 @@ src/lib/            pure logic (money in paise, dates, payday cycles, parsers) �
 supabase/migrations SQL, applied in filename order; additive only, never destructive
 supabase/functions  Edge Functions (Deno). _shared/bank-sms.ts is the SMS parser (also used by the app)
 scripts/            import-iphone-sms.ts (history import from an iPhone backup), icon generator
-tests/              Jest (127). supabase/tests/ — SQL tests against a disposable Postgres (67)
+tests/              Jest (136). supabase/tests/ — SQL tests against a disposable Postgres (67)
 ```
 
 ## Design system — "violet glass" (Apple-grade, since Oct 2026)
@@ -70,9 +74,14 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   package is still installed but no longer loaded.)
 - Shape: continuous (squircle) corners via `continuous`; radius follows hierarchy (hero 30, cards
   22, controls 14, buttons/chips/segmented control are capsules). Icon badges are tinted squircles.
-- Tab bar (as in the reference): plain white bar, icons only — active tab a solid ink glyph,
+- Tab bar (as in the reference): a white glass bar, icons only — active tab a solid ink glyph,
   others grey outlines — with Add as a violet gradient square in the middle. Every tab keeps its
-  VoiceOver name. Segmented control thumb springs; selected plain chips are solid ink capsules.
+  VoiceOver name.
+- **Glass for controls** (`components/ui/glass.tsx`): real Liquid Glass on iOS 26 (expo-glass-effect,
+  in Expo Go), system blur on older iOS, CSS blur on web. Used for the tab bar, segmented-control
+  track, unselected chips, round header buttons, toasts and the passcode keypad — never for content
+  cards. Switches are the native iOS switch (Liquid Glass on iOS 26). Selected plain chips are solid
+  ink capsules; the segmented thumb springs.
 - Colour never carries meaning alone: money always has a sign or label, chart series are named.
 - Every screen must work in **light and dark**; check both. Contrast is checked in `tokens.ts`.
 - Sentence case everywhere, Indian number format (₹1,24,499).

@@ -32,6 +32,7 @@ import { formatMoney } from '@/lib/money';
 import { useTheme } from '@/theme/ThemeProvider';
 import { continuous, motion, radius, spacing } from '@/theme/tokens';
 import { Button } from './controls';
+import { Glass } from './glass';
 import { Icon, Text, type TextProps } from './primitives';
 
 // ---------------------------------------------------------------------------
@@ -373,7 +374,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
-  const { colors, elevation, scheme } = useTheme();
+  const { colors, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const anim = useAnimatedValue(0);
   useEffect(() => {
@@ -402,24 +403,24 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
       <Pressable
         onPress={onDismiss}
         accessibilityRole="alert"
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.sm,
-          padding: spacing.md,
-          paddingHorizontal: spacing.lg,
-          minHeight: 48,
-          borderRadius: radius.pill,
-          backgroundColor: colors.surfaceElevated,
-          borderWidth: scheme === 'dark' ? StyleSheet.hairlineWidth : 0,
-          borderColor: colors.borderStrong,
-          ...elevation.floating,
-        }}
+        style={[{ borderRadius: radius.pill }, elevation.floating]}
       >
-        <Icon name={icon} size={20} color={tint} />
-        <Text variant="subhead" style={{ flex: 1 }}>
-          {toast.message}
-        </Text>
+        <Glass
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            padding: spacing.md,
+            paddingHorizontal: spacing.lg,
+            minHeight: 48,
+            borderRadius: radius.pill,
+          }}
+        >
+          <Icon name={icon} size={20} color={tint} />
+          <Text variant="subhead" style={{ flex: 1 }}>
+            {toast.message}
+          </Text>
+        </Glass>
       </Pressable>
     </Animated.View>
   );
