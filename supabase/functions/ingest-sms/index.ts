@@ -1,11 +1,18 @@
 // Supabase Edge Function: ingest-sms
 // -----------------------------------------------------------------------------
-// Receives bank SMS forwarded by the iPhone Shortcut and records them.
+// Receives bank alerts and records them: SMS forwarded by the iPhone Shortcut,
+// and bank emails forwarded by the Google Apps Script in the user's Gmail
+// ("channel": "email"). A payment that arrives both ways is counted once —
+// the database matches the two (ingest_bank_message).
 //
 // Request (POST, JSON):
 //   headers: x-sync-key: <the key shown in the app>
 //   body:    { "text": "<SMS body>", "sender": "<sender id>", "received_at": "<ISO, optional>" }
 //   or       { "test": true }   — checks the key and connection, records nothing
+//   or       { "channel": "email", "messages": [{ text, sender, subject, received_at }, …] }
+//            — bank emails from Gmail; "sender" is the From address and only
+//            a bank's own domain is accepted. { "channel": "email", "test": true }
+//            is the script's heartbeat ("Gmail checked 2 minutes ago").
 //   or       { "messages": [{ text, sender, received_at }, …], "backfill": true }
 //            — past messages imported from an iPhone backup (up to 200 a call,
 //            oldest first). History has a daily rather than hourly limit and
@@ -30,6 +37,7 @@
 // -----------------------------------------------------------------------------
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { bankEmailSender, emailToAlert } from '../_shared/bank-email.ts';
 import { describeParsed, parseBankSms } from '../_shared/bank-sms.ts';
 
 const MAX_BODY = 2000;
@@ -85,6 +93,15 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const channel: Channel = payload.channel === 'email' ? 'email' : 'sms';
+
+  if (payload.test === true && channel === 'email') {
+    const { data, error } = await supabase.rpc('touch_email_check', { p_key_hash: keyHash });
+    if (error) return json(500, { status: 'error', summary: 'Server error' });
+    if (!data) return json(401, { status: 'error', summary: 'Sync key not recognised' });
+    return json(200, { status: 'ok', summary: 'Gmail connected to BUD' });
+  }
+
   if (payload.test === true) {
     const { data, error } = await supabase
       .from('ingest_keys')
@@ -98,7 +115,7 @@ Deno.serve(async (req) => {
   }
 
   const rpc: Rpc = async (args) => {
-    const { data, error } = await supabase.rpc('ingest_bank_sms', args);
+    const { data, error } = await supabase.rpc('ingest_bank_message', args);
     return { data, error: error ? { message: error.message, code: error.code } : null };
   };
 
@@ -109,14 +126,14 @@ Deno.serve(async (req) => {
     }
     const counts: Record<string, number> = {};
     for (const item of items) {
-      const outcome = await ingestOne(rpc, keyHash, item ?? {}, payload.backfill === true);
+      const outcome = await ingestOne(rpc, keyHash, item ?? {}, payload.backfill === true, channel);
       if (outcome.fatal) return outcome.fatal;
       counts[outcome.status] = (counts[outcome.status] ?? 0) + 1;
     }
     return json(200, { status: 'ok', counts });
   }
 
-  const outcome = await ingestOne(rpc, keyHash, payload, false);
+  const outcome = await ingestOne(rpc, keyHash, payload, false, channel);
   if (outcome.fatal) return outcome.fatal;
   return json(200, {
     status: outcome.status,
@@ -124,6 +141,8 @@ Deno.serve(async (req) => {
     message_id: outcome.messageId,
   });
 });
+
+type Channel = 'sms' | 'email';
 
 type Rpc = (
   args: Record<string, unknown>,
@@ -142,20 +161,28 @@ async function ingestOne(
   keyHash: string,
   item: Record<string, unknown>,
   backfill: boolean,
+  channel: Channel,
 ): Promise<Outcome> {
-  const body = asText(item.text) ?? asText(item.body) ?? asText(item.message);
+  let body = asText(item.text) ?? asText(item.body) ?? asText(item.message);
+  let senderOverride: string | null = null;
+  if (channel === 'email') {
+    // Only a bank's own domain; anything else is skipped without being stored.
+    senderOverride = bankEmailSender(asText(item.sender) ?? asText(item.from));
+    if (!senderOverride) return { status: 'ignored', summary: 'Not from a bank' };
+    body = emailToAlert(asText(item.subject), body);
+  }
   if (!body || !body.trim()) {
-    return backfill
+    return backfill || channel === 'email'
       ? { status: 'skipped' }
       : { status: 'error', fatal: json(400, { status: 'error', summary: 'No message text' }) };
   }
   if (body.length > MAX_BODY) {
-    return backfill
+    return backfill || channel === 'email'
       ? { status: 'skipped' }
       : { status: 'error', fatal: json(413, { status: 'error', summary: 'Message too long' }) };
   }
 
-  const sender = (asText(item.sender) ?? '').slice(0, 64) || null;
+  const sender = senderOverride ?? ((asText(item.sender) ?? '').slice(0, 64) || null);
   const receivedRaw = asText(item.received_at);
   const receivedAt =
     receivedRaw && !Number.isNaN(Date.parse(receivedRaw))
@@ -166,6 +193,7 @@ async function ingestOne(
 
   const { data, error } = await rpc({
     p_key_hash: keyHash,
+    p_channel: channel,
     p_sender: sender,
     p_body: body,
     p_received_at: receivedAt,

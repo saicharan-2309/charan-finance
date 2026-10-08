@@ -10,7 +10,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable, Share, View } from 'react-native';
 
 import { Button, TextField, haptic } from '@/components/ui/controls';
 import { QueryState, useToast } from '@/components/ui/feedback';
@@ -30,6 +30,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, spacing } from '@/theme/tokens';
 import { describeParsed, parseBankSms } from '@/lib/bank-sms';
+import { gmailScript } from '@/lib/gmail-script';
 import { FoundAccountsList, useFoundAccounts } from '@/features/bank-sync/FoundAccounts';
 
 const NEEDS_DIGITS = new Set(['bank', 'savings', 'credit_card', 'debit_card']);
@@ -106,13 +107,32 @@ export default function BankSyncScreen() {
                   <Text variant="headline">
                     {s.connected ? 'Bank sync is on' : 'Add transactions automatically'}
                   </Text>
-                  <Text variant="footnote" tone="secondary">
-                    {s.connected
-                      ? s.lastMessageAt
-                        ? `Last message ${formatDayLabel(new Date(s.lastMessageAt)).toLowerCase()} at ${formatTime(s.lastMessageAt)}`
-                        : 'Your iPhone hasn’t sent a message yet. Set up the Shortcut below — this changes to the time of the last message once it works.'
-                      : 'Your bank texts you for every payment. Forward those texts here and they become transactions — categorised, matched to the right account, never double-counted.'}
-                  </Text>
+                  {s.connected ? (
+                    <>
+                      <Text variant="footnote" tone="secondary">
+                        Texts:{' '}
+                        {(s.lastSmsAt ?? s.lastMessageAt)
+                          ? `last one ${when(s.lastSmsAt ?? s.lastMessageAt!)}`
+                          : 'your iPhone hasn’t sent one yet — set up the Shortcut below'}
+                      </Text>
+                      <Text variant="footnote" tone="secondary">
+                        Emails:{' '}
+                        {s.lastEmailAt
+                          ? `last one ${when(s.lastEmailAt)}`
+                          : s.emailCheckedAt
+                            ? `Gmail connected, checked ${when(s.emailCheckedAt)} — no bank email yet`
+                            : 'not set up — see “Bank emails” below'}
+                      </Text>
+                      <Text variant="caption" tone="tertiary">
+                        A payment that arrives by text and email is counted once.
+                      </Text>
+                    </>
+                  ) : (
+                    <Text variant="footnote" tone="secondary">
+                      Your bank texts and emails you for every payment. Send those here and they become
+                      transactions — categorised, matched to the right account, never double-counted.
+                    </Text>
+                  )}
                 </View>
               </Row>
               {s.connected && (s.toReview > 0 || s.pending > 0) ? (
@@ -244,7 +264,7 @@ export default function BankSyncScreen() {
                   </Card>
                 </Section>
 
-                <Section title="Set up the Shortcut — once">
+                <Section title="Bank texts — iPhone Shortcut, set up once">
                   <Card style={{ gap: spacing.lg }}>
                     {STEPS.map((step, i) => (
                       <Row key={step.title} align="flex-start" gap={spacing.md}>
@@ -286,6 +306,80 @@ export default function BankSyncScreen() {
                   </Card>
                 </Section>
               </>
+            ) : null}
+
+            {s.connected && key ? (
+              <Section title="Bank emails — Gmail, set up once">
+                <Card style={{ gap: spacing.lg }}>
+                  <Text variant="footnote" tone="secondary">
+                    Banks also email every payment. A small script in your own Gmail sends those emails to BUD
+                    every 5 minutes — it only reads emails from banks, and BUD never gets access to your
+                    mailbox. Easiest on your laptop.
+                  </Text>
+                  <Row gap={spacing.sm}>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        title="Copy script"
+                        variant="secondary"
+                        size="md"
+                        icon="copy-outline"
+                        onPress={() => copy(gmailScript(INGEST_URL, key), 'Setup script')}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        title="Send to laptop"
+                        variant="secondary"
+                        size="md"
+                        icon="share-outline"
+                        onPress={() =>
+                          void Share.share({
+                            message: gmailScript(INGEST_URL, key),
+                            title: 'BUD Gmail setup script',
+                          })
+                        }
+                      />
+                    </View>
+                  </Row>
+                  {EMAIL_STEPS.map((step, i) => (
+                    <Row key={step.title} align="flex-start" gap={spacing.md}>
+                      <View
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 13,
+                          backgroundColor: colors.brandSoft,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginTop: 1,
+                        }}
+                      >
+                        <Text variant="caption" tone="brand" style={{ fontWeight: '700' }}>
+                          {i + 1}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text variant="bodyStrong">{step.title}</Text>
+                        <Text variant="footnote" tone="secondary">
+                          {step.body}
+                        </Text>
+                      </View>
+                    </Row>
+                  ))}
+                  <View
+                    style={{
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.md,
+                      padding: spacing.md,
+                    }}
+                  >
+                    <Text variant="footnote" tone="secondary">
+                      The script contains your sync key — don’t share it with anyone. If you ever make a new
+                      key here, copy the script again and replace the old one (and update the Shortcut).
+                    </Text>
+                  </View>
+                </Card>
+              </Section>
             ) : null}
 
             {s.connected ? (
@@ -381,6 +475,30 @@ export default function BankSyncScreen() {
     </Screen>
   );
 }
+
+/** "today at 5:09 pm", "yesterday at 9:12 am". */
+function when(iso: string): string {
+  return `${formatDayLabel(new Date(iso)).toLowerCase()} at ${formatTime(iso)}`;
+}
+
+const EMAIL_STEPS = [
+  {
+    title: 'Open Google Apps Script',
+    body: 'On your laptop, go to script.google.com and sign in with the Gmail your bank emails. Click New project.',
+  },
+  {
+    title: 'Paste the script',
+    body: 'Delete everything in the editor and paste the script (use Send to laptop above, or Copy script). Click the save icon.',
+  },
+  {
+    title: 'Run it once',
+    body: 'At the top, make sure “setup” is selected next to Run, then click Run. Google asks for permission: Review permissions › your account › Advanced › Go to project (it says “unsafe” only because it’s your own script, not one Google has reviewed) › Allow.',
+  },
+  {
+    title: 'Done',
+    body: 'It now runs every 5 minutes by itself, and brings in bank emails from the last 2 days straight away. Within a few minutes the top of this screen says “Gmail connected”.',
+  },
+];
 
 const STEPS = [
   {

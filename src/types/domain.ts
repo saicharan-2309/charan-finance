@@ -251,6 +251,12 @@ export interface BankSyncStatus {
   connected: boolean;
   connectedAt: string | null;
   lastMessageAt: string | null;
+  /** When the iPhone Shortcut last delivered a text. */
+  lastSmsAt: string | null;
+  /** When the Gmail script last delivered a bank email. */
+  lastEmailAt: string | null;
+  /** The Gmail script's last check-in (every 5 minutes while it runs). */
+  emailCheckedAt: string | null;
   pending: number;
   toReview: number;
   last30Days: Partial<Record<BankMessageStatus, number>>;

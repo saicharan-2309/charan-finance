@@ -234,7 +234,7 @@ const PROMO =
   /\b(pre-?approved|apply now|get up to|eligible for|offer|congratulations|win |reward points|limit (?:upgrade|enhancement|increase)|loan of up to|click here|download the|exclusive|avail)\b/i;
 
 const DEBIT_WORDS =
-  /\b(debited|debit(?:ed)? (?:by|for|with)|spent|sent|withdrawn|withdrawal|paid|purchase(?:d)?|deducted|txn of|transaction of|used for|charged)\b/i;
+  /\b(debited|debit(?:ed)? (?:by|for|with)|spent|sent|withdrawn|withdrawal|paid|purchase(?:d)?|deducted|txn of|transaction of|used for|charged|transaction amount|thank you for using|has been used|was used)\b/i;
 const CREDIT_WORDS = /\b(credited|received|deposited|refund(?:ed)?|reversed|reversal|cashback|added to)\b/i;
 
 function firstIndex(re: RegExp, s: string): number {
@@ -426,6 +426,8 @@ export function cleanMerchant(raw: string | null | undefined): string | null {
 }
 
 const MERCHANT_PATTERNS: RegExp[] = [
+  // Emails: "Merchant Name: BLINKIT", "Merchant: Swiggy"
+  /\bmerchant(?: name)?\s*[:\-]\s*([^\n]+)/i,
   // Axis: "UPI/P2M/627712340000/NETFLIX"
   /\bupi\/p2[am]\/\d+\/([^\n/]+)/i,
   // HDFC new UPI format: "To SWIGGY\nOn 03/10/26"
