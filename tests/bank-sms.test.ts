@@ -507,6 +507,22 @@ describe('short card alerts', () => {
     });
   });
 
+  it('reads an Axis card alert with the merchant on its own line', () => {
+    const p = txn(
+      'Spent INR 2285\nAxis Bank Card no. XX1205\n08-10-26 17:09:11 IST\nBlinkit\nAvl Limit: INR 396186\nNot you? SMS BLOCK 1205 to 919951860002',
+      'JK-AXISBK-S',
+    );
+    expect(p).toMatchObject({
+      direction: 'debit',
+      amount: '2285.00',
+      bank: 'axis',
+      last4: '1205',
+      merchant: 'Blinkit',
+      balance: '396186.00',
+      balanceKind: 'limit',
+    });
+  });
+
   it('reads the same alert written with the ₹ sign', () => {
     const p = txn('₹1,250 spent at Amazon using HDFC Card', 'AX-HDFCBK');
     expect(p).toMatchObject({ direction: 'debit', amount: '1250.00', bank: 'hdfc', merchant: 'Amazon' });

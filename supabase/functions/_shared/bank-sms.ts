@@ -478,6 +478,23 @@ function extractMerchant(
     if (merchant) return { merchant, counterparty };
   }
   if (counterparty) return { merchant: cleanMerchant(counterparty), counterparty };
+  // Line-by-line alerts (Axis cards: "Spent INR 2285 / Axis Bank Card no. XX1205 /
+  // 08-10-26 17:09:11 IST / Blinkit / Avl Limit …"): the merchant is a line that is
+  // only a name — no digits, and none of the alert's own words.
+  if (direction === 'debit') {
+    const line = text
+      .split('\n')
+      .map((l) => l.trim())
+      .find(
+        (l) =>
+          /^[a-z][a-z &'.\-*]{1,39}$/i.test(l) &&
+          !/\b(spent|debited|credited|inr|rs|card|bank|a\/c|acct|account|avl|available|limit|balance|bal|not you|sms|block|call|ist|dear|customer|txn|ref|upi|info)\b/i.test(
+            l,
+          ),
+      );
+    const merchant = line ? cleanMerchant(line) : null;
+    if (merchant) return { merchant, counterparty };
+  }
   return { merchant: null, counterparty };
 }
 
