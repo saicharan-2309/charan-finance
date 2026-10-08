@@ -173,6 +173,11 @@ export interface ExtraInsightInput {
   recurringMonthly: readonly { name: string; monthly: Minor; subscription: boolean }[];
   /** The overall budget, if one is set. */
   budget: { amount: Minor; spent: Minor } | null;
+  /**
+   * All spending so far this month, and by the same day of last month — a
+   * like-for-like comparison. Null while last month's figure is loading.
+   */
+  soFar?: { current: Minor; previous: Minor } | null;
 }
 
 export function generateExtraInsights(input: ExtraInsightInput): Insight[] {
@@ -181,6 +186,24 @@ export function generateExtraInsights(input: ExtraInsightInput): Insight[] {
   const elapsed = Math.max(elapsedDays(input.month, input.today), 1);
   const monthDays = daysBetweenInclusive(input.month.start, input.month.end);
   const total = input.categories.reduce((s, c) => s + c.total, 0);
+
+  // Overall spending against the same point last month.
+  if (input.soFar && input.soFar.current > 0 && input.soFar.previous > 0) {
+    const { current, previous } = input.soFar;
+    const change = Math.round(((current - previous) / previous) * 100);
+    out.push({
+      id: 'vs-last-month',
+      icon: change > 0 ? 'trending-up' : change < 0 ? 'trending-down' : 'remove',
+      tone: change > 5 ? 'negative' : change < -5 ? 'positive' : 'neutral',
+      text:
+        change === 0
+          ? `You've spent ${fmt(current)} so far this month — the same as by this day last month.`
+          : `You've spent ${fmt(current)} so far this month — ${Math.abs(change)}% ${
+              change > 0 ? 'more' : 'less'
+            } than by this day last month (${fmt(previous)}).`,
+      priority: 85,
+    });
+  }
 
   // Largest category.
   const top = [...input.categories].sort((a, b) => b.total - a.total)[0];

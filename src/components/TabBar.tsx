@@ -1,17 +1,19 @@
 /**
- * BUD's tab bar: a floating glass capsule, inset from the screen edges and
- * lifted above the home indicator. Four destinations and the Add button sit
- * in five equal slots, so Add is exactly centred by construction (it used to
- * be the third of six slots, which put it left of centre).
+ * BUD's tab bar, in the iOS 26 style: a floating glass capsule with the four
+ * destinations, and Add as its own round glass-edged button to the right —
+ * the same height as the capsule and aligned to it, so there is nothing to
+ * look off-centre (Add used to sit in the middle of five slots, which read as
+ * slightly off between labelled icons).
  *
- *   Home · Activity · [ + ] · Friends · Reports
+ *   ( Home · Activity · Friends · Reports )  ( + )
  *
  * Goals and More are still tabs (deep links keep working) but live on Home
  * and behind your avatar, which keeps the bar uncluttered.
  *
- * The selected tab sits on a soft lens that springs between slots. The
- * capsule is real Liquid Glass on iOS 26 and a system blur elsewhere.
- * Tap Add for the add sheet; long-press it to add an expense straight away.
+ * The selected tab sits on a soft lens that springs between slots; its icon
+ * fills and its label turns brand blue. The capsule is real Liquid Glass on
+ * iOS 26 and a system blur elsewhere. Tap Add for the add sheet; long-press it
+ * to add an expense straight away.
  */
 import type { Tabs } from 'expo-router/js-tabs';
 import { useEffect, useState, type ComponentProps } from 'react';
@@ -30,16 +32,15 @@ import { TAB_BAR_HEIGHT } from './ui/layout';
 
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-/** The bar's order; the Add button goes between the second and third. */
+/** The bar's order. */
 const SHOWN: { name: string; label: string; icon: [string, string] }[] = [
   { name: 'index', label: 'Home', icon: ['home-outline', 'home'] },
   { name: 'transactions', label: 'Activity', icon: ['swap-vertical-outline', 'swap-vertical'] },
   { name: 'friends', label: 'Friends', icon: ['people-outline', 'people'] },
   { name: 'reports', label: 'Reports', icon: ['pie-chart-outline', 'pie-chart'] },
 ];
-const SLOTS = 5;
-const ADD_SLOT = 2;
-const INSET = 5;
+const INSET = 6;
+const GAP = 10;
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors, scheme, elevation } = useTheme();
@@ -47,12 +48,10 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const reduced = useReducedMotion();
   const [width, setWidth] = useState(0);
   const x = useAnimatedValue(0);
-  const slot = width > 0 ? (width - INSET * 2) / SLOTS : 0;
+  const slot = width > 0 ? (width - INSET * 2) / SHOWN.length : 0;
 
   const current = state.routes[state.index]?.name;
-  const shownIndex = SHOWN.findIndex((s) => s.name === current);
-  const slotOf = (i: number) => (i < ADD_SLOT ? i : i + 1);
-  const lensSlot = shownIndex >= 0 ? slotOf(shownIndex) : -1;
+  const lensSlot = SHOWN.findIndex((s) => s.name === current);
 
   useEffect(() => {
     if (!slot || lensSlot < 0) return;
@@ -81,7 +80,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         }}
         style={({ pressed }) => [styles.item, { transform: [{ scale: pressed ? 0.9 : 1 }] }]}
       >
-        <Icon name={focused ? s.icon[1] : s.icon[0]} size={23} color={tint} />
+        <Icon name={focused ? s.icon[1] : s.icon[0]} size={22} color={tint} />
         <Text
           variant="caption"
           style={{ color: tint, fontSize: 10, lineHeight: 12, fontWeight: focused ? '700' : '500' }}
@@ -92,41 +91,16 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     );
   };
 
-  const add = (
-    <View key="add" style={styles.item}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Add"
-        accessibilityHint="Add an expense, money in, a transfer or a split bill. Long press to add an expense straight away."
-        onPress={() => {
-          haptic.light();
-          router.push('/add');
-        }}
-        onLongPress={() => {
-          haptic.light();
-          router.push('/transaction/new');
-        }}
-        style={({ pressed }) => [
-          styles.add,
-          elevation.hero(colors.hero),
-          { transform: [{ scale: pressed ? 0.9 : 1 }] },
-        ]}
-      >
-        <View style={styles.addInner}>
-          <GradientFill colors={colors.heroGradient} sheen />
-          <Icon name="add" size={30} color={colors.heroText} />
-        </View>
-      </Pressable>
-    </View>
-  );
-
-  const items = [...SHOWN.slice(0, ADD_SLOT).map(tab), add, ...SHOWN.slice(ADD_SLOT).map(tab)];
-
   return (
     <View pointerEvents="box-none" style={[styles.container, { bottom: Math.max(insets.bottom - 10, 10) }]}>
-      <View style={[styles.shadow, scheme === 'light' ? elevation.floating : null]}>
+      {/* The four destinations */}
+      <View style={[styles.shadow, { flex: 1 }, scheme === 'light' ? elevation.floating : null]}>
         <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={styles.capsule}>
           <Glass style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]} />
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, styles.edge, { borderColor: colors.chromeStroke }]}
+          />
           {slot && lensSlot >= 0 ? (
             <Animated.View
               pointerEvents="none"
@@ -142,17 +116,54 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               }}
             />
           ) : null}
-          <View style={styles.row}>{items}</View>
+          <View style={styles.row}>{SHOWN.map(tab)}</View>
         </View>
       </View>
+
+      {/* Add — its own button, the same height as the bar */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add"
+        accessibilityHint="Add an expense, money in, a transfer or a split bill. Long press to add an expense straight away."
+        onPress={() => {
+          haptic.light();
+          router.push('/add');
+        }}
+        onLongPress={() => {
+          haptic.light();
+          router.push('/transaction/new');
+        }}
+        style={({ pressed }) => [
+          styles.add,
+          elevation.hero(colors.hero),
+          { transform: [{ scale: pressed ? 0.92 : 1 }] },
+        ]}
+      >
+        <View style={styles.addInner}>
+          <GradientFill colors={colors.heroGradient} sheen />
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, styles.addEdge, { borderColor: colors.heroTrack }]}
+          />
+          <Icon name="add" size={30} color={colors.heroText} />
+        </View>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { position: 'absolute', left: 14, right: 14 },
+  container: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: GAP,
+  },
   shadow: { borderRadius: radius.pill },
   capsule: { height: TAB_BAR_HEIGHT, borderRadius: radius.pill, overflow: 'hidden' },
+  edge: { borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', flex: 1, paddingHorizontal: INSET, alignItems: 'center' },
   item: {
     flex: 1,
@@ -161,6 +172,16 @@ const styles = StyleSheet.create({
     gap: 2,
     height: TAB_BAR_HEIGHT - INSET * 2,
   },
-  add: { width: 50, height: 50, borderRadius: 25 },
-  addInner: { flex: 1, borderRadius: 25, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  add: { width: TAB_BAR_HEIGHT, height: TAB_BAR_HEIGHT, borderRadius: TAB_BAR_HEIGHT / 2 },
+  addInner: {
+    flex: 1,
+    borderRadius: TAB_BAR_HEIGHT / 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addEdge: {
+    borderRadius: TAB_BAR_HEIGHT / 2,
+    borderWidth: 1,
+  },
 });

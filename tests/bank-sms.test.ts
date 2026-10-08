@@ -507,6 +507,11 @@ describe('short card alerts', () => {
     });
   });
 
+  it('reads the same alert written with the ₹ sign', () => {
+    const p = txn('₹1,250 spent at Amazon using HDFC Card', 'AX-HDFCBK');
+    expect(p).toMatchObject({ direction: 'debit', amount: '1250.00', bank: 'hdfc', merchant: 'Amazon' });
+  });
+
   it('reads "at X via UPI"', () => {
     const p = txn('INR 320 debited from A/c XX6202 at Zomato via UPI', 'VM-AXISBK');
     expect(p).toMatchObject({ amount: '320.00', last4: '6202', merchant: 'Zomato' });

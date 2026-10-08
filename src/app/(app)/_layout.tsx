@@ -61,6 +61,7 @@ export default function AppLayout() {
       <Stack.Screen name="bank-sync/index" options={{ title: 'Bank sync' }} />
       <Stack.Screen name="bank-sync/messages" options={{ title: 'Bank messages' }} />
       <Stack.Screen name="review" options={{ title: 'Review' }} />
+      <Stack.Screen name="assistant" options={{ title: 'BUD AI' }} />
       <Stack.Screen name="rules" options={{ title: 'Auto-categorise' }} />
       <Stack.Screen name="friends/find" options={{ title: 'Find friends' }} />
       <Stack.Screen name="friends/[id]" options={{ title: '' }} />

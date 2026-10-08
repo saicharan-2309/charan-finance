@@ -15,7 +15,19 @@ import { qk } from '@/lib/query';
 import { fetchAccountBreakdown, fetchTimeSeries } from '@/services/reports';
 import type { AccountTotal } from '@/types/domain';
 
-export function useInsights(): { insights: Insight[] | null; loading: boolean; error: unknown } {
+export interface InsightsBasis {
+  /** Transactions this money month the insights were worked out from. */
+  transactions: number;
+  from: string;
+  to: string;
+}
+
+export function useInsights(): {
+  insights: Insight[] | null;
+  basis: InsightsBasis | null;
+  loading: boolean;
+  error: unknown;
+} {
   const dashboard = useDashboard();
   const recurring = useRecurring();
   const budgets = useBudgetStatus();
@@ -31,6 +43,11 @@ export function useInsights(): { insights: Insight[] | null; loading: boolean; e
   const days = useQuery({
     queryKey: qk.report('series', month.start, today, 'day'),
     queryFn: () => fetchTimeSeries(month.start, today, 'day'),
+  });
+  // Last month up to the same day, for "more / less than by this day last month".
+  const prevDays = useQuery({
+    queryKey: qk.report('series', prevStart, prevEnd, 'day'),
+    queryFn: () => fetchTimeSeries(prevStart, prevEnd, 'day'),
   });
   const cardsNow = useQuery({
     queryKey: qk.report('accounts', month.start, today),
@@ -84,6 +101,12 @@ export function useInsights(): { insights: Insight[] | null; loading: boolean; e
           subscription: r.kind === 'subscription',
         })),
       budget: overall ? { amount: overall.amount, spent: overall.spent } : null,
+      soFar: prevDays.data
+        ? {
+            current: d.current.expense,
+            previous: prevDays.data.reduce((s, p) => s + p.expense, 0) as Minor,
+          }
+        : null,
     });
     // One insight per id; highest priority first.
     const seen = new Set<string>();
@@ -95,11 +118,15 @@ export function useInsights(): { insights: Insight[] | null; loading: boolean; e
     recurring.data,
     budgets.data,
     days.data,
+    prevDays.data,
     cardsNow.data,
     cardsBefore.data,
     month,
     today,
   ]);
 
-  return { insights, loading: dashboard.isPending, error: dashboard.error };
+  const basis = dashboard.data
+    ? { transactions: dashboard.data.current.transactionCount, from: month.start, to: today }
+    : null;
+  return { insights, basis, loading: dashboard.isPending, error: dashboard.error };
 }

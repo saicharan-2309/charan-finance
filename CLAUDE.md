@@ -24,7 +24,7 @@ name on purpose — changing them would detach EAS and the update channel.
 - Backend is his own Supabase project (Postgres, Auth, Storage, Edge Functions, RLS).
 - He pulls from GitHub (`saicharan-2309/charan-finance`) and ships with:
   1. new migrations first (`npx supabase db push`, or paste into the SQL Editor),
-  2. `npx supabase functions deploy <name> --use-api` (`ingest-sms` also needs `--no-verify-jwt`),
+  2. `npx supabase functions deploy <name> --use-api` (`ingest-sms` also needs `--no-verify-jwt`; `bud-ai` keeps JWT verification on),
   3. `npx eas-cli@latest update --branch main --message "…"` → choose **preview**.
 
 ## Stack
@@ -58,22 +58,26 @@ tests/              Jest
 All values live in `src/theme/tokens.ts`; components read them via `useTheme()` (which also
 returns scheme-aware `elevation`). Never hard-code a colour, size or font.
 
-- **The BUD logo is the source of truth.** Colours were sampled from it: paper `#F6F5F1`, sage
-  `#537565`, green `#356057` (brand `#2F5E52`), forest `#163631`, silver `#86A9A1`, ink
-  `#17292F` (all text). One warm accent, copper (`expense` `#B4683E`), for expenses/alerts.
-  `BUD_SWATCHES` (11 hues × base/deep/light) is the only palette for payment methods,
-  categories, avatars and menu icons. Chart palette: BUD earth tones, warm/cool alternating.
-- Canvas: warm paper with borderless white cards on soft green-tinted shadows; dark mode is a
-  deep green-black with cards lifted by tone. Hero, Add button and avatars use the logo's tile
-  gradient. Brand mark: `components/BrandMark.tsx` (redrawn from the logo).
+- **The official BUD logo is the source of truth** (`assets/images/bud-logo-original.png`, as
+  supplied by Charan; `bud-logo.png` is a resized copy, also the app icon). Never redraw, recolour
+  or crop it — `components/BrandMark.tsx` shows the PNG. Colours were sampled from it (Oct 8):
+  navy `#071645` (text `#0B1A45`), dark blue `#1A3FAC` (brand), bright blue `#1067FE` (income),
+  cyan `#51ACFE` (accent), coral `#E5445D` (expense), peach `#FE9D72`, off-white canvas.
+  **No green in the identity** (Charan dislikes it; `tests/tokens-contrast.test.ts` enforces it
+  and WCAG contrast). `BUD_SWATCHES` (11 hues × base/deep/light) is the only palette for payment
+  methods, categories, avatars and menu icons. Chart palette alternates cool/warm.
+- Canvas: cool off-white with borderless white cards on soft navy-tinted shadows; dark mode is a
+  deep navy with cards lifted by tone. Hero, Add button and avatars use the logo tile's gradient
+  (blue → dark blue → navy). The coral → peach `gaugeGradient` is progress against a limit.
 - Payment-method cards use **the colour the user chose** (`cardGradientFor(account.color)`) —
   never a colour picked by position. The colour picker is `features/shared/ColorPicker.tsx`.
 - Type: system face only (SF on iPhone); tabular figures for amounts.
 - Shape: continuous corners via `continuous`; radius hierarchy (hero 30, cards 22, controls 14).
 - **Glass** (`components/ui/glass.tsx`): real Liquid Glass on iOS 26 (in Expo Go), blur on older
   iOS, CSS blur on web — for chrome and controls only, never content cards.
-- **Tab bar**: floating glass capsule, 5 equal slots — Home · Activity · [+] · Friends · Reports —
-  so Add is exactly centred; a lens springs to the selected tab.
+- **Tab bar** (iOS 26 style): a floating glass capsule with Home · Activity · Friends · Reports and
+  a lens that springs to the selected tab, plus Add as its own round gradient button to the right,
+  the capsule's height. (Centred-in-5-slots read as off-centre; don't go back.)
 - Gradients come from `components/ui/gradient.tsx`, which measures its box — never size an SVG
   canvas with "100%" (it clipped the hero on iOS). Headless-Chrome screenshots show a thin strip
   on the hero's right edge (it measures before hiding its scrollbar) — not a real-device bug.
@@ -81,7 +85,7 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   memo dependency and crashes when `obj` is null. Guard instead.
 - Colour never carries meaning alone; every screen works in light and dark; sentence case;
   Indian number format.
-- Home order: header (insights · BUD · avatar) → balance groups (first on the gradient, with safe
+- Home order: header (official logo + "BUD" wordmark · BUD AI · insights · avatar) → balance groups (first on the gradient, with safe
   to spend until payday) → quick actions → payment-method cards → bank-sync card → top insight →
   friends summary → this week → recent → expenses tiles → monthly budget → upcoming → goals.
 
@@ -97,7 +101,9 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   gives apps **no access to SMS**; history comes only from an iPhone backup
   (`scripts/import-iphone-sms.ts`). Low confidence (unknown or ambiguous account) → Review, never
   a guess; duplicates are refused by message hash. Transfers and card-bill payments are never
-  spending. Imported history never moves today's balance.
+  spending. Imported history never moves today's balance. The iPhone Message automation needs a
+  **Message Contains** word (one automation each for debited / credited / spent / Rs.) — it can't
+  run for every text. `ingest_keys.last_used_at` null = the phone has never reached the server.
 - **Friends money model** (`20261007000200_friends.sql`): double-entry on the existing ledger.
   Each user has one system account, "Friends" (`system_kind = 'friends'`, other_asset). Payer:
   expense = own share + transfer bank→Friends for the rest. Participant: expense of their share
@@ -106,6 +112,12 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   All writes go through SECURITY DEFINER functions; RLS limits reads to participants; nobody can
   read another user's accounts, transactions or profile row. Person-to-person balances cover
   non-group items; group debts live in `group_balances()` (fewest-payments plan may route money).
+- **BUD AI** (`app/(app)/assistant.tsx`, Edge Function `bud-ai`, tools in
+  `supabase/functions/_shared/bud-ai.ts`): Claude with tool use. The model only calls fixed tools;
+  reads go through report functions and `ai_search_transactions` / `ai_friends` with the
+  **user's own JWT** (RLS applies; no SQL from the model, no service key). Changes come back as
+  proposals; the app performs them via existing functions only after the user taps Confirm.
+  150 questions/day (`ai_take_quota`). Needs the `ANTHROPIC_API_KEY` Supabase secret.
 - Privacy: OTPs, promotions and personal texts are never stored; sync keys and the app passcode
   are stored only as hashes; the service-role key never ships in the app; **`.env` is never
   committed**. Never store bank login credentials.

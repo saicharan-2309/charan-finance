@@ -504,6 +504,110 @@ export function DonutChart({
 }
 
 // ---------------------------------------------------------------------------
+// Rings: one share as a rounded arc, or several concentric (Activity-style)
+// ---------------------------------------------------------------------------
+export interface Ring {
+  key: string;
+  label: string;
+  /** 0–1; anything above 1 is drawn full. */
+  fraction: number;
+  color: string;
+}
+
+/** Concentric rounded arcs on a muted track, outermost first. Always shown with a legend. */
+export function RingStack({
+  rings,
+  size = 140,
+  thickness = 14,
+  spacing: ringGap = 4,
+  center,
+}: {
+  rings: Ring[];
+  size?: number;
+  thickness?: number;
+  spacing?: number;
+  center?: ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      accessibilityRole="image"
+      accessibilityLabel={rings
+        .map((r) => `${r.label} ${Math.round(Math.max(r.fraction, 0) * 100)}%`)
+        .join(', ')}
+    >
+      <Reveal>
+        <Svg width={size} height={size}>
+          {rings.map((ring, i) => {
+            const r = size / 2 - thickness / 2 - i * (thickness + ringGap);
+            if (r <= thickness / 2) return null;
+            const c = 2 * Math.PI * r;
+            const f = Math.min(Math.max(ring.fraction, 0), 1);
+            const len = f * c;
+            return (
+              <G key={ring.key}>
+                <Circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={r}
+                  stroke={colors.surfaceMuted}
+                  strokeWidth={thickness}
+                  fill="none"
+                />
+                {len > 0 ? (
+                  <Circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={r}
+                    stroke={ring.color}
+                    strokeWidth={thickness}
+                    strokeLinecap="round"
+                    fill="none"
+                    // A full ring has no visible cap seam; a partial one gets round ends.
+                    strokeDasharray={f >= 1 ? undefined : `${Math.max(len, 0.01)} ${c}`}
+                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                  />
+                ) : null}
+              </G>
+            );
+          })}
+        </Svg>
+      </Reveal>
+      {center ? (
+        <View style={{ position: 'absolute', alignItems: 'center' }} pointerEvents="none">
+          {center}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** A single share as a small ring, for list rows (merchant, payment method). */
+export function ProgressRing({
+  fraction,
+  color,
+  size = 40,
+  thickness = 5,
+  children,
+}: {
+  fraction: number;
+  color: string;
+  size?: number;
+  thickness?: number;
+  children?: ReactNode;
+}) {
+  return (
+    <RingStack
+      size={size}
+      thickness={thickness}
+      rings={[{ key: 'v', label: 'Share', fraction, color }]}
+      center={children}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sparkline (no axes; used inside cards)
 // ---------------------------------------------------------------------------
 export function Sparkline({

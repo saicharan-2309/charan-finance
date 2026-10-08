@@ -6,28 +6,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { BarChart, LineChart, ShareBar } from '@/components/charts';
+import { LineChart } from '@/components/charts';
 import { SegmentedControl } from '@/components/ui/controls';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/feedback';
 import { Screen, Section } from '@/components/ui/layout';
-import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
-import { BudgetRow, CategoryBreakdown } from '@/features/dashboard/widgets';
-import { CategoryDonut, PaidWith, SpendHero, TopMerchants } from '@/features/reports/overview';
+import { Card, Icon, Row, Text } from '@/components/ui/primitives';
+import { BudgetRow } from '@/features/dashboard/widgets';
+import {
+  AccountRings,
+  CategoryDonut,
+  MerchantRings,
+  MoneyRings,
+  PaidWith,
+  SpendHero,
+  SpendingMix,
+  TopMerchants,
+} from '@/features/reports/overview';
 import { defaultRange, RangePicker, type RangeValue } from '@/features/reports/RangePicker';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { useBudgetStatus, useCurrency, useSettings, useSnapshots } from '@/hooks/data';
-import { ACCOUNT_TYPE_LABELS } from '@/lib/accounts';
-import { METHOD_ICONS } from '@/lib/payment-methods';
-import {
-  daysBetweenInclusive,
-  formatMonthLabel,
-  formatShortDate,
-  previousRange,
-  rangeForPreset,
-  yearAgoRange,
-} from '@/lib/dates';
+import { formatShortDate, previousRange, rangeForPreset, yearAgoRange } from '@/lib/dates';
 import { formatMoney, percentOf } from '@/lib/money';
 import { invalidateFinancialData, qk } from '@/lib/query';
 import {
@@ -35,29 +35,14 @@ import {
   fetchCategoryBreakdown,
   fetchMerchantBreakdown,
   fetchSummary,
-  fetchTimeSeries,
-  type Bucket,
 } from '@/services/reports';
 import { fetchLargestExpenses } from '@/services/transactions';
-import { useTheme } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/tokens';
 import type { PeriodSummary } from '@/types/domain';
 
 type Tab = 'overview' | 'categories' | 'merchants' | 'accounts';
 
-function bucketFor(start: string, end: string): Bucket {
-  const days = daysBetweenInclusive(start, end);
-  return days <= 31 ? 'day' : days <= 120 ? 'week' : 'month';
-}
-
-function bucketLabel(bucket: Bucket, iso: string) {
-  if (bucket === 'month') return formatMonthLabel(iso, true);
-  const d = new Date(iso);
-  return bucket === 'day' ? String(Number(iso.slice(8, 10))) : `${d.getDate()}/${d.getMonth() + 1}`;
-}
-
 export default function ReportsScreen() {
-  const { colors } = useTheme();
   const currency = useCurrency();
   const startDay = useSettings().data?.cycleStartDay ?? 1;
   const [range, setRange] = useState<RangeValue>(() => defaultRange(startDay));
@@ -74,7 +59,6 @@ export default function ReportsScreen() {
   const { start, end } = range.range;
   const prev = useMemo(() => previousRange(range.range, startDay), [range.range, startDay]);
   const yoy = useMemo(() => yearAgoRange(range.range), [range.range]);
-  const bucket = bucketFor(start, end);
 
   const summary = useQuery({
     queryKey: qk.report('summary', start, end),
@@ -87,10 +71,6 @@ export default function ReportsScreen() {
   const yoySummary = useQuery({
     queryKey: qk.report('summary', yoy.start, yoy.end),
     queryFn: () => fetchSummary(yoy.start, yoy.end),
-  });
-  const series = useQuery({
-    queryKey: qk.report('series', start, end, bucket),
-    queryFn: () => fetchTimeSeries(start, end, bucket),
   });
   const categories = useQuery({
     queryKey: qk.report('categories', start, end),
@@ -167,24 +147,8 @@ export default function ReportsScreen() {
             <CategoryDonut categories={categories.data} currency={currency} range={{ start, end }} />
           </Section>
 
-          <Section title="Month by month">
-            <Card>
-              {series.data ? (
-                <BarChart
-                  currency={currency}
-                  series={[
-                    { name: 'Money in', color: colors.income },
-                    { name: 'Spent', color: colors.expense },
-                  ]}
-                  data={series.data.map((p) => ({
-                    label: bucketLabel(bucket, p.bucket),
-                    values: [p.income, p.expense],
-                  }))}
-                />
-              ) : (
-                <Skeleton height={200} />
-              )}
-            </Card>
+          <Section title="This period vs last">
+            <MoneyRings current={s} previous={prevSummary.data} currency={currency} />
             <Comparison
               label="vs the same time last year"
               current={s}
@@ -207,47 +171,7 @@ export default function ReportsScreen() {
 
           {s && s.expense > 0 ? (
             <Section title="Spending mix">
-              <Card style={{ gap: spacing.lg }}>
-                <MixRow
-                  label="Essential"
-                  value={s.essentialExpense}
-                  total={s.expense}
-                  color={colors.info}
-                  currency={currency}
-                />
-                <MixRow
-                  label="Discretionary"
-                  value={s.discretionaryExpense}
-                  total={s.expense}
-                  color={colors.brand}
-                  currency={currency}
-                />
-                <MixRow
-                  label="Unclassified"
-                  value={s.expense - s.essentialExpense - s.discretionaryExpense}
-                  total={s.expense}
-                  color={colors.textTertiary}
-                  currency={currency}
-                />
-                <Divider />
-                <MixRow
-                  label="Recurring expenses"
-                  value={s.recurringExpense}
-                  total={s.expense}
-                  color={colors.transfer}
-                  currency={currency}
-                />
-                <MixRow
-                  label="Subscriptions"
-                  value={s.subscriptionExpense}
-                  total={s.expense}
-                  color={colors.transfer}
-                  currency={currency}
-                />
-                <Text variant="caption" tone="tertiary">
-                  Essential/discretionary follows how you classify categories (More → Categories).
-                </Text>
-              </Card>
+              <SpendingMix s={s} currency={currency} />
             </Section>
           ) : null}
 
@@ -300,31 +224,11 @@ export default function ReportsScreen() {
       {tab === 'categories' ? (
         <>
           <Section title="Spending by category">
-            <Card>
-              {categories.data === undefined ? (
-                <Skeleton height={260} />
-              ) : categories.data.length === 0 ? (
-                <EmptyState compact icon="pie-chart-outline" title="No spending in this period" />
-              ) : (
-                <CategoryBreakdown
-                  categories={categories.data}
-                  currency={currency}
-                  max={8}
-                  onPressCategory={(c) =>
-                    router.push({
-                      pathname: '/report-detail',
-                      params: { categoryId: c.categoryId!, start, end },
-                    })
-                  }
-                />
-              )}
-            </Card>
+            <CategoryDonut categories={categories.data} currency={currency} range={{ start, end }} />
           </Section>
           {incomeCats.data?.length ? (
             <Section title="Income by category">
-              <Card>
-                <CategoryBreakdown categories={incomeCats.data} currency={currency} max={6} />
-              </Card>
+              <CategoryDonut categories={incomeCats.data} currency={currency} range={{ start, end }} />
             </Section>
           ) : null}
         </>
@@ -337,36 +241,7 @@ export default function ReportsScreen() {
           ) : merchants.data.length === 0 ? (
             <EmptyState compact icon="storefront-outline" title="No merchant spending in this period" />
           ) : (
-            <Card style={{ gap: spacing.lg }}>
-              {merchants.data.map((m) => (
-                <Pressable
-                  key={m.merchantId}
-                  onPress={() => router.push({ pathname: '/merchants/[id]', params: { id: m.merchantId } })}
-                  accessibilityRole="button"
-                  style={{ gap: 6 }}
-                >
-                  <Row justify="space-between">
-                    <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
-                      {m.name}
-                    </Text>
-                    <MoneyText
-                      minor={m.total}
-                      currency={currency}
-                      variant="subhead"
-                      options={{ decimals: 'never' }}
-                    />
-                  </Row>
-                  <ShareBar
-                    fraction={merchants.data[0].total ? m.total / merchants.data[0].total : 0}
-                    color={colors.brand}
-                  />
-                  <Text variant="caption" tone="secondary">
-                    {m.count} × · avg {formatMoney(m.average, currency, { decimals: 'never' })} · largest{' '}
-                    {formatMoney(m.largest, currency, { decimals: 'never' })}
-                  </Text>
-                </Pressable>
-              ))}
-            </Card>
+            <MerchantRings merchants={merchants.data} currency={currency} detailed />
           )}
         </Section>
       ) : null}
@@ -378,47 +253,10 @@ export default function ReportsScreen() {
           ) : accounts.data.length === 0 ? (
             <EmptyState compact icon="card-outline" title="No activity in this period" />
           ) : (
-            <Card style={{ gap: spacing.lg }}>
-              {accounts.data.map((a) => {
-                const max = Math.max(...accounts.data.map((x) => x.expense), 1);
-                return (
-                  <Pressable
-                    key={a.accountId}
-                    onPress={() => router.push({ pathname: '/accounts/[id]', params: { id: a.accountId } })}
-                    accessibilityRole="button"
-                    style={{ gap: 6 }}
-                  >
-                    <Row gap={spacing.md}>
-                      <IconBadge icon={METHOD_ICONS[a.type]} size={32} />
-                      <View style={{ flex: 1 }}>
-                        <Text variant="bodyStrong">{a.name}</Text>
-                        <Text variant="caption" tone="secondary">
-                          {ACCOUNT_TYPE_LABELS[a.type]} · {a.count} transactions
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <MoneyText
-                          minor={a.expense}
-                          currency={currency}
-                          variant="subhead"
-                          options={{ decimals: 'never' }}
-                        />
-                        {a.income ? (
-                          <MoneyText
-                            minor={a.income}
-                            currency={currency}
-                            variant="caption"
-                            tone="positive"
-                            options={{ signed: true, decimals: 'never' }}
-                          />
-                        ) : null}
-                      </View>
-                    </Row>
-                    <ShareBar fraction={a.expense / max} color={colors.brand} />
-                  </Pressable>
-                );
-              })}
-            </Card>
+            <View style={{ gap: spacing.lg }}>
+              <PaidWith accounts={accounts.data} currency={currency} />
+              <AccountRings accounts={accounts.data} currency={currency} />
+            </View>
           )}
         </Section>
       ) : null}
@@ -467,31 +305,5 @@ function Comparison({
         </Text>
       </Row>
     </Row>
-  );
-}
-
-function MixRow({
-  label,
-  value,
-  total,
-  color,
-  currency,
-}: {
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-  currency: string;
-}) {
-  return (
-    <View style={{ gap: 6 }}>
-      <Row justify="space-between">
-        <Text variant="callout">{label}</Text>
-        <Text variant="subhead" tone="secondary">
-          {formatMoney(value, currency, { decimals: 'never' })} · {Math.round(percentOf(value, total))}%
-        </Text>
-      </Row>
-      <ShareBar fraction={total ? value / total : 0} color={color} />
-    </View>
   );
 }

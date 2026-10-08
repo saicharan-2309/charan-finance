@@ -110,7 +110,7 @@ export default function BankSyncScreen() {
                     {s.connected
                       ? s.lastMessageAt
                         ? `Last message ${formatDayLabel(new Date(s.lastMessageAt)).toLowerCase()} at ${formatTime(s.lastMessageAt)}`
-                        : 'Waiting for the first bank SMS'
+                        : 'Your iPhone hasn’t sent a message yet. Set up the Shortcut below — this changes to the time of the last message once it works.'
                       : 'Your bank texts you for every payment. Forward those texts here and they become transactions — categorised, matched to the right account, never double-counted.'}
                   </Text>
                 </View>
@@ -385,7 +385,7 @@ export default function BankSyncScreen() {
 const STEPS = [
   {
     title: 'Create a Message automation',
-    body: 'Open Shortcuts › Automation › + (New Automation) › Message. Leave Sender and Message Contains empty, choose Run Immediately, then Next › New Blank Automation.',
+    body: 'Open Shortcuts › Automation › + (New Automation) › Message. Leave Sender empty. Tap Message Contains and type debited — iPhone needs a word here, it won’t run an automation for every text. Choose Run Immediately, then Next › New Blank Automation.',
   },
   {
     title: 'Add “Get Contents of URL”',
@@ -404,8 +404,12 @@ const STEPS = [
     body: 'Add “Get Dictionary Value” for summary, then “Show Notification”. You’ll see “Spent ₹450 · Swiggy” a second after each payment.',
   },
   {
-    title: 'Done',
-    body: 'Tap Done, and turn off Notify When Run if you don’t want a banner. Tap Test connection above to check the key, then make any small UPI payment.',
+    title: 'Done — then repeat for the other words',
+    body: 'Tap Done. Make the same automation three more times with Message Contains set to credited, spent and Rs. — between them they catch the alerts from HDFC, SBI, ICICI, Axis, Kotak and the rest. A message caught twice is only recorded once.',
+  },
+  {
+    title: 'Check it really runs',
+    body: 'Test connection only checks the key. Make any small UPI payment: within seconds the top of this screen should say “Last message today at …”. If it still says your iPhone hasn’t sent a message, open the automation and check Run Immediately, the URL and the x-sync-key header.',
   },
 ];
 

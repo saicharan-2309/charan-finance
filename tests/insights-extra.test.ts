@@ -73,6 +73,22 @@ describe('generateExtraInsights', () => {
     expect(out.find((i) => i.id === 'budget-close')?.text).toMatch(/83% of your monthly budget/);
   });
 
+  it('compares spending with the same point last month', () => {
+    const out = generateExtraInsights({
+      ...base,
+      soFar: { current: 1200000 as never, previous: 1000000 as never },
+    });
+    expect(out.find((i) => i.id === 'vs-last-month')?.text).toBe(
+      "You've spent ₹12,000 so far this month — 20% more than by this day last month (₹10,000).",
+    );
+    // No comparison without a figure from last month.
+    expect(
+      generateExtraInsights({ ...base, soFar: { current: 5000 as never, previous: 0 as never } }).some(
+        (i) => i.id === 'vs-last-month',
+      ),
+    ).toBe(false);
+  });
+
   it('says nothing when there is no data', () => {
     expect(generateExtraInsights(base)).toEqual([]);
   });

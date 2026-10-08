@@ -469,7 +469,7 @@ function AccountForm({
       ) : null}
 
       <Section title="Colour">
-        <ColorPicker value={color} onChange={setColor} previewLabel={name || undefined} />
+        <ColorPicker value={color} onChange={setColor} previewLabel={name || undefined} preview="card" />
       </Section>
 
       {showMore ? (

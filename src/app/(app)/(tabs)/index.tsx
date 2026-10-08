@@ -1,7 +1,7 @@
 /**
  * Home, built on balance groups.
  *
- * Order: header (insights · BUD · you) → your balance groups (the first on the
+ * Order: header (BUD logo and wordmark · BUD AI · insights · you) → your balance groups (the first on the
  * BUD gradient, with what is safe to spend until payday; cash and credit are
  * never added together) → quick actions → payment-method cards → anything
  * bank sync wants checked → the top insight → friends → this week → recent
@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { BrandMark } from '@/components/BrandMark';
 import { HeaderButton } from '@/components/ui/controls';
 import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { GradientFill } from '@/components/ui/gradient';
@@ -168,36 +169,57 @@ export default function HomeScreen() {
 
   return (
     <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh}>
-      {/* Header: insights · BUD · you */}
+      {/* Header: the BUD logo and wordmark · BUD AI · insights · you */}
       <Row justify="space-between" style={{ marginBottom: spacing.xl }}>
-        <HeaderButton icon="sparkles" label="Insights" onPress={() => router.push('/insights')} />
-        <Text
+        <View
+          accessible
           accessibilityRole="header"
           accessibilityLabel="BUD, Home"
-          style={{ fontSize: 22, fontWeight: '800', letterSpacing: 3, color: colors.text }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
         >
-          BUD
-        </Text>
-        <Pressable
-          onPress={() => router.push('/more')}
-          accessibilityRole="button"
-          accessibilityLabel="Your account and settings"
-          hitSlop={8}
-          style={({ pressed }) => ({
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: [{ scale: pressed ? 0.92 : 1 }],
-          })}
-        >
-          <GradientFill colors={colors.heroGradient} sheen />
-          <Text variant="bodyStrong" style={{ color: colors.heroText }}>
-            {(name || '?').charAt(0).toUpperCase()}
-          </Text>
-        </Pressable>
+          <BrandMark size={44} />
+          <Row align="flex-end" gap={3}>
+            <Text
+              style={{
+                fontSize: 26,
+                lineHeight: 30,
+                fontWeight: '900',
+                letterSpacing: 0.5,
+                color: colors.text,
+              }}
+            >
+              BUD
+            </Text>
+            {/* The coral-to-peach dot from the logo's D */}
+            <View style={{ width: 7, height: 7, borderRadius: 3.5, overflow: 'hidden', marginBottom: 7 }}>
+              <GradientFill colors={[colors.gaugeGradient[1], colors.gaugeGradient[0]]} />
+            </View>
+          </Row>
+        </View>
+        <Row gap={spacing.sm}>
+          <HeaderButton icon="sparkles" label="BUD AI" onPress={() => router.push('/assistant')} />
+          <HeaderButton icon="bulb-outline" label="Insights" onPress={() => router.push('/insights')} />
+          <Pressable
+            onPress={() => router.push('/more')}
+            accessibilityRole="button"
+            accessibilityLabel="Your account and settings"
+            hitSlop={8}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: [{ scale: pressed ? 0.92 : 1 }],
+            })}
+          >
+            <GradientFill colors={colors.heroGradient} sheen />
+            <Text variant="bodyStrong" style={{ color: colors.heroText }}>
+              {(name || '?').charAt(0).toUpperCase()}
+            </Text>
+          </Pressable>
+        </Row>
       </Row>
 
       <SyncBanner />
