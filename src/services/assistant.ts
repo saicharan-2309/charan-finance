@@ -1,73 +1,108 @@
 /**
- * BUD AI — talks to the `bud-ai` Edge Function and performs the changes it
- * proposes, once the user confirms, through the app's existing functions:
+ * BUD AI — runs entirely inside the app. No AI service, no API key: the
+ * engine (lib/assistant) understands the question and answers it from the
+ * user's own data, read through the app's existing functions under the
+ * user's own login (so row-level security applies). Nothing leaves the
+ * user's phone and their BUD database.
  *
- *   new expense / income   → saveTransaction (save_transaction), as the Add screen does
- *   recategorise           → reviewTransaction (review_transaction)
- *   merchant / note change → saveTransaction in update mode, with the row's version check
- *   split with a friend    → createSharedExpense (create_shared_expense), equal split
- *
- * Nothing here writes on the model's say-so alone: every action arrives as a
- * proposal the user has tapped Confirm on, and the database validates it again.
+ * Changes are proposals; once the user taps Confirm they're performed by the
+ * same functions the rest of the app uses:
+ *   new expense / income → saveTransaction (save_transaction)
+ *   recategorise         → reviewTransaction (review_transaction)
+ *   split with a friend  → createSharedExpense (create_shared_expense), equal split
  */
 import { randomUUID } from 'expo-crypto';
 
-import type { ProposedAction } from '@/lib/bud-ai';
-import { todayISO } from '@/lib/dates';
+import {
+  respond,
+  type AssistantData,
+  type Conversation,
+  type ProposedAction,
+  type Reply,
+  type TxnHit,
+} from '@/lib/assistant/engine';
+import { todayISO, toISODate } from '@/lib/dates';
 import { toMinor, type Minor } from '@/lib/money';
 import { splitBill } from '@/lib/splits';
-import { supabase } from '@/lib/supabase';
+import { supabase, unwrap } from '@/lib/supabase';
 import { reviewTransaction } from './bank-sync';
-import { createSharedExpense } from './friends';
-import { fetchTransaction, saveTransaction } from './transactions';
+import { fetchAccounts, fetchCategories } from './core';
+import { createSharedExpense, fetchMyGroupPositions } from './friends';
+import {
+  fetchAccountBreakdown,
+  fetchCategoryBreakdown,
+  fetchMerchantBreakdown,
+  fetchSummary,
+} from './reports';
+import { saveTransaction } from './transactions';
 
-export type { ProposedAction } from '@/lib/bud-ai';
+export type { Choice, Conversation, ProposedAction, Reply } from '@/lib/assistant/engine';
+export { EMPTY_CONVERSATION, SUGGESTIONS } from '@/lib/assistant/engine';
 
-export interface ChatTurn {
-  role: 'user' | 'assistant';
-  content: string;
-}
+type Row = Record<string, unknown>;
 
-export interface AssistantReply {
-  reply: string;
-  actions: ProposedAction[];
-  sources: string[];
-}
-
-export type AssistantOutcome =
-  | { status: 'ok'; data: AssistantReply }
-  | { status: 'not_configured'; message: string }
-  | { status: 'failed'; message: string };
-
-export async function askBudAi(history: ChatTurn[]): Promise<AssistantOutcome> {
-  const { data, error } = await supabase.functions.invoke<AssistantReply & { error?: string; code?: string }>(
-    'bud-ai',
-    { body: { messages: history.slice(-20) } },
-  );
-  if (error) {
-    const ctx = (error as { context?: Response }).context;
-    let body: { error?: string; code?: string } = {};
-    try {
-      body = ctx && typeof ctx.json === 'function' ? await ctx.json() : {};
-    } catch {
-      body = {};
-    }
-    if (ctx?.status === 503 && body.code === 'not_configured') {
-      return { status: 'not_configured', message: body.error ?? 'BUD AI isn’t set up on the server yet.' };
-    }
-    if (ctx?.status === 404) {
-      return { status: 'not_configured', message: 'The bud-ai function isn’t deployed yet.' };
-    }
-    return {
-      status: 'failed',
-      message: body.error ?? 'BUD AI couldn’t answer just now. Check your connection and try again.',
-    };
-  }
-  if (!data) return { status: 'failed', message: 'BUD AI sent an empty answer. Try again.' };
-  return {
-    status: 'ok',
-    data: { reply: data.reply ?? '', actions: data.actions ?? [], sources: data.sources ?? [] },
+/** The engine's view of the user's data, through the app's existing functions. */
+export function liveData(opts: { cycleStartDay: number; currency: string }): AssistantData {
+  const cache = new Map<string, Promise<unknown>>();
+  const once = <T>(key: string, load: () => Promise<T>): Promise<T> => {
+    if (!cache.has(key)) cache.set(key, load());
+    return cache.get(key) as Promise<T>;
   };
+  return {
+    today: todayISO(),
+    cycleStartDay: opts.cycleStartDay,
+    currency: opts.currency,
+    summary: (r) => fetchSummary(r.start, r.end),
+    byCategory: (r, kind) => fetchCategoryBreakdown(r.start, r.end, { kind }),
+    byMerchant: (r) => fetchMerchantBreakdown(r.start, r.end, 200),
+    byAccount: (r) => fetchAccountBreakdown(r.start, r.end),
+    search: async (f) => {
+      const rows = unwrap(
+        await supabase.rpc('ai_search_transactions', {
+          p_start: f.range?.start ?? null,
+          p_end: f.range?.end ?? null,
+          p_text: f.text ?? null,
+          p_type: f.type ?? null,
+          p_category_id: f.categoryId ?? null,
+          p_account_id: f.accountId ?? null,
+          p_limit: f.limit ?? 20,
+          p_id: f.id ?? null,
+        }),
+      ) as Row[];
+      return rows.map((r): TxnHit => ({
+        id: String(r.id),
+        occurredAt: String(r.occurred_at),
+        day: toISODate(new Date(String(r.occurred_at))),
+        type: r.type as TxnHit['type'],
+        amount: toMinor(r.amount as string),
+        merchant: (r.merchant_name as string | null) ?? null,
+        categoryId: (r.category_id as string | null) ?? null,
+        category: (r.category_name as string | null) ?? null,
+        account: (r.account_name as string | null) ?? null,
+        sharedExpenseId: (r.shared_expense_id as string | null) ?? null,
+      }));
+    },
+    accounts: () => once('accounts', fetchAccounts),
+    categories: () => once('categories', fetchCategories),
+    friends: () =>
+      once('friends', async () =>
+        (unwrap(await supabase.rpc('ai_friends')) as Row[]).map((f) => ({
+          userId: String(f.user_id),
+          name: String(f.name),
+          username: (f.username as string | null) ?? null,
+          net: toMinor(f.net as string),
+        })),
+      ),
+    groups: async () => (await fetchMyGroupPositions()).map((g) => ({ name: g.name, net: g.net })),
+  };
+}
+
+export async function askBudAi(
+  text: string,
+  convo: Conversation,
+  opts: { cycleStartDay: number; currency: string },
+): Promise<{ reply: Reply; convo: Conversation }> {
+  return respond(text, convo, liveData(opts));
 }
 
 /** The moment to record: now for today, otherwise midday on that day (local time). */
@@ -80,12 +115,12 @@ function occurredAtFor(day: string): string {
 /** Performs a confirmed proposal. Returns a one-line result for the chat. */
 export async function performAction(action: ProposedAction, me: string): Promise<string> {
   switch (action.kind) {
-    case 'create_transaction': {
+    case 'create_transaction':
       await saveTransaction({
         mode: 'create',
         id: randomUUID(),
         type: action.type,
-        amount: toMinor(action.amount),
+        amount: action.amount,
         accountId: action.accountId,
         occurredAt: occurredAtFor(action.occurredOn),
         toAccountId: null,
@@ -93,51 +128,26 @@ export async function performAction(action: ProposedAction, me: string): Promise
         subcategoryId: null,
         merchantId: null,
         merchantName: action.merchantName,
-        notes: action.notes,
+        notes: null,
         tags: null,
         expectedUpdatedAt: null,
       });
       return `Saved: ${action.summary}`;
-    }
-    case 'update_transaction': {
-      const t = await fetchTransaction(action.transactionId);
-      if (!t) throw new Error('That transaction no longer exists.');
-      const onlyCategory =
-        action.categoryId && action.merchantName === undefined && action.notes === undefined;
-      if (onlyCategory) {
-        await reviewTransaction({ id: t.id, categoryId: action.categoryId!, subcategoryId: null });
-        return `Updated: ${action.summary}`;
-      }
-      if (t.type !== 'expense' && t.type !== 'income' && t.type !== 'transfer') {
-        throw new Error('Adjustments can’t be edited here.');
-      }
-      await saveTransaction({
-        mode: 'update',
-        id: t.id,
-        type: t.type,
-        amount: t.amount,
-        accountId: t.accountId,
-        occurredAt: t.occurredAt,
-        toAccountId: t.toAccountId,
-        categoryId: action.categoryId ?? t.categoryId,
-        subcategoryId: action.categoryId ? null : t.subcategoryId,
-        merchantId: action.merchantName === undefined ? t.merchantId : null,
-        merchantName: action.merchantName ?? t.merchantName,
-        notes: action.notes ?? t.notes,
-        tags: null,
-        expectedUpdatedAt: t.updatedAt,
+    case 'update_transaction':
+      await reviewTransaction({
+        id: action.transactionId,
+        categoryId: action.categoryId,
+        subcategoryId: null,
       });
       return `Updated: ${action.summary}`;
-    }
     case 'split_with_friend': {
-      const total = toMinor(action.total) as Minor;
+      const total = action.total as Minor;
       const split = splitBill(total, 'equal', [{ userId: me }, { userId: action.friendId }]);
       if (!split.ok) throw new Error(split.error);
       await createSharedExpense({
         groupId: null,
         paidBy: me,
         title: action.title,
-        categoryName: action.categoryName,
         total,
         occurredOn: action.occurredOn,
         splitMethod: 'equal',

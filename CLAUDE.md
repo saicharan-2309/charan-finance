@@ -24,7 +24,7 @@ name on purpose — changing them would detach EAS and the update channel.
 - Backend is his own Supabase project (Postgres, Auth, Storage, Edge Functions, RLS).
 - He pulls from GitHub (`saicharan-2309/charan-finance`) and ships with:
   1. new migrations first (`npx supabase db push`, or paste into the SQL Editor),
-  2. `npx supabase functions deploy <name> --use-api` (`ingest-sms` also needs `--no-verify-jwt`; `bud-ai` keeps JWT verification on),
+  2. `npx supabase functions deploy <name> --use-api` (`ingest-sms` also needs `--no-verify-jwt`),
   3. `npx eas-cli@latest update --branch main --message "…"` → choose **preview**.
 
 ## Stack
@@ -112,12 +112,16 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   All writes go through SECURITY DEFINER functions; RLS limits reads to participants; nobody can
   read another user's accounts, transactions or profile row. Person-to-person balances cover
   non-group items; group debts live in `group_balances()` (fewest-payments plan may route money).
-- **BUD AI** (`app/(app)/assistant.tsx`, Edge Function `bud-ai`, tools in
-  `supabase/functions/_shared/bud-ai.ts`): Claude with tool use. The model only calls fixed tools;
-  reads go through report functions and `ai_search_transactions` / `ai_friends` with the
-  **user's own JWT** (RLS applies; no SQL from the model, no service key). Changes come back as
-  proposals; the app performs them via existing functions only after the user taps Confirm.
-  150 questions/day (`ai_take_quota`). Needs the `ANTHROPIC_API_KEY` Supabase secret.
+- **BUD AI** (`app/(app)/assistant.tsx`, engine in `lib/assistant/` — `language.ts` understands,
+  `engine.ts` answers; data via `services/assistant.ts`) runs **entirely in the app: no LLM, no API
+  key, nothing sent to an AI company** (Charan's decision, Oct 8 — he didn't want a general-purpose
+  key). It reads with the app's report functions plus `ai_search_transactions` / `ai_friends`
+  under the user's login, and every number in a reply comes from those lookups. Changes are
+  proposals; the app performs them via existing functions only after Confirm. Missing details
+  (category, account, friend, which transaction) are asked with tap options (`§need:id` values).
+  It understands the phrasings it was built for — extend `language.ts`/`engine.ts` with tests
+  (`tests/assistant.test.ts`). `ai_take_quota` / `ai_requests` are unused leftovers of the earlier
+  Claude version.
 - Privacy: OTPs, promotions and personal texts are never stored; sync keys and the app passcode
   are stored only as hashes; the service-role key never ships in the app; **`.env` is never
   committed**. Never store bank login credentials.

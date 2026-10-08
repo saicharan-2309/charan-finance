@@ -6,11 +6,13 @@
  *   "Change my Amazon transaction from yesterday to Shopping"
  *                                            → a card you confirm, then saved
  *
- * Answers come only from your BUD data (the server's tools read it under your
- * own login); every change is a proposal you confirm, performed by the app's
- * existing functions. Under each answer, "From your data" names what it read.
+ * BUD AI runs inside the app — no AI service and no API key. It reads the
+ * answer from your BUD data under your own login and writes it from those
+ * figures; nothing leaves your phone and your database. Every change is a
+ * proposal you confirm, performed by the app's existing functions. When it
+ * needs one more detail it asks, with your own options as taps. Under each
+ * answer, "From your data" names what it read.
  */
-import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +25,16 @@ import { Card, Icon, Row, Text } from '@/components/ui/primitives';
 import { describeError } from '@/lib/errors';
 import { invalidateFinancialData } from '@/lib/query';
 import { useUserId } from '@/providers/AuthProvider';
-import { askBudAi, performAction, type ChatTurn, type ProposedAction } from '@/services/assistant';
+import { useCurrency, useSettings } from '@/hooks/data';
+import {
+  askBudAi,
+  EMPTY_CONVERSATION,
+  performAction,
+  SUGGESTIONS,
+  type Choice,
+  type Conversation,
+  type ProposedAction,
+} from '@/services/assistant';
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, continuous, radius, spacing } from '@/theme/tokens';
 
@@ -32,17 +43,11 @@ interface Item {
   id: string;
   role: 'user' | 'assistant' | 'notice';
   text: string;
+  lines?: { label: string; value: string }[];
+  choices?: Choice[];
   sources?: string[];
   actions?: { action: ProposedAction; state: ActionState; result?: string }[];
 }
-
-const SUGGESTIONS = [
-  'What did I spend last month?',
-  'How much did I spend on food this month?',
-  'Where did most of my money go this month?',
-  'How much do my friends owe me?',
-  'Record ₹500 spent at Starbucks',
-];
 
 let seq = 0;
 const nextId = () => `m${++seq}`;
@@ -54,43 +59,43 @@ export default function AssistantScreen() {
   const [items, setItems] = useState<Item[]>([]);
   const [text, setText] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [setup, setSetup] = useState<string | null>(null);
+  const convo = useRef<Conversation>(EMPTY_CONVERSATION);
+  const cycleStartDay = useSettings().data?.cycleStartDay ?? 1;
+  const currency = useCurrency();
   const list = useRef<FlatList<Item>>(null);
 
-  const ask = async (question: string) => {
+  /** `shown` is what appears in your bubble: a tapped option shows its label, not its code. */
+  const ask = async (question: string, shown = question) => {
     const q = question.trim();
     if (!q || thinking) return;
     haptic.light();
     setText('');
-    const userItem: Item = { id: nextId(), role: 'user', text: q };
-    const next = [...items, userItem];
-    setItems(next);
+    setItems((cur) => [
+      // Options on earlier answers can't be tapped again once you've moved on.
+      ...cur.map((i) => (i.choices ? { ...i, choices: undefined } : i)),
+      { id: nextId(), role: 'user', text: shown.trim() },
+    ]);
     setThinking(true);
-    // Only the words go back as history; actions and sources stay on the phone.
-    const history: ChatTurn[] = next
-      .filter((i) => i.role !== 'notice')
-      .map((i) => ({ role: i.role as 'user' | 'assistant', content: i.text }));
-    const outcome = await askBudAi(history);
-    setThinking(false);
-    if (outcome.status === 'ok') {
-      setSetup(null);
+    try {
+      const out = await askBudAi(q, convo.current, { cycleStartDay, currency });
+      convo.current = out.convo;
       setItems((cur) => [
         ...cur,
         {
           id: nextId(),
           role: 'assistant',
-          text: outcome.data.reply,
-          sources: outcome.data.sources,
-          actions: outcome.data.actions.map((action) => ({ action, state: 'waiting' as const })),
+          text: out.reply.text,
+          lines: out.reply.lines,
+          choices: out.reply.choices.length ? out.reply.choices : undefined,
+          sources: out.reply.sources,
+          actions: out.reply.actions.map((action) => ({ action, state: 'waiting' as const })),
         },
       ]);
-    } else if (outcome.status === 'not_configured') {
-      setSetup(outcome.message);
-      setItems((cur) => cur.filter((i) => i.id !== userItem.id));
-      setText(q);
-    } else {
+    } catch (e) {
       haptic.error();
-      setItems((cur) => [...cur, { id: nextId(), role: 'notice', text: outcome.message }]);
+      setItems((cur) => [...cur, { id: nextId(), role: 'notice', text: describeError(e).message }]);
+    } finally {
+      setThinking(false);
     }
   };
 
@@ -126,7 +131,6 @@ export default function AssistantScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {setup ? <SetupCard message={setup} /> : null}
         {items.length === 0 ? (
           <Intro onPick={(s) => void ask(s)} />
         ) : (
@@ -148,6 +152,7 @@ export default function AssistantScreen() {
               ) : (
                 <AnswerCard
                   item={item}
+                  onChoose={(c) => void ask(c.value, c.label)}
                   onConfirm={(n, a) => void confirm(item.id, n, a)}
                   onCancel={(n) => setActionState(item.id, n, 'cancelled')}
                 />
@@ -224,8 +229,8 @@ function Intro({ onPick }: { onPick: (s: string) => void }) {
           Ask BUD AI
         </Text>
         <Text variant="callout" tone="secondary" align="center">
-          It answers from your own transactions, accounts and friends — and can record or fix things for you
-          to confirm.
+          It answers from your own transactions, accounts and friends, and can record, recategorise or split
+          things for you to confirm.
         </Text>
       </View>
       <View style={{ gap: spacing.sm }}>
@@ -250,8 +255,8 @@ function Intro({ onPick }: { onPick: (s: string) => void }) {
         ))}
       </View>
       <Text variant="caption" tone="tertiary" align="center">
-        Your question and the figures BUD looks up are sent to Anthropic’s Claude to write the answer. Nothing
-        changes until you tap Confirm.
+        BUD AI runs inside the app: your questions and data stay between your phone and your own BUD database.
+        Nothing changes until you tap Confirm.
       </Text>
     </View>
   );
@@ -293,10 +298,12 @@ function Thinking() {
 
 function AnswerCard({
   item,
+  onChoose,
   onConfirm,
   onCancel,
 }: {
   item: Item;
+  onChoose: (c: Choice) => void;
   onConfirm: (index: number, action: ProposedAction) => void;
   onCancel: (index: number) => void;
 }) {
@@ -309,6 +316,20 @@ function AnswerCard({
           <Text variant="callout" selectable style={{ lineHeight: 22 }}>
             {item.text}
           </Text>
+          {item.lines?.length ? (
+            <View style={{ gap: 6, marginTop: 2 }}>
+              {item.lines.map((l, n) => (
+                <Row key={n} justify="space-between" align="flex-start" gap={spacing.md}>
+                  <Text variant="footnote" tone="secondary" style={{ flex: 1 }}>
+                    {l.label}
+                  </Text>
+                  <Text variant="footnote" style={{ fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+                    {l.value}
+                  </Text>
+                </Row>
+              ))}
+            </View>
+          ) : null}
           {item.sources && item.sources.length > 0 ? (
             <Text variant="caption" tone="tertiary">
               From your data: {item.sources.join(' · ')}
@@ -316,6 +337,27 @@ function AnswerCard({
           ) : null}
         </Card>
       </Row>
+      {item.choices?.length ? (
+        <View style={{ marginLeft: 34, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {item.choices.map((c) => (
+            <Pressable
+              key={c.value}
+              onPress={() => onChoose(c)}
+              accessibilityRole="button"
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <Glass
+                interactive
+                style={{ borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 8 }}
+              >
+                <Text variant="subhead" tone="brand">
+                  {c.label}
+                </Text>
+              </Glass>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
       {(item.actions ?? []).map(({ action, state, result }, n) => (
         <Card
           key={n}
@@ -408,26 +450,5 @@ function AnswerCard({
         </Card>
       ))}
     </View>
-  );
-}
-
-function SetupCard({ message }: { message: string }) {
-  return (
-    <Card style={{ margin: GUTTER, marginBottom: 0, gap: spacing.sm }}>
-      <Row gap={spacing.sm}>
-        <Icon name="construct-outline" size={20} tone="warning" />
-        <Text variant="bodyStrong" style={{ flex: 1 }}>
-          BUD AI needs one setup step
-        </Text>
-      </Row>
-      <Text variant="footnote" tone="secondary">
-        {message} It uses Anthropic’s Claude with your own API key, kept only on your server.
-      </Text>
-      <Pressable onPress={() => router.back()} accessibilityRole="button">
-        <Text variant="subhead" tone="brand">
-          Back to Home
-        </Text>
-      </Pressable>
-    </Card>
   );
 }
