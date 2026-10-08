@@ -53,7 +53,7 @@ export default function InsightsScreen() {
         <View style={{ gap: spacing.md }}>
           {insights.map((i) => {
             const tint =
-              i.tone === 'positive' ? colors.positive : i.tone === 'negative' ? colors.expense : colors.brand;
+              i.tone === 'positive' ? colors.positive : i.tone === 'negative' ? colors.expense : colors.warm;
             return (
               <Card key={i.id}>
                 <Row gap={spacing.md} align="flex-start">

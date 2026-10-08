@@ -59,8 +59,10 @@ All values live in `src/theme/tokens.ts`; components read them via `useTheme()` 
 returns scheme-aware `elevation`). Never hard-code a colour, size or font.
 
 - **The official BUD logo is the source of truth** (`assets/images/bud-logo-original.png`, as
-  supplied by Charan; `bud-logo.png` is a resized copy, also the app icon). Never redraw, recolour
-  or crop it — `components/BrandMark.tsx` shows the PNG. Colours were sampled from it (Oct 8):
+  supplied by Charan; `bud-logo.png` is a resized copy, also the app icon). Never redraw or recolour
+  it. `bud-logo.png` is the tile cut from it with transparent rounded corners (the artwork's
+  margin/shadow made the edges look rough); `bud-wordmark(-dark).png` is the logo's own "BUD"
+  lettering with the orange D (`BrandMark`, `BrandWordmark` in `components/BrandMark.tsx`). Colours were sampled from it (Oct 8):
   navy `#071645` (text `#0B1A45`), dark blue `#1A3FAC` (brand), bright blue `#1067FE` (income),
   cyan `#51ACFE` (accent), coral `#E5445D` (expense), peach `#FE9D72`, off-white canvas.
   **No green in the identity** (Charan dislikes it; `tests/tokens-contrast.test.ts` enforces it
@@ -68,7 +70,9 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   methods, categories, avatars and menu icons. Chart palette alternates cool/warm.
 - Canvas: cool off-white with borderless white cards on soft navy-tinted shadows; dark mode is a
   deep navy with cards lifted by tone. Hero, Add button and avatars use the logo tile's gradient
-  (blue → dark blue → navy). The coral → peach `gaugeGradient` is progress against a limit.
+  (blue → dark blue → navy). The logo orange is the second accent (`warm`, `warmGradient`): the
+  Add button, the BUD AI sparkle, insight icons, the safe-to-spend shield. The coral → peach
+  `gaugeGradient` is progress against a limit.
 - Payment-method cards use **the colour the user chose** (`cardGradientFor(account.color)`) —
   never a colour picked by position. The colour picker is `features/shared/ColorPicker.tsx`.
 - Type: system face only (SF on iPhone); tabular figures for amounts.
@@ -85,7 +89,8 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   memo dependency and crashes when `obj` is null. Guard instead.
 - Colour never carries meaning alone; every screen works in light and dark; sentence case;
   Indian number format.
-- Home order: header (official logo + "BUD" wordmark · BUD AI · insights · avatar) → balance groups (first on the gradient, with safe
+- Home top bar is **pinned** (`Screen topBar`): logo · insights | "BUD" wordmark centred | BUD AI ·
+  avatar. Home order below it: → balance groups (first on the gradient, with safe
   to spend until payday) → quick actions → payment-method cards → bank-sync card → top insight →
   friends summary → this week → recent → expenses tiles → monthly budget → upcoming → goals.
 

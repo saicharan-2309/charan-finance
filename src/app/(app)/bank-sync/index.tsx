@@ -385,31 +385,23 @@ export default function BankSyncScreen() {
 const STEPS = [
   {
     title: 'Create a Message automation',
-    body: 'Open Shortcuts › Automation › + (New Automation) › Message. Leave Sender empty. Tap Message Contains and type debited — iPhone needs a word here, it won’t run an automation for every text. Choose Run Immediately, then Next › New Blank Automation.',
+    body: 'Open the Shortcuts app › Automation › + › Message. Leave Sender empty. Tap Message Contains and type debited. Choose Run Immediately (not “Run After Confirmation”), then Next › New Blank Automation.',
   },
   {
     title: 'Add “Get Contents of URL”',
-    body: 'Search for the action and add it. Paste the Address above as the URL.',
+    body: 'Search for the action and add it. Tap URL and paste the Address above.',
   },
   {
-    title: 'Set method and key',
-    body: 'Tap the arrow to show more. Method: POST. Under Headers add a header named x-sync-key with your Sync key as the value.',
+    title: 'Fill in the request',
+    body: 'Tap the ▸ arrow on the action. Method: POST. Request Body: JSON. Add three Text fields: key — paste your Sync key; text — tap the value, choose Shortcut Input, then tap it again and pick Content; sender — Shortcut Input, then Sender. Tap Done.',
   },
   {
-    title: 'Send the message',
-    body: 'Request Body: JSON. Add a Text field named text — tap the value, choose Shortcut Input, then tap it again and pick Content. Add another named sender and pick Sender.',
+    title: 'Repeat for the other words',
+    body: 'Make the same automation three more times with Message Contains set to credited, spent and Rs. — between them they catch every bank’s alerts. A text caught twice is only recorded once.',
   },
   {
-    title: 'Optional: see what was added',
-    body: 'Add “Get Dictionary Value” for summary, then “Show Notification”. You’ll see “Spent ₹450 · Swiggy” a second after each payment.',
-  },
-  {
-    title: 'Done — then repeat for the other words',
-    body: 'Tap Done. Make the same automation three more times with Message Contains set to credited, spent and Rs. — between them they catch the alerts from HDFC, SBI, ICICI, Axis, Kotak and the rest. A message caught twice is only recorded once.',
-  },
-  {
-    title: 'Check it really runs',
-    body: 'Test connection only checks the key. Make any small UPI payment: within seconds the top of this screen should say “Last message today at …”. If it still says your iPhone hasn’t sent a message, open the automation and check Run Immediately, the URL and the x-sync-key header.',
+    title: 'Check it — no payment needed',
+    body: 'Ask someone to text you “test debited”. Within seconds the top of this screen changes from “Your iPhone hasn’t sent a message yet” to “Last message today at …”. (BUD ignores the test because it isn’t from a bank.) If it doesn’t change, open the automation and check Run Immediately and the three fields.',
   },
 ];
 

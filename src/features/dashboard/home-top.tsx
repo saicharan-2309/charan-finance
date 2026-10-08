@@ -113,7 +113,7 @@ export function BalanceGroupsHero({
                 <Icon
                   name={safe.amount < 0 ? 'alert-circle' : 'shield-checkmark'}
                   size={14}
-                  color={colors.heroText}
+                  color={colors.gaugeGradient[0]}
                 />
                 <Text variant="footnote" style={{ color: colors.heroText, fontWeight: '600', flexShrink: 1 }}>
                   {safe.amount < 0
@@ -226,7 +226,7 @@ export function InsightTeaser({ insight }: { insight: Insight | undefined }) {
       ? colors.positive
       : insight.tone === 'negative'
         ? colors.expense
-        : colors.brand;
+        : colors.warm;
   return (
     <Card
       onPress={() => router.push('/insights')}

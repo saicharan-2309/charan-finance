@@ -34,6 +34,8 @@ export interface ScreenProps {
   /** Extra bottom padding to clear the floating tab bar. */
   tabBarInset?: boolean;
   footer?: ReactNode;
+  /** A bar pinned to the top (below the status bar) that stays put while the page scrolls. */
+  topBar?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }
 
@@ -51,6 +53,7 @@ export function Screen({
   safeTop,
   tabBarInset,
   footer,
+  topBar,
   contentStyle,
 }: ScreenProps) {
   const { colors } = useTheme();
@@ -96,11 +99,25 @@ export function Screen({
 
   const padding: ViewStyle = {
     paddingHorizontal: GUTTER,
-    paddingTop: (safeTop ? insets.top : 0) + spacing.md,
+    // With a pinned bar, the bar takes the safe area and the page starts right under it.
+    paddingTop: topBar ? spacing.sm : (safeTop ? insets.top : 0) + spacing.md,
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {topBar ? (
+        <View
+          style={{
+            paddingTop: (safeTop ? insets.top : 0) + spacing.sm,
+            paddingHorizontal: GUTTER,
+            paddingBottom: spacing.sm,
+            backgroundColor: colors.background,
+            zIndex: 2,
+          }}
+        >
+          {topBar}
+        </View>
+      ) : null}
       {scroll ? (
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"

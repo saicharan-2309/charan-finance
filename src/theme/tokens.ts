@@ -82,6 +82,10 @@ export interface Palette {
   tileGradients: readonly (readonly [string, string])[];
   /** Warm peach-amber — the "needs a look" badge. */
   highlight: string;
+  /** The logo's orange — the second accent: Add, BUD AI, insights, "safe to spend". */
+  warm: string;
+  /** The logo's ribbon, orange → coral, behind white glyphs (the Add button). */
+  warmGradient: readonly [string, string];
   /** Colour of the soft, wide card shadow (light mode only). */
   shadow: string;
   /** Floating chrome (tab bar): its hairline edge, and its fill where no blur exists. */
@@ -186,6 +190,8 @@ export const lightPalette: Palette = {
   expense: '#E5445D',
   tileGradients: TILE_GRADIENTS,
   highlight: '#F2A65A',
+  warm: '#E0612A',
+  warmGradient: ['#F06A3A', '#D9364F'],
   shadow: '#0E2C8A',
   chromeStroke: 'rgba(255, 255, 255, 0.7)',
   chromeFill: 'rgba(248, 249, 253, 0.84)',
@@ -232,6 +238,8 @@ export const darkPalette: Palette = {
   expense: '#FF7A84',
   tileGradients: TILE_GRADIENTS,
   highlight: '#F2B46A',
+  warm: '#FF9A6B',
+  warmGradient: ['#F06A3A', '#D9364F'],
   shadow: '#000000',
   chromeStroke: 'rgba(255, 255, 255, 0.09)',
   chromeFill: 'rgba(17, 23, 51, 0.84)',

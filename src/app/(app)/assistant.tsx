@@ -308,8 +308,9 @@ function AnswerCard({
   onCancel: (index: number) => void;
 }) {
   const { colors } = useTheme();
+  // Full width: a stretching card inside a shrink-wrapped box collapses to zero width on iOS.
   return (
-    <View style={{ alignSelf: 'flex-start', maxWidth: '92%', gap: spacing.sm }}>
+    <View style={{ width: '100%', paddingRight: spacing.xl, gap: spacing.sm }}>
       <Row gap={spacing.sm} align="flex-start">
         <BrandMark size={26} />
         <Card style={{ flex: 1, gap: spacing.sm, borderTopLeftRadius: 6 }}>

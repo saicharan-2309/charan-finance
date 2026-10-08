@@ -47,6 +47,11 @@ describe.each([
     }
   });
 
+  it('the logo orange works as an icon colour, and white reads on the Add button', () => {
+    expect(contrast(p.warm, p.surface)).toBeGreaterThanOrEqual(3);
+    for (const c of p.warmGradient) expect(contrast('#FFFFFF', c)).toBeGreaterThanOrEqual(3);
+  });
+
   it('income and expense marks are ≥ 3:1 on cards', () => {
     expect(contrast(p.income, p.surface)).toBeGreaterThanOrEqual(3);
     expect(contrast(p.expense, p.surface)).toBeGreaterThanOrEqual(3);

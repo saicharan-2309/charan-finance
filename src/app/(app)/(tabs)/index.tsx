@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { BrandMark } from '@/components/BrandMark';
+import { BrandMark, BrandWordmark } from '@/components/BrandMark';
 import { HeaderButton } from '@/components/ui/controls';
 import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { GradientFill } from '@/components/ui/gradient';
@@ -167,38 +167,21 @@ export default function HomeScreen() {
   const perDay = derived && derived.available > 0 && left > 0 ? derived.available / left : null;
   const endLabel = fromISODate(month.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
-  return (
-    <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh}>
-      {/* Header: the BUD logo and wordmark · BUD AI · insights · you */}
-      <Row justify="space-between" style={{ marginBottom: spacing.xl }}>
-        <View
-          accessible
-          accessibilityRole="header"
-          accessibilityLabel="BUD, Home"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
-        >
-          <BrandMark size={44} />
-          <Row align="flex-end" gap={3}>
-            <Text
-              style={{
-                fontSize: 26,
-                lineHeight: 30,
-                fontWeight: '900',
-                letterSpacing: 0.5,
-                color: colors.text,
-              }}
-            >
-              BUD
-            </Text>
-            {/* The coral-to-peach dot from the logo's D */}
-            <View style={{ width: 7, height: 7, borderRadius: 3.5, overflow: 'hidden', marginBottom: 7 }}>
-              <GradientFill colors={[colors.gaugeGradient[1], colors.gaugeGradient[0]]} />
-            </View>
-          </Row>
-        </View>
+  // Pinned to the top: stays put while the page scrolls.
+  const topBar = (
+    <View style={{ height: 44, justifyContent: 'center' }}>
+      <Row justify="space-between">
         <Row gap={spacing.sm}>
-          <HeaderButton icon="sparkles" label="BUD AI" onPress={() => router.push('/assistant')} />
+          <BrandMark size={40} />
           <HeaderButton icon="bulb-outline" label="Insights" onPress={() => router.push('/insights')} />
+        </Row>
+        <Row gap={spacing.sm}>
+          <HeaderButton
+            icon="sparkles"
+            label="BUD AI"
+            color={colors.warm}
+            onPress={() => router.push('/assistant')}
+          />
           <Pressable
             onPress={() => router.push('/more')}
             accessibilityRole="button"
@@ -221,7 +204,21 @@ export default function HomeScreen() {
           </Pressable>
         </Row>
       </Row>
+      {/* The wordmark from the logo, centred on the screen */}
+      <View
+        pointerEvents="none"
+        accessible
+        accessibilityRole="header"
+        accessibilityLabel="BUD, Home"
+        style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }}
+      >
+        <BrandWordmark height={24} />
+      </View>
+    </View>
+  );
 
+  return (
+    <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh} topBar={topBar}>
       <SyncBanner />
 
       {dashboard.error && !d ? (

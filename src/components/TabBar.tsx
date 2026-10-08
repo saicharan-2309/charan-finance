@@ -135,12 +135,12 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         }}
         style={({ pressed }) => [
           styles.add,
-          elevation.hero(colors.hero),
+          elevation.hero(colors.warmGradient[1]),
           { transform: [{ scale: pressed ? 0.92 : 1 }] },
         ]}
       >
         <View style={styles.addInner}>
-          <GradientFill colors={colors.heroGradient} sheen />
+          <GradientFill colors={colors.warmGradient} sheen />
           <View
             pointerEvents="none"
             style={[StyleSheet.absoluteFill, styles.addEdge, { borderColor: colors.heroTrack }]}

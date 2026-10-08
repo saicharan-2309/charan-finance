@@ -521,7 +521,18 @@ export function SwitchRow({
 // HeaderButton
 // ---------------------------------------------------------------------------
 /** The round action beside a title: a glass disc with an accent glyph, as in iOS 26. */
-export function HeaderButton({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+export function HeaderButton({
+  icon,
+  label,
+  onPress,
+  color,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  /** Glyph colour; brand by default. */
+  color?: string;
+}) {
   return (
     <Pressable
       onPress={() => {
@@ -537,7 +548,7 @@ export function HeaderButton({ icon, label, onPress }: { icon: string; label: st
         interactive
         style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
       >
-        <Icon name={icon} size={21} tone="brand" />
+        {color ? <Icon name={icon} size={21} color={color} /> : <Icon name={icon} size={21} tone="brand" />}
       </Glass>
     </Pressable>
   );
