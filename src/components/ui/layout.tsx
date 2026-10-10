@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, spacing } from '@/theme/tokens';
+import { AuroraBackground } from './gradient';
 import { Icon, Text } from './primitives';
 
 export interface ScreenProps {
@@ -105,13 +106,14 @@ export function Screen({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <AuroraBackground />
       {topBar ? (
+        // Content scrolls below this bar, never under it, so it can sit on the aurora.
         <View
           style={{
             paddingTop: (safeTop ? insets.top : 0) + spacing.sm,
             paddingHorizontal: GUTTER,
             paddingBottom: spacing.sm,
-            backgroundColor: colors.background,
             zIndex: 2,
           }}
         >

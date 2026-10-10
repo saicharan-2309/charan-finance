@@ -11,7 +11,6 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { Glass } from '@/components/ui/glass';
 import { CardRings, GradientFill } from '@/components/ui/gradient';
 import { Skeleton } from '@/components/ui/feedback';
 import { Card, Icon, Row, Text } from '@/components/ui/primitives';
@@ -162,26 +161,39 @@ export function BalanceGroupsHero({
   );
 }
 
-const ACTIONS = [
+type Tint = 'expense' | 'brand' | 'violet' | 'warm';
+const ACTIONS: { icon: string; label: string; tint: Tint; go: () => void }[] = [
   {
     icon: 'remove',
     label: 'Expense',
+    tint: 'expense',
     go: () => router.push({ pathname: '/transaction/new', params: { type: 'expense' } }),
   },
   {
     icon: 'add',
     label: 'Money in',
+    tint: 'brand',
     go: () => router.push({ pathname: '/transaction/new', params: { type: 'income' } }),
   },
   {
     icon: 'swap-horizontal',
     label: 'Transfer',
+    tint: 'violet',
     go: () => router.push({ pathname: '/transaction/new', params: { type: 'transfer' } }),
   },
-  { icon: 'git-branch', label: 'Split', go: () => router.push('/split/new') },
-] as const;
+  { icon: 'git-branch', label: 'Split', tint: 'warm', go: () => router.push('/split/new') },
+];
 
 export function QuickActions() {
+  const { colors, elevation } = useTheme();
+  const tintOf = (t: Tint) =>
+    t === 'expense'
+      ? colors.expense
+      : t === 'brand'
+        ? colors.brand
+        : t === 'violet'
+          ? colors.heroGradient[2]
+          : colors.warm;
   return (
     <Row justify="space-between" style={{ marginBottom: spacing.xxl, paddingHorizontal: spacing.xs }}>
       {ACTIONS.map((a) => (
@@ -197,18 +209,34 @@ export function QuickActions() {
             transform: [{ scale: pressed ? 0.92 : 1 }],
           })}
         >
-          <Glass
-            interactive
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: radius.pill,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+          {/* A white tile with the action's colour in a tinted circle, like the reference. */}
+          <View
+            style={[
+              {
+                width: 60,
+                height: 60,
+                borderRadius: radius.lg,
+                ...continuous,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surface,
+              },
+              elevation.card,
+            ]}
           >
-            <Icon name={a.icon} size={22} tone="brand" />
-          </Glass>
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: `${tintOf(a.tint)}1F`,
+              }}
+            >
+              <Icon name={a.icon} size={20} color={tintOf(a.tint)} />
+            </View>
+          </View>
           <Text variant="caption" tone="secondary">
             {a.label}
           </Text>

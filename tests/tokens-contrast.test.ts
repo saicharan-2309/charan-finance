@@ -86,7 +86,8 @@ it('no green is left in the identity colours', () => {
     return (h * 60 + 360) % 360;
   };
   for (const p of [lightPalette, darkPalette]) {
-    for (const c of [p.brand, p.accent, p.hero, ...p.heroGradient, p.income, ...p.gaugeGradient]) {
+    // Income is green by meaning (money in), not identity, so it is not checked here.
+    for (const c of [p.brand, p.accent, p.hero, ...p.heroGradient, ...p.gaugeGradient]) {
       const h = hue(c);
       expect([c, h >= 75 && h <= 165]).toEqual([c, false]);
     }

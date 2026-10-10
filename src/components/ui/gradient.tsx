@@ -8,9 +8,10 @@
  * the parent's size on iOS — it left the hero half painted — so percentages
  * are never used for the canvas itself.
  */
-import { useId, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useId, useState, type ReactNode } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { useTheme } from '@/theme/ThemeProvider';
 
 /** SVG ids are document-global on web, so each fill needs its own. */
 function useSvgId(prefix: string) {
@@ -131,6 +132,55 @@ export function CardRings({ color = '#FFFFFF', opacity = 0.08 }: { color?: strin
           />
         </Svg>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * The app's backdrop: a very light pastel aurora — large, diffuse radial glows
+ * (sky blue, lavender, blush pink, peach) over the base canvas colour. Drawn
+ * at the measured size of the screen, behind content, never interactive.
+ * Each glow's position and size are fractions of the screen (`aurora` in
+ * tokens.ts); in dark mode they're faint, deep tones over navy.
+ */
+export function AuroraBackground() {
+  const { colors } = useTheme();
+  const id = useSvgId('aurora');
+  // Sized from the window, not a layout measurement: it's a full-screen
+  // backdrop, and the window size is exact from the first frame (a measured
+  // box can lag a resize and leave a hard edge). Anything outside the screen's
+  // own area is clipped.
+  const { width: w, height: h } = useWindowDimensions();
+  const size = Math.max(w, h);
+  return (
+    <View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { backgroundColor: colors.background, overflow: 'hidden' }]}
+    >
+      <Svg width={w} height={h} style={{ position: 'absolute', top: 0, left: 0 }}>
+        <Defs>
+          {colors.aurora.map((g, i) => (
+            <RadialGradient key={i} id={`${id}${i}`} cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={g.color} stopOpacity={g.opacity} />
+              <Stop offset="0.55" stopColor={g.color} stopOpacity={g.opacity * 0.45} />
+              <Stop offset="1" stopColor={g.color} stopOpacity={0} />
+            </RadialGradient>
+          ))}
+        </Defs>
+        {colors.aurora.map((g, i) => (
+          <Circle key={i} cx={g.x * w} cy={g.y * h} r={g.r * size} fill={`url(#${id}${i})`} />
+        ))}
+      </Svg>
+    </View>
+  );
+}
+
+/** A full-screen view on the aurora — for screens that don't use <Screen>. */
+export function Backdrop({ children }: { children: ReactNode }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <AuroraBackground />
+      {children}
     </View>
   );
 }

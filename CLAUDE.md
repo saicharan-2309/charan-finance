@@ -68,11 +68,11 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   **No green in the identity** (Charan dislikes it; `tests/tokens-contrast.test.ts` enforces it
   and WCAG contrast). `BUD_SWATCHES` (11 hues × base/deep/light) is the only palette for payment
   methods, categories, avatars and menu icons. Chart palette alternates cool/warm.
-- Canvas: cool off-white with borderless white cards on soft navy-tinted shadows; dark mode is a
-  deep navy with cards lifted by tone. Hero, Add button and avatars use the logo tile's gradient
-  (blue → dark blue → navy). The logo orange is the second accent (`warm`, `warmGradient`): the
-  Add button, the BUD AI sparkle, insight icons, the safe-to-spend shield. The coral → peach
-  `gaugeGradient` is progress against a limit.
+- Canvas (Oct 10, Charan’s “aurora” brief): a very light pastel aurora — `AuroraBackground` in
+  `components/ui/gradient.tsx`, radial glows (sky, lavender, blush, peach) from `colors.aurora`, sized
+  from the window — behind every `Screen` and the custom screens; white cards on top. Dark mode: faint
+  glows on navy. Hero is blue → violet; text navy `#172554`; brand `#2563EB`; income green, expense red
+  (by meaning). The Add button is blue-violet; the logo orange stays on the AI sparkle and insights.
 - Payment-method cards use **the colour the user chose** (`cardGradientFor(account.color)`) —
   never a colour picked by position. The colour picker is `features/shared/ColorPicker.tsx`.
 - Type: system face only (SF on iPhone); tabular figures for amounts.

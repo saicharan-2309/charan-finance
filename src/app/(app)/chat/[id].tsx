@@ -20,6 +20,7 @@ import { useConversations, useMessages, usePeople } from '@/hooks/data';
 import { qk } from '@/lib/query';
 import { useUserId } from '@/providers/AuthProvider';
 import { markConversationRead, sendMessage, subscribeToMessages, typingChannel } from '@/services/friends';
+import { AuroraBackground } from '@/components/ui/gradient';
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, radius, spacing } from '@/theme/tokens';
 import type { ChatMessage } from '@/types/domain';
@@ -94,6 +95,7 @@ export default function ChatScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <AuroraBackground />
       <Stack.Screen
         options={{
           title: '',

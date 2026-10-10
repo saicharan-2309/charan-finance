@@ -93,6 +93,12 @@ export interface Palette {
   chromeFill: string;
   /** Glass fill where only a CSS blur is available (web preview). */
   glassFill: string;
+  /**
+   * The backdrop: large diffuse radial glows over `background` (a light
+   * pastel aurora). x/y are the glow's centre and r its radius, as fractions
+   * of the screen; opacity is at the centre, fading to nothing at the edge.
+   */
+  aurora: readonly { color: string; x: number; y: number; r: number; opacity: number }[];
 }
 
 /**
@@ -151,51 +157,58 @@ const TILE_GRADIENTS = [
 ] as const;
 
 export const lightPalette: Palette = {
-  background: '#F5F6FA',
+  background: '#EEF4FF',
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
-  surfaceMuted: '#EEF0F6',
-  fill: '#E6E8F1',
-  border: '#E4E6EF',
-  borderStrong: '#CDD1E0',
-  text: '#0B1A45',
-  textSecondary: '#555C7A',
-  textTertiary: '#82879F',
+  surfaceMuted: '#F1F5FB',
+  fill: '#E8EEF8',
+  border: '#E2E8F0',
+  borderStrong: '#CBD5E1',
+  text: '#172554',
+  textSecondary: '#5B6B82',
+  textTertiary: '#8391A7',
   textInverse: '#FFFFFF',
-  brand: '#1A3FAC',
-  brandPressed: '#132F86',
-  brandSoft: '#E6ECFB',
+  brand: '#2563EB',
+  brandPressed: '#1D4ED8',
+  brandSoft: '#E3ECFF',
   onBrand: '#FFFFFF',
-  accent: '#51ACFE',
-  positive: '#1F7A52',
-  positiveSoft: '#E1F2E9',
-  negative: '#C8304C',
-  negativeSoft: '#FCE8EB',
+  accent: '#60A5FA',
+  positive: '#047857',
+  positiveSoft: '#E0F5EC',
+  negative: '#C93338',
+  negativeSoft: '#FDE8E8',
   warning: '#8A6512',
   warningSoft: '#F6EEDA',
-  info: '#1B5BD0',
+  info: '#1D4ED8',
   infoSoft: '#E5EDFC',
   overlay: 'rgba(7, 22, 69, 0.42)',
-  skeleton: '#E9EBF2',
+  skeleton: '#E6ECF6',
   chartGrid: '#ECEEF4',
   transfer: '#5B6280',
-  hero: '#1A3FAC',
-  heroGradient: ['#1F5FE8', '#1A3FAC', '#071645'],
+  hero: '#3448D8',
+  heroGradient: ['#2F6BEA', '#3448D8', '#5B3FD6'],
   heroText: '#FFFFFF',
   heroMuted: 'rgba(255, 255, 255, 0.84)',
   heroTrack: 'rgba(255, 255, 255, 0.18)',
   cardGradient: ['#22305E', '#071645'],
   gaugeGradient: ['#FE9D72', '#E5445D'],
-  income: '#1067FE',
-  expense: '#E5445D',
+  income: '#059669',
+  expense: '#E5484D',
   tileGradients: TILE_GRADIENTS,
   highlight: '#F2A65A',
   warm: '#E0612A',
   warmGradient: ['#F06A3A', '#D9364F'],
-  shadow: '#0E2C8A',
+  shadow: '#3448D8',
   chromeStroke: 'rgba(255, 255, 255, 0.7)',
-  chromeFill: 'rgba(248, 249, 253, 0.84)',
-  glassFill: 'rgba(248, 249, 253, 0.62)',
+  chromeFill: 'rgba(255, 255, 255, 0.78)',
+  glassFill: 'rgba(255, 255, 255, 0.62)',
+  aurora: [
+    { color: '#BFDBFE', x: 0.05, y: 0.08, r: 0.75, opacity: 0.7 }, // sky blue, top left
+    { color: '#DDD6FE', x: 0.95, y: 0.2, r: 0.7, opacity: 0.65 }, // lavender, top right
+    { color: '#FBCFE8', x: 0.9, y: 0.62, r: 0.62, opacity: 0.5 }, // blush pink, right
+    { color: '#FED7AA', x: 0.08, y: 0.88, r: 0.62, opacity: 0.45 }, // peach, bottom left
+    { color: '#C7D2FE', x: 0.45, y: 0.5, r: 0.55, opacity: 0.35 }, // soft periwinkle, middle
+  ],
 };
 
 export const darkPalette: Palette = {
@@ -228,13 +241,13 @@ export const darkPalette: Palette = {
   chartGrid: '#1C2445',
   transfer: '#A3AACB',
   hero: '#1B3A9E',
-  heroGradient: ['#2556DB', '#16348F', '#0A1650'],
+  heroGradient: ['#2F5FD9', '#2E3FB8', '#4B33B0'],
   heroText: '#FFFFFF',
   heroMuted: 'rgba(255, 255, 255, 0.84)',
   heroTrack: 'rgba(255, 255, 255, 0.16)',
   cardGradient: ['#253262', '#0E1838'],
   gaugeGradient: ['#FEB088', '#FF6B7A'],
-  income: '#5C9BFF',
+  income: '#34D399',
   expense: '#FF7A84',
   tileGradients: TILE_GRADIENTS,
   highlight: '#F2B46A',
@@ -244,6 +257,12 @@ export const darkPalette: Palette = {
   chromeStroke: 'rgba(255, 255, 255, 0.09)',
   chromeFill: 'rgba(17, 23, 51, 0.84)',
   glassFill: 'rgba(23, 30, 62, 0.6)',
+  aurora: [
+    { color: '#1E3A8A', x: 0.05, y: 0.08, r: 0.75, opacity: 0.45 },
+    { color: '#4C1D95', x: 0.95, y: 0.22, r: 0.7, opacity: 0.35 },
+    { color: '#831843', x: 0.9, y: 0.65, r: 0.6, opacity: 0.22 },
+    { color: '#7C2D12', x: 0.08, y: 0.9, r: 0.6, opacity: 0.2 },
+  ],
 };
 
 /** The 4-point scale, with room to breathe. */

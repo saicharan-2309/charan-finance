@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { haptic } from '@/components/ui/controls';
 import { Divider, IconBadge, Row, Text } from '@/components/ui/primitives';
+import { AuroraBackground } from '@/components/ui/gradient';
 import { useTheme } from '@/theme/ThemeProvider';
 import { GUTTER, radius, spacing } from '@/theme/tokens';
 
@@ -78,6 +79,7 @@ export default function AddScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <AuroraBackground />
       <View style={{ paddingHorizontal: GUTTER, paddingTop: spacing.xl, paddingBottom: spacing.md }}>
         <Row justify="space-between">
           <Text variant="title">Add</Text>

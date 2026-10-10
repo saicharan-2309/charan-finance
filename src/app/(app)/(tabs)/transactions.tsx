@@ -21,6 +21,7 @@ import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { useCurrency, useTransactionsInfinite } from '@/hooks/data';
 import { formatDayLabel, toISODate } from '@/lib/dates';
 import { invalidateFinancialData } from '@/lib/query';
+import { AuroraBackground } from '@/components/ui/gradient';
 import { useTheme } from '@/theme/ThemeProvider';
 import { continuous, GUTTER, radius, spacing } from '@/theme/tokens';
 import type { Transaction } from '@/types/domain';
@@ -140,6 +141,7 @@ export default function TransactionsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <AuroraBackground />
       <SectionList
         sections={sections}
         keyExtractor={(t) => t.id}
@@ -158,8 +160,11 @@ export default function TransactionsScreen() {
               justifyContent: 'space-between',
               paddingTop: spacing.md,
               paddingBottom: spacing.sm,
-              paddingHorizontal: 4,
-              backgroundColor: colors.background,
+              paddingHorizontal: spacing.md,
+              marginHorizontal: -spacing.sm,
+              borderRadius: radius.md,
+              // Frosted, so rows scrolling under the pinned heading stay out of the way.
+              backgroundColor: colors.chromeFill,
             }}
           >
             <Text variant="subhead" tone="secondary">

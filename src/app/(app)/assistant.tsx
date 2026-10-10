@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '@/components/BrandMark';
 import { haptic } from '@/components/ui/controls';
 import { Glass } from '@/components/ui/glass';
-import { GradientFill } from '@/components/ui/gradient';
+import { GradientFill, AuroraBackground } from '@/components/ui/gradient';
 import { Card, Icon, Row, Text } from '@/components/ui/primitives';
 import { describeError } from '@/lib/errors';
 import { invalidateFinancialData } from '@/lib/query';
@@ -126,6 +126,7 @@ export default function AssistantScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <AuroraBackground />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
