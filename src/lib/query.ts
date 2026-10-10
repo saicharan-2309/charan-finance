@@ -88,10 +88,12 @@ export const qk = {
   sharedExpense: (id: string) => ['shared-expense', id] as const,
   settlements: (withUser?: string) => ['settlements', withUser ?? 'all'] as const,
   notifications: ['notifications'] as const,
+  ious: ['ious'] as const,
 };
 
 /** Everything derived from transactions (balances, reports, budgets…). */
 export const FINANCIAL_QUERY_ROOTS = [
+  'ious',
   'transactions',
   'transaction',
   'accounts',

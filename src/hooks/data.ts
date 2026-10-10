@@ -1,6 +1,7 @@
 /**
  * React Query hooks — the only way screens read server data.
  */
+import { fetchIous } from '@/services/lending';
 import {
   useInfiniteQuery,
   useMutation,
@@ -299,6 +300,7 @@ export const useSharedExpense = (id: string | undefined) =>
 export const useSettlements = (withUser?: string) =>
   useQuery({ queryKey: qk.settlements(withUser), queryFn: () => fetchSettlements(withUser) });
 export const useNotifications = () => useQuery({ queryKey: qk.notifications, queryFn: fetchNotifications });
+export const useIous = () => useQuery({ queryKey: qk.ious, queryFn: fetchIous });
 
 /** Public cards (name, username, status) for a set of user ids. */
 export function usePeople(ids: string[]) {

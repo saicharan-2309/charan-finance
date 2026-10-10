@@ -102,7 +102,7 @@ export function mapAccount(r: Row): Account {
         ? r.reported_balance_kind
         : null,
     reportedBalanceAt: str(r.reported_balance_at),
-    systemKind: r.system_kind === 'friends' ? 'friends' : null,
+    systemKind: r.system_kind === 'friends' || r.system_kind === 'lending' ? r.system_kind : null,
   };
 }
 

@@ -34,6 +34,7 @@ import {
   fetchMerchantBreakdown,
   fetchSummary,
 } from './reports';
+import { fetchIous } from './lending';
 import { saveTransaction } from './transactions';
 
 export type { Choice, Conversation, ProposedAction, Reply } from '@/lib/assistant/engine';
@@ -53,6 +54,25 @@ export function liveData(opts: { cycleStartDay: number; currency: string }): Ass
     cycleStartDay: opts.cycleStartDay,
     currency: opts.currency,
     summary: (r) => fetchSummary(r.start, r.end),
+    totals: async (f) => {
+      const rows = unwrap(
+        await supabase.rpc('ai_totals', {
+          p_start: f.from ? null : f.range.start,
+          p_end: f.from ? null : f.range.end,
+          p_from: f.from ?? null,
+          p_to: f.to ?? null,
+          p_account_ids: f.accountIds ?? null,
+          p_category_id: f.categoryId ?? null,
+        }),
+      ) as Row[];
+      const r = rows[0] ?? {};
+      return {
+        income: toMinor(r.income as string),
+        expense: toMinor(r.expense as string),
+        count: Number(r.tx_count ?? 0),
+        expenseCount: Number(r.expense_count ?? 0),
+      };
+    },
     byCategory: (r, kind) => fetchCategoryBreakdown(r.start, r.end, { kind }),
     byMerchant: (r) => fetchMerchantBreakdown(r.start, r.end, 200),
     byAccount: (r) => fetchAccountBreakdown(r.start, r.end),
@@ -94,6 +114,13 @@ export function liveData(opts: { cycleStartDay: number; currency: string }): Ass
         })),
       ),
     groups: async () => (await fetchMyGroupPositions()).map((g) => ({ name: g.name, net: g.net })),
+    ious: async () =>
+      (await fetchIous())
+        .filter((i) => i.outstanding > 0)
+        .map((i) => ({
+          person: i.person,
+          net: (i.direction === 'lent' ? i.outstanding : -i.outstanding) as Minor,
+        })),
   };
 }
 

@@ -107,6 +107,21 @@ function fake(over: Partial<AssistantData> = {}) {
       },
     ]),
     byAccount: log('byAccount', async () => []),
+    totals: log('totals', async (f) => {
+      const zero = { income: 0 as never, expense: 0 as never, count: 0, expenseCount: 0 };
+      if (f.from) return { ...zero, expense: 45000 as never, count: 1, expenseCount: 1 };
+      if (f.categoryId) {
+        return f.categoryId === 'c-food' && f.range.start === '2026-09-01'
+          ? { ...zero, expense: 842000 as never, count: 12, expenseCount: 12 }
+          : zero;
+      }
+      if (f.accountIds?.length) {
+        return { ...zero, expense: (215200 * f.accountIds.length) as never, count: 2, expenseCount: 2 };
+      }
+      return f.range.start === '2026-09-01'
+        ? { income: 8500000 as never, expense: 3990500 as never, count: 44, expenseCount: 42 }
+        : { income: 8500000 as never, expense: 3200000 as never, count: 32, expenseCount: 30 };
+    }),
     search: log('search', async () => []),
     accounts: async () => ACCOUNTS,
     categories: async () => CATS,
@@ -143,6 +158,22 @@ describe('language', () => {
     expect(parsePeriod('in december', TODAY, 1)).toMatchObject({ start: '2025-12-01' }); // most recent December
     expect(parsePeriod('last 7 days', TODAY, 1)).toMatchObject({ start: '2026-10-02', end: TODAY });
     expect(parsePeriod('may I see my spending', TODAY, 1)).toBeNull();
+    expect(parsePeriod('todays expense', TODAY, 1)).toMatchObject({
+      start: TODAY,
+      end: TODAY,
+      label: 'today',
+    });
+    expect(parsePeriod('day before yesterday', TODAY, 1)).toMatchObject({ start: '2026-10-06' });
+    expect(parsePeriod('on 5th October', TODAY, 1)).toMatchObject({ start: '2026-10-05', end: '2026-10-05' });
+    expect(parsePeriod('october 5', TODAY, 1)).toMatchObject({ start: '2026-10-05' });
+    expect(parsePeriod('on 5/10', TODAY, 1)).toMatchObject({ start: '2026-10-05' });
+    expect(parsePeriod('last 2 weeks', TODAY, 1)).toMatchObject({ start: '2026-09-25', end: TODAY });
+    const now = new Date('2026-10-08T10:30:00Z');
+    const hour = parsePeriod('in the last one hour', TODAY, 1, now)!;
+    expect([hour.from, hour.to]).toEqual(['2026-10-08T09:30:00.000Z', '2026-10-08T10:30:00.000Z']);
+    const mins = parsePeriod('past 30 minutes', TODAY, 1, now)!;
+    expect(mins.from).toBe('2026-10-08T10:00:00.000Z');
+    expect(parsePeriod('last 3 hours', TODAY, 1, now)!.from).toBe('2026-10-08T07:30:00.000Z');
   });
 
   it('tells questions from requests', () => {
@@ -162,11 +193,9 @@ describe('answers come from the data it looked up', () => {
     const { data, calls } = fake();
     const { reply } = await respond('What was my food expense last month?', EMPTY_CONVERSATION, data);
     expect(calls).toEqual([
-      'byCategory [{"start":"2026-09-01","end":"2026-09-30","label":"last month"},"expense"]',
+      'totals [{"range":{"start":"2026-09-01","end":"2026-09-30","label":"last month"},"categoryId":"c-food"}]',
     ]);
-    expect(reply.text).toBe(
-      'You spent ₹8,420 on Food last month (1 Sep – 30 Sep), across 12 payments — 80% of your spending.',
-    );
+    expect(reply.text).toBe('You spent ₹8,420 on Food last month (1 Sep – 30 Sep), across 12 payments.');
     expect(reply.actions).toEqual([]);
   });
 
@@ -226,7 +255,17 @@ describe('answers come from the data it looked up', () => {
       'Rahul Sharma owes you ₹1,000.',
     );
     expect((await respond('How much do my friends owe me?', EMPTY_CONVERSATION, data)).reply.text).toBe(
-      'Friends owe you ₹1,000, and you owe ₹250.',
+      'People owe you ₹1,000, and you owe ₹250.',
+    );
+  });
+
+  it('includes people from Lent & borrowed, not only BUD friends', async () => {
+    const { data } = fake({ ious: async () => [{ person: 'Ravi', net: 500000 as never }] });
+    expect((await respond('How much does Ravi owe me?', EMPTY_CONVERSATION, data)).reply.text).toBe(
+      'Ravi owes you ₹5,000.',
+    );
+    expect((await respond('how much do people owe me', EMPTY_CONVERSATION, data)).reply.text).toBe(
+      'People owe you ₹6,000, and you owe ₹250.',
     );
   });
 
@@ -235,6 +274,77 @@ describe('answers come from the data it looked up', () => {
     expect(
       (await respond('How much did I spend on transport last month?', EMPTY_CONVERSATION, data)).reply.text,
     ).toBe('You haven’t spent anything on Transport last month (1 Sep – 30 Sep).');
+  });
+
+  it('your real cards: "credit card" and "Axis bank credit card" are the Axis card, not a shop', async () => {
+    const real = [
+      acct('a1', 'Axis account', 'savings', 9795200),
+      acct('a2', 'Axis credit card', 'credit_card', -215200, 40000000),
+    ].map((a, i) => ({
+      ...a,
+      provider: 'axis',
+      institution: i ? 'Axis bank' : 'Axis Bank',
+      last4: i ? '1205' : '6202',
+    }));
+    const { data, calls } = fake({ accounts: async () => real as never });
+    for (const q of [
+      'How much did I spend on credit card',
+      'how much did i spend on axis bank credit card',
+      'how much did I spend on the card ending 1205',
+    ]) {
+      calls.length = 0;
+      const { reply } = await respond(q, EMPTY_CONVERSATION, data);
+      expect([q, reply.text]).toEqual([
+        q,
+        'You spent ₹2,152 with Axis credit card this month (1 Oct – 31 Oct), across 2 payments.',
+      ]);
+      expect(calls[0]).toContain('"accountIds":["a2"]');
+    }
+    const { reply } = await respond(
+      'how much did I spend from my axis account this week',
+      EMPTY_CONVERSATION,
+      data,
+    );
+    expect(reply.text).toBe(
+      'You spent ₹2,152 with Axis account this week (5 Oct – 8 Oct), across 2 payments.',
+    );
+  });
+
+  it('"my credit cards" with two cards covers both', async () => {
+    const two = [
+      acct('c1', 'Axis credit card', 'credit_card', 0, 1),
+      acct('c2', 'HDFC Millennia', 'credit_card', 0, 1),
+      acct('s1', 'Axis account', 'savings', 0),
+    ];
+    const { data, calls } = fake({ accounts: async () => two });
+    const { reply } = await respond('how much did I spend on my credit cards', EMPTY_CONVERSATION, data);
+    expect(reply.text).toBe(
+      'You spent ₹4,304 with your credit cards this month (1 Oct – 31 Oct), across 2 payments.',
+    );
+    expect(calls[0]).toContain('"accountIds":["c1","c2"]');
+  });
+
+  it('"todays expense" is today, not the month', async () => {
+    const { data, calls } = fake();
+    await respond('what is todays expense', EMPTY_CONVERSATION, data);
+    expect(calls[0]).toContain('"start":"2026-10-08","end":"2026-10-08"');
+  });
+
+  it('"in the last one hour" is the last hour, to the minute', async () => {
+    const { data, calls } = fake();
+    const { reply } = await respond('how much did i spend in the last one hour', EMPTY_CONVERSATION, data);
+    expect(reply.text).toMatch(
+      /^You spent ₹450 the last hour \(since \d{1,2}:\d{2} [ap]m\), across 1 payment\.$/,
+    );
+    const sent = JSON.parse(calls[0]!.slice('totals '.length))[0];
+    expect(Date.parse(sent.to) - Date.parse(sent.from)).toBe(3_600_000);
+  });
+
+  it('asks instead of guessing when it can’t read the period', async () => {
+    const { data, calls } = fake();
+    const { reply } = await respond('how much did i spend since diwali', EMPTY_CONVERSATION, data);
+    expect(reply.text).toMatch(/^I couldn’t tell which period you mean/);
+    expect(calls).toEqual([]);
   });
 
   it('offers what it can do when it doesn’t understand', async () => {

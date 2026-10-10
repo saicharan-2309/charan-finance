@@ -83,7 +83,7 @@ export interface Account {
   reportedBalanceKind: 'balance' | 'limit' | null;
   reportedBalanceAt: string | null;
   /** 'friends' for the system account that holds money owed between you and friends. */
-  systemKind: 'friends' | null;
+  systemKind: 'friends' | 'lending' | null;
 }
 
 /**
@@ -599,4 +599,31 @@ export interface AppNotification {
   data: Record<string, string>;
   readAt: string | null;
   createdAt: string;
+}
+
+/** Money you lent to someone or borrowed from them (anyone, not only BUD friends). */
+export interface Iou {
+  id: UUID;
+  direction: 'lent' | 'borrowed';
+  person: string;
+  amount: Minor;
+  currency: string;
+  occurredOn: ISODate;
+  dueOn: ISODate | null;
+  note: string | null;
+  /** Where the money came from / went to; null = it happened before BUD. */
+  accountId: UUID | null;
+  closedAt: string | null;
+  repaid: Minor;
+  outstanding: Minor;
+  repayments: IouRepayment[];
+}
+
+export interface IouRepayment {
+  id: UUID;
+  amount: Minor;
+  occurredOn: ISODate;
+  /** null = outside BUD (cash you don't track, or before BUD). */
+  accountId: UUID | null;
+  note: string | null;
 }

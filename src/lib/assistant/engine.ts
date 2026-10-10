@@ -25,9 +25,11 @@ import {
   dayLabel,
   daysIn,
   findAccount,
+  findAccounts,
   findCategory,
   findFriend,
   findMerchant,
+  mentionsTime,
   moneyMonth,
   parseAmount,
   parsePeriod,
@@ -69,6 +71,17 @@ export interface AssistantData {
   cycleStartDay: number;
   currency: string;
   summary(r: Range): Promise<PeriodSummary>;
+  /**
+   * Income and spending for a day range or exact instants (from/to), optionally
+   * only some accounts or one category — the same rules as summary().
+   */
+  totals(f: {
+    range: Range;
+    from?: string;
+    to?: string;
+    accountIds?: string[];
+    categoryId?: string;
+  }): Promise<{ income: Minor; expense: Minor; count: number; expenseCount: number }>;
   byCategory(r: Range, kind: 'expense' | 'income'): Promise<CategoryTotal[]>;
   byMerchant(r: Range): Promise<MerchantTotal[]>;
   byAccount(r: Range): Promise<AccountTotal[]>;
@@ -85,6 +98,8 @@ export interface AssistantData {
   categories(): Promise<Category[]>;
   friends(): Promise<FriendHit[]>;
   groups(): Promise<{ name: string; net: Minor }[]>;
+  /** Lent & borrowed with anyone: positive = they owe you. Only what's still owed. */
+  ious?(): Promise<{ person: string; net: Minor }[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +227,30 @@ export async function respond(
   const intent = classify(text);
   const period = parsePeriod(text, data.today, data.cycleStartDay);
 
+  // A time was mentioned but not understood: ask, rather than quietly answer for this month.
+  if (
+    !period &&
+    mentionsTime(text) &&
+    (intent.kind === 'spend' ||
+      intent.kind === 'income' ||
+      intent.kind === 'breakdown' ||
+      intent.kind === 'compare' ||
+      intent.kind === 'list')
+  ) {
+    return {
+      reply: reply(
+        'I couldn’t tell which period you mean. Try “today”, “yesterday”, “last 3 hours”, “on 5 Oct”, “this week”, “last month” or “in September”.',
+        {
+          choices: ['today', 'this week', 'this month', 'last month'].map((p) => ({
+            label: p.charAt(0).toUpperCase() + p.slice(1),
+            value: `${text.replace(/[?.!]+$/, '')} ${p}`,
+          })),
+        },
+      ),
+      convo: { ...convo, pending: null },
+    };
+  }
+
   switch (intent.kind) {
     case 'create': {
       // A transaction happens on a day; "in December" doesn't say which.
@@ -312,15 +351,19 @@ export async function respond(
       };
     case 'income':
       return {
-        reply: await answerIncome(period ?? thisMonth(data.today, data.cycleStartDay), data),
+        reply: await answerIncome(text, period ?? thisMonth(data.today, data.cycleStartDay), data),
         convo: { ...convo, pending: null },
       };
     case 'breakdown':
+      if (period?.from)
+        return { reply: await answerSpend(text, period, data), convo: { ...convo, pending: null } };
       return {
         reply: await answerBreakdown(intent.by, period ?? thisMonth(data.today, data.cycleStartDay), data),
         convo: { ...convo, pending: null },
       };
     case 'compare':
+      if (period?.from)
+        return { reply: await answerSpend(text, period, data), convo: { ...convo, pending: null } };
       return {
         reply: await answerCompare(period ?? thisMonth(data.today, data.cycleStartDay), data),
         convo: { ...convo, pending: null },
@@ -351,18 +394,62 @@ export async function respond(
 // Questions
 // ---------------------------------------------------------------------------
 
-const periodText = (p: Period) => `${p.label} (${rangeLabel(p)})`;
+/** "the last hour (since 4:12 pm)" has no date range to show; days and months do. */
+const periodText = (p: Period) => (p.from ? p.label : `${p.label} (${rangeLabel(p)})`);
 
 async function answerSpend(text: string, period: Period, data: AssistantData): Promise<Reply> {
-  const money = (v: number) => formatMoney(v, data.currency, { decimals: 'never' });
+  const money = (v: number) => formatMoney(v, data.currency, { decimals: 'auto' });
   const [categories, accounts] = await Promise.all([data.categories(), data.accounts()]);
   const expenseCats = categories.filter((c) => c.kind === 'expense');
   const exact = findCategory(text, expenseCats);
-  const account = findAccount(text, usable(accounts));
+  const which = findAccounts(text, usable(accounts));
   const merchantPhrase = findMerchant(text, (p) => isKnownWord(p, expenseCats, accounts));
+  const window = { range: period, from: period.from, to: period.to };
+  const src = (what: string) => [`${what} · ${periodText(period)}`];
 
-  // A merchant the user has actually paid ("on Amazon") wins over a loose category word.
-  if (merchantPhrase && !(exact && exact.exact)) {
+  // A category ("on food") — optionally on one card or account.
+  if (exact?.exact) {
+    const t = await data.totals({
+      ...window,
+      categoryId: exact.item.id,
+      accountIds: which ? ('one' in which ? [which.one.id] : which.many.map((x) => x.id)) : undefined,
+    });
+    const on = which ? ` with ${'one' in which ? which.one.name : which.label}` : '';
+    return reply(
+      t.expense > 0
+        ? `You spent ${money(t.expense)} on ${exact.item.name}${on} ${periodText(period)}, across ${count(t.expenseCount, 'payment')}.`
+        : `You haven’t spent anything on ${exact.item.name}${on} ${periodText(period)}.`,
+      { sources: src('Spending by category') },
+    );
+  }
+
+  // A payment method, or all of one kind ("my credit cards").
+  if (which) {
+    const ids = 'one' in which ? [which.one.id] : which.many.map((x) => x.id);
+    const name = 'one' in which ? which.one.name : which.label;
+    const t = await data.totals({ ...window, accountIds: ids });
+    return reply(
+      t.expense > 0
+        ? `You spent ${money(t.expense)} with ${name} ${periodText(period)}, across ${count(t.expenseCount, 'payment')}.`
+        : `Nothing was spent with ${name} ${periodText(period)}.`,
+      { sources: src('By payment method') },
+    );
+  }
+
+  // A merchant ("at Amazon").
+  if (merchantPhrase) {
+    if (period.from) {
+      const hits = (
+        await data.search({ range: period, text: merchantPhrase, type: 'expense', limit: 50 })
+      ).filter((t) => t.occurredAt >= period.from! && t.occurredAt <= period.to!);
+      const total = hits.reduce((x, t) => x + t.amount, 0);
+      return reply(
+        hits.length
+          ? `You spent ${money(total)} at ${merchantPhrase} ${periodText(period)}, across ${count(hits.length, 'payment')}.`
+          : `I can’t find any spending at ${merchantPhrase} ${periodText(period)}.`,
+        { sources: src('Transactions') },
+      );
+    }
     const merchants = await data.byMerchant(period);
     const m =
       merchants.find((x) => x.name.toLowerCase() === merchantPhrase.toLowerCase()) ??
@@ -372,68 +459,64 @@ async function answerSpend(text: string, period: Period, data: AssistantData): P
         `You spent ${money(m.total)} at ${m.name} ${periodText(period)}, across ${count(m.count, 'payment')}${
           m.count > 1 ? ` (largest ${money(m.largest)})` : ''
         }.`,
-        { sources: [`Spending by merchant · ${rangeLabel(period)}`] },
+        { sources: src('Spending by merchant') },
       );
     }
     if (!exact) {
       return reply(`I can’t find any spending at ${merchantPhrase} ${periodText(period)}.`, {
-        sources: [`Spending by merchant · ${rangeLabel(period)}`],
+        sources: src('Spending by merchant'),
       });
     }
   }
 
+  // A loose category word ("groceries" for Groceries via everyday words).
   if (exact) {
-    const rows = await data.byCategory(period, 'expense');
-    const row = rows.find((r) => r.categoryId === exact.item.id || r.categoryId === exact.item.parentId);
-    const src = { sources: [`Spending by category · ${rangeLabel(period)}`] };
-    if (!row || row.total === 0)
-      return reply(`You haven’t spent anything on ${exact.item.name} ${periodText(period)}.`, src);
-    const total = rows.reduce((s, r) => s + r.total, 0);
+    const t = await data.totals({ ...window, categoryId: exact.item.id });
     return reply(
-      `You spent ${money(row.total)} on ${row.name} ${periodText(period)}, across ${count(row.count, 'payment')} — ${pct(
-        row.total,
-        total,
-      )} of your spending.`,
-      src,
+      t.expense > 0
+        ? `You spent ${money(t.expense)} on ${exact.item.name} ${periodText(period)}, across ${count(t.expenseCount, 'payment')}.`
+        : `You haven’t spent anything on ${exact.item.name} ${periodText(period)}.`,
+      { sources: src('Spending by category') },
     );
   }
 
-  if (account) {
-    const rows = await data.byAccount(period);
-    const row = rows.find((r) => r.accountId === account.id);
+  // Everything.
+  const t = await data.totals(window);
+  if (t.expense === 0)
+    return reply(`You haven’t spent anything ${periodText(period)}.`, { sources: src('Totals') });
+  if (period.from) {
     return reply(
-      row && row.expense > 0
-        ? `You spent ${money(row.expense)} with ${account.name} ${periodText(period)}, across ${count(row.count, 'transaction')}.`
-        : `Nothing was spent with ${account.name} ${periodText(period)}.`,
-      { sources: [`By payment method · ${rangeLabel(period)}`] },
+      `You spent ${money(t.expense)} ${periodText(period)}, across ${count(t.expenseCount, 'payment')}.`,
+      { sources: src('Totals') },
     );
   }
-
-  const [s, cats] = await Promise.all([data.summary(period), data.byCategory(period, 'expense')]);
-  if (s.expense === 0) {
-    return reply(`You haven’t spent anything ${periodText(period)}.`, {
-      sources: [`Totals · ${rangeLabel(period)}`],
-    });
-  }
+  const cats = await data.byCategory(period, 'expense');
   return reply(
-    `You spent ${money(s.expense)} ${periodText(period)}, across ${count(s.expenseCount, 'payment')}. Your biggest categories:`,
+    `You spent ${money(t.expense)} ${periodText(period)}, across ${count(t.expenseCount, 'payment')}. Your biggest categories:`,
     {
       lines: cats
         .slice(0, 3)
-        .map((c) => ({ label: c.name, value: `${money(c.total)} · ${pct(c.total, s.expense)}` })),
-      sources: [`Totals · ${rangeLabel(period)}`, `Spending by category · ${rangeLabel(period)}`],
+        .map((c) => ({ label: c.name, value: `${money(c.total)} · ${pct(c.total, t.expense)}` })),
+      sources: [...src('Totals'), ...src('Spending by category')],
     },
   );
 }
 
-async function answerIncome(period: Period, data: AssistantData): Promise<Reply> {
-  const money = (v: number) => formatMoney(v, data.currency, { decimals: 'never' });
-  const [s, cats] = await Promise.all([data.summary(period), data.byCategory(period, 'income')]);
-  const sources = [`Totals · ${rangeLabel(period)}`, `Income by category · ${rangeLabel(period)}`];
-  if (s.income === 0) return reply(`No money came in ${periodText(period)}.`, { sources });
-  return reply(`${money(s.income)} came in ${periodText(period)}, and you spent ${money(s.expense)}.`, {
+async function answerIncome(text: string, period: Period, data: AssistantData): Promise<Reply> {
+  const money = (v: number) => formatMoney(v, data.currency, { decimals: 'auto' });
+  const which = findAccounts(text, usable(await data.accounts()));
+  const ids = which ? ('one' in which ? [which.one.id] : which.many.map((x) => x.id)) : undefined;
+  const t = await data.totals({ range: period, from: period.from, to: period.to, accountIds: ids });
+  const into = which ? ` into ${'one' in which ? which.one.name : which.label}` : '';
+  const sources = [`Totals · ${periodText(period)}`];
+  if (t.income === 0) return reply(`No money came in${into} ${periodText(period)}.`, { sources });
+  if (period.from || which) {
+    return reply(`${money(t.income)} came in${into} ${periodText(period)}.`, { sources });
+  }
+  const cats = await data.byCategory(period, 'income');
+  return reply(`${money(t.income)} came in ${periodText(period)}, and you spent ${money(t.expense)}.`, {
     lines: cats.slice(0, 4).map((c) => ({ label: c.name, value: money(c.total) })),
-    sources,
+    sources: [...sources, `Income by category · ${periodText(period)}`],
   });
 }
 
@@ -588,11 +671,25 @@ async function answerBalances(cardsOnly: boolean, data: AssistantData): Promise<
 
 async function answerFriends(text: string, data: AssistantData): Promise<Reply> {
   const money = (v: number) => formatMoney(v, data.currency, { decimals: 'auto' });
-  const [friends, groups] = await Promise.all([data.friends(), data.groups()]);
-  const sources = ['Friends and shared expenses'];
-  if (!friends.length)
-    return reply('You haven’t added any friends in BUD yet — find them in Friends.', { sources });
-  const one = findFriend(text, friends);
+  const [friends, groups, ious] = await Promise.all([data.friends(), data.groups(), data.ious?.() ?? []]);
+  // BUD friends and anyone in Lent & borrowed, as one list of people (same name = same person).
+  const people = new Map<string, { name: string; username: string | null; net: number; userId: string }>();
+  for (const f of friends)
+    people.set(f.name.toLowerCase(), { name: f.name, username: f.username, net: f.net, userId: f.userId });
+  for (const i of ious) {
+    const k = i.person.toLowerCase();
+    const p = people.get(k) ?? { name: i.person, username: null, net: 0, userId: `iou:${k}` };
+    people.set(k, { ...p, net: p.net + i.net });
+  }
+  const all = [...people.values()];
+  const sources = ['Friends, shared expenses, and Lent & borrowed'];
+  if (!all.length) {
+    return reply(
+      'Nobody owes you anything in BUD, and you don’t owe anyone. Add friends in Friends, or money you lent in Lent & borrowed.',
+      { sources },
+    );
+  }
+  const one = findFriend(text, all);
   if (one) {
     return reply(
       one.net > 0
@@ -603,18 +700,18 @@ async function answerFriends(text: string, data: AssistantData): Promise<Reply> 
       { sources },
     );
   }
-  const owedToMe = friends.reduce((s, f) => s + Math.max(f.net, 0), 0);
-  const iOwe = friends.reduce((s, f) => s + Math.max(-f.net, 0), 0);
-  const open = friends.filter((f) => f.net !== 0);
+  const owedToMe = all.reduce((x, p) => x + Math.max(p.net, 0), 0);
+  const iOwe = all.reduce((x, p) => x + Math.max(-p.net, 0), 0);
+  const open = all.filter((p) => p.net !== 0);
   const head =
     owedToMe === 0 && iOwe === 0
-      ? 'You’re settled up with all your friends.'
-      : `Friends owe you ${money(owedToMe)}${iOwe ? `, and you owe ${money(iOwe)}` : ''}.`;
+      ? 'You’re settled up with everyone.'
+      : `People owe you ${money(owedToMe)}${iOwe ? `, and you owe ${money(iOwe)}` : ''}.`;
   return reply(head, {
     lines: [
-      ...open.map((f) => ({
-        label: f.name,
-        value: f.net > 0 ? `owes you ${money(f.net)}` : `you owe ${money(-f.net)}`,
+      ...open.map((p) => ({
+        label: p.name,
+        value: p.net > 0 ? `owes you ${money(p.net)}` : `you owe ${money(-p.net)}`,
       })),
       ...groups
         .filter((g) => g.net !== 0)
@@ -643,14 +740,17 @@ async function answerList(
     : /\bexpenses?|spent|spending\b/i.test(text)
       ? 'expense'
       : undefined;
-  const txns = await data.search({
+  const found = await data.search({
     range: period ?? undefined,
     text: merchant ?? undefined,
     categoryId: cat?.exact ? cat.item.id : undefined,
     accountId: acct?.id,
     type,
-    limit,
+    limit: period?.from ? 50 : limit,
   });
+  const txns = period?.from
+    ? found.filter((t) => t.occurredAt >= period.from! && t.occurredAt <= period.to!).slice(0, limit)
+    : found;
   const what = [merchant, cat?.exact ? cat.item.name : null, acct?.name].filter(Boolean).join(', ');
   const sources = [`Transactions${period ? ` · ${rangeLabel(period)}` : ''}`];
   if (!txns.length) {
@@ -881,6 +981,8 @@ function usable(accounts: Account[]): Account[] {
 }
 
 function isKnownWord(phrase: string, categories: Category[], accounts: Account[]): boolean {
+  if (/\b(?:credit|debit|cards?|bank|accounts?|savings?|upi|wallets?|cash|a\/?c)\b/i.test(phrase))
+    return true;
   return (
     !!findCategory(phrase, categories)?.exact ||
     !!findAccount(phrase, usable(accounts)) ||

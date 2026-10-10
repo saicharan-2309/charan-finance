@@ -32,6 +32,7 @@ export default function MoreScreen() {
       title: 'People and help',
       items: [
         { title: 'Friends and shared bills', icon: 'people-outline', href: '/friends', color: SW.Blue },
+        { title: 'Lent & borrowed', icon: 'swap-horizontal-outline', href: '/lending', color: SW.Coral },
         { title: 'BUD AI', icon: 'sparkles-outline', href: '/assistant', color: SW.Peach },
         { title: 'Highlights', icon: 'bulb-outline', href: '/insights', color: SW.Gold },
       ],

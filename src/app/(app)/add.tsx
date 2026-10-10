@@ -48,6 +48,13 @@ export default function AddScreen() {
       go: () => router.replace('/split/new'),
     },
     {
+      label: 'Lent or borrowed',
+      hint: 'Money you gave someone or got from them — even from before BUD',
+      icon: 'swap-horizontal-outline',
+      color: 'warning',
+      go: () => router.replace('/lending/new'),
+    },
+    {
       label: 'Transfer or card payment',
       hint: 'Move money between your accounts — never counted as spending',
       icon: 'swap-horizontal',
