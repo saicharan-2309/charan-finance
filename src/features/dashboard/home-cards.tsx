@@ -25,8 +25,6 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { cardGradientFor, continuous, GUTTER, radius, spacing, typography } from '@/theme/tokens';
 import type { Account, Transaction } from '@/types/domain';
 
-const mono = Platform.select({ ios: 'Menlo', default: 'monospace' });
-
 // ---------------------------------------------------------------------------
 // Payment-method carousel
 // ---------------------------------------------------------------------------
@@ -38,7 +36,7 @@ export function AccountCarousel({ accounts }: { accounts: Account[] }) {
   // The system "Friends" balance is shown in Friends, not as a card.
   const active = accounts.filter((a) => a.isActive && !a.systemKind);
   const cardW = Math.min(screen - GUTTER * 2 - 28, 360);
-  const cardH = Math.round(cardW * 0.58);
+  const cardH = 150;
   const today = todayISO();
   if (active.length === 0) return null;
 
@@ -82,59 +80,71 @@ export function AccountCarousel({ accounts }: { accounts: Account[] }) {
                 justifyContent: 'space-between',
               }}
             >
-              <GradientFill colors={grad} />
+              <GradientFill colors={grad} sheen />
               <CardSwoosh />
-              <Row justify="space-between" align="flex-start">
-                <Text
-                  numberOfLines={1}
+              {/* Like the reference: issuer badge · name and type, then the balance, then the digits */}
+              <Row gap={spacing.md}>
+                <View
                   style={{
-                    color: colors.heroText,
-                    fontSize: 20,
-                    fontWeight: '800',
-                    fontStyle: 'italic',
-                    letterSpacing: -0.3,
-                    flexShrink: 1,
-                    marginRight: spacing.md,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: colors.heroTrack,
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {issuer}
-                </Text>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text
-                    style={[typography.headline, { color: colors.heroText, fontWeight: '700' }]}
-                    numberOfLines={1}
-                  >
-                    {amount}
+                  <Text style={{ color: colors.heroText, fontWeight: '800', fontSize: 16 }}>
+                    {issuer.charAt(0).toUpperCase()}
                   </Text>
-                  {display.caption ? (
-                    <Text variant="caption" style={{ color: colors.heroMuted }}>
-                      {display.caption}
-                    </Text>
-                  ) : null}
                 </View>
-              </Row>
-              <View style={{ gap: spacing.sm }}>
-                <Text
-                  numberOfLines={1}
-                  style={{ color: colors.heroText, fontFamily: mono, fontSize: 14, letterSpacing: 1 }}
-                >
-                  {a.name}
-                </Text>
-                <Row justify="space-between">
-                  <Text style={{ color: colors.heroText, fontFamily: mono, fontSize: 14, letterSpacing: 1 }}>
-                    {a.last4 ? `•••• ${a.last4}` : ACCOUNT_TYPE_LABELS[a.type]}
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={[typography.bodyStrong, { color: colors.heroText }]}>
+                    {issuer}
                   </Text>
-                  <Text style={{ color: colors.heroMuted, fontFamily: mono, fontSize: 13 }}>
+                  <Text numberOfLines={1} variant="footnote" style={{ color: colors.heroMuted }}>
                     {isCard
                       ? due
-                        ? `due ${formatShortDate(due)}`
-                        : 'credit'
-                      : a.last4
-                        ? ACCOUNT_TYPE_LABELS[a.type]
-                        : ''}
+                        ? `Credit card · due ${formatShortDate(due)}`
+                        : 'Credit card'
+                      : a.name !== issuer
+                        ? a.name
+                        : ACCOUNT_TYPE_LABELS[a.type]}
                   </Text>
-                </Row>
-              </View>
+                </View>
+              </Row>
+              <Row justify="space-between" align="flex-end">
+                <View style={{ flexShrink: 1 }}>
+                  <Text
+                    style={[typography.title, { color: colors.heroText, fontWeight: '700' }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {amount}
+                    {display.caption ? (
+                      <Text variant="footnote" style={{ color: colors.heroMuted, fontWeight: '500' }}>
+                        {'  '}
+                        {display.caption}
+                      </Text>
+                    ) : null}
+                  </Text>
+                  <Text style={{ color: colors.heroMuted, fontSize: 15, letterSpacing: 2, marginTop: 2 }}>
+                    {a.last4 ? `•••• ${a.last4}` : ACCOUNT_TYPE_LABELS[a.type]}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    backgroundColor: colors.heroTrack,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon name="chevron-forward" size={16} color={colors.heroText} />
+                </View>
+              </Row>
             </View>
           </Pressable>
         );

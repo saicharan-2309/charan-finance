@@ -3,13 +3,14 @@
  * incremental loading (40 rows per page — never the whole history in memory).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, SectionList, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, SectionList, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TextField } from '@/components/ui/controls';
 import { EmptyState, ErrorState, SkeletonList } from '@/components/ui/feedback';
 import { TAB_BAR_HEIGHT } from '@/components/ui/layout';
-import { Divider, Icon, MoneyText, Text } from '@/components/ui/primitives';
+import { SelectSheet } from '@/components/ui/pickers';
+import { Divider, Icon, MoneyText, Row, Text } from '@/components/ui/primitives';
+import { PageHeader, Pill, RoundButton } from '@/components/ui/ref';
 import {
   countActiveFilters,
   FilterSheet,
@@ -19,12 +20,21 @@ import {
 import { PendingTransactions, SyncBanner } from '@/features/transactions/SyncStatus';
 import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { useCurrency, useTransactionsInfinite } from '@/hooks/data';
-import { formatDayLabel, toISODate } from '@/lib/dates';
+import { formatDayLabel, RANGE_PRESET_LABELS, toISODate } from '@/lib/dates';
 import { invalidateFinancialData } from '@/lib/query';
 import { AuroraBackground } from '@/components/ui/gradient';
 import { useTheme } from '@/theme/ThemeProvider';
 import { continuous, GUTTER, radius, spacing } from '@/theme/tokens';
 import type { Transaction } from '@/types/domain';
+
+const PRESETS = [
+  'this_month',
+  'last_month',
+  'last_3_months',
+  'last_6_months',
+  'this_year',
+  'last_year',
+] as const;
 
 function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value);
@@ -42,6 +52,7 @@ export default function TransactionsScreen() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterState>({});
   const [sheet, setSheet] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const debounced = useDebounced(search);
 
@@ -79,62 +90,74 @@ export default function TransactionsScreen() {
 
   const active = countActiveFilters(filters);
 
+  const type = filters.types?.length === 1 ? filters.types[0] : null;
+  const setType = (t: 'income' | 'expense' | 'transfer' | null) =>
+    setFilters((f) => ({ ...f, types: t ? [t] : undefined }));
+  const presetLabel = filters.rangePreset ? RANGE_PRESET_LABELS[filters.rangePreset] : 'All time';
+  // The category pill shows how many category/account/amount filters are set.
+  const extra = active - (filters.types?.length ? 1 : 0) - (filters.rangePreset ? 1 : 0);
+
   const header = (
-    <View style={{ paddingTop: insets.top + spacing.md }}>
-      <Text variant="largeTitle" accessibilityRole="header" style={{ marginBottom: spacing.lg }}>
-        Transactions
-      </Text>
+    <View style={{ paddingTop: insets.top + spacing.sm }}>
+      <PageHeader
+        title="Transactions"
+        right={
+          <RoundButton
+            icon="options-outline"
+            label="Filters"
+            badge={active || undefined}
+            onPress={() => setSheet(true)}
+          />
+        }
+      />
       <SyncBanner />
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-        <TextField
-          containerStyle={{ flex: 1 }}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+          height: 48,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radius.pill,
+          backgroundColor: colors.surface,
+          marginBottom: spacing.lg,
+          ...(scheme === 'light' ? elevation.card : null),
+        }}
+      >
+        <Icon name="search" size={18} tone="tertiary" />
+        <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search merchant, note, tag, amount…"
+          placeholder="Search transactions, merchants…"
+          placeholderTextColor={colors.textTertiary}
           autoCorrect={false}
           autoCapitalize="none"
           clearButtonMode="while-editing"
           returnKeyType="search"
-          leading={<Icon name="search" size={18} tone="tertiary" />}
           accessibilityLabel="Search transactions"
+          style={{ flex: 1, color: colors.text, fontSize: 15, height: 48 }}
         />
-        <Pressable
-          onPress={() => setSheet(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Filters${active ? `, ${active} active` : ''}`}
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: radius.md,
-            ...continuous,
-            backgroundColor: active ? colors.text : colors.surface,
-            ...(scheme === 'light' ? elevation.card : null),
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name="options-outline" size={22} color={active ? colors.background : colors.text} />
-          {active ? (
-            <View
-              style={{
-                position: 'absolute',
-                top: 6,
-                right: 6,
-                minWidth: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: colors.brand,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text variant="caption" style={{ color: colors.onBrand, fontSize: 10 }}>
-                {active}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
       </View>
+      <Row gap={spacing.sm} style={{ marginBottom: spacing.md }}>
+        <Pill label="All" selected={!type} onPress={() => setType(null)} />
+        <Pill label="Income" selected={type === 'income'} onPress={() => setType('income')} />
+        <Pill label="Expenses" selected={type === 'expense'} onPress={() => setType('expense')} />
+        <Pill label="Transfers" selected={type === 'transfer'} onPress={() => setType('transfer')} />
+      </Row>
+      <Row justify="space-between" style={{ marginBottom: spacing.lg }}>
+        <Pill
+          label={presetLabel}
+          trailingIcon="chevron-down"
+          onPress={() => setPresetOpen(true)}
+          accessibilityLabel={`Period: ${presetLabel}. Change`}
+        />
+        <Pill
+          label={extra > 0 ? `Category · ${extra}` : 'Category'}
+          icon="settings-outline"
+          selected={extra > 0}
+          onPress={() => setSheet(true)}
+        />
+      </Row>
       {!active && !debounced ? <PendingTransactions /> : null}
     </View>
   );
@@ -145,7 +168,7 @@ export default function TransactionsScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(t) => t.id}
-        stickySectionHeadersEnabled
+        stickySectionHeadersEnabled={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={{
@@ -158,24 +181,21 @@ export default function TransactionsScreen() {
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
+              alignItems: 'center',
               paddingTop: spacing.md,
               paddingBottom: spacing.sm,
-              paddingHorizontal: spacing.md,
-              marginHorizontal: -spacing.sm,
-              borderRadius: radius.md,
-              // Frosted, so rows scrolling under the pinned heading stay out of the way.
-              backgroundColor: colors.chromeFill,
+              paddingHorizontal: 4,
             }}
           >
-            <Text variant="subhead" tone="secondary">
+            <Text variant="bodyStrong" style={{ fontSize: 16 }}>
               {section.title}
             </Text>
             {byDate && section.net !== 0 ? (
               <MoneyText
                 minor={section.net}
                 currency={currency}
-                variant="subhead"
-                tone="secondary"
+                variant="bodyStrong"
+                tone={section.net > 0 ? 'positive' : 'primary'}
                 options={{ signed: true, decimals: 'never' }}
               />
             ) : null}
@@ -249,6 +269,18 @@ export default function TransactionsScreen() {
         removeClippedSubviews
       />
       <FilterSheet visible={sheet} value={filters} onApply={setFilters} onClose={() => setSheet(false)} />
+      <SelectSheet
+        visible={presetOpen}
+        title="Period"
+        noneLabel="All time"
+        options={PRESETS.map((p) => ({ value: p, label: RANGE_PRESET_LABELS[p] }))}
+        selected={filters.rangePreset ?? null}
+        onSelect={(p) => {
+          setFilters((f) => ({ ...f, rangePreset: (p as FilterState['rangePreset']) ?? null }));
+          setPresetOpen(false);
+        }}
+        onClose={() => setPresetOpen(false)}
+      />
     </View>
   );
 }

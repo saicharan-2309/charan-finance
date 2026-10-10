@@ -9,9 +9,10 @@
  *   ( Expense )( Money in )( Transfer )( Split )           quick actions
  */
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { CardRings, GradientFill } from '@/components/ui/gradient';
+import { CardWave, GradientFill } from '@/components/ui/gradient';
 import { Skeleton } from '@/components/ui/feedback';
 import { Card, Icon, Row, Text } from '@/components/ui/primitives';
 import { CategoryAvatar } from '@/components/CategoryAvatar';
@@ -27,15 +28,29 @@ export function BalanceGroupsHero({
   accounts,
   currency,
   safe,
+  month,
 }: {
   groups: BalanceGroup[] | undefined;
   accounts: Account[] | undefined;
   currency: string;
   /** Safe to spend until payday, shown on the cash group. */
   safe: { amount: Minor; perDay: Minor | null; until: string } | null;
+  /**
+   * This money month so far, and last month up to the same day — for the
+   * Income / Expenses / Savings tiles. Null while loading.
+   */
+  month?: { income: Minor; expense: Minor; prevIncome: Minor; prevExpense: Minor } | null;
 }) {
   const { colors, elevation } = useTheme();
-  const money = (v: number) => formatMoney(v, currency, { decimals: 'never' });
+  // The eye button hides the amounts on screen (e.g. in public); nothing else changes.
+  const [hidden, setHidden] = useState(false);
+  const money = (v: number) => (hidden ? '₹ ••••' : formatMoney(v, currency, { decimals: 'never' }));
+  const change = (now: number, before: number) =>
+    before > 0 ? Math.round(((now - before) / before) * 100) : null;
+  const kept =
+    month && month.income > 0
+      ? Math.max(Math.round(((month.income - month.expense) / month.income) * 100), 0)
+      : null;
 
   if (!groups || !accounts)
     return <Skeleton height={168} rounded={radius.xxl} style={{ marginBottom: spacing.xl }} />;
@@ -73,18 +88,47 @@ export function BalanceGroupsHero({
             }}
           >
             <GradientFill colors={colors.heroGradient} sheen />
-            <CardRings />
+            <CardWave />
             <Row justify="space-between">
-              <Text variant="subhead" style={{ color: colors.heroMuted }}>
-                {first.g.name}
-              </Text>
-              <Text variant="caption" style={{ color: colors.heroMuted }}>
-                {first.s.cashCount + first.s.cardCount}{' '}
-                {first.s.cashCount + first.s.cardCount === 1 ? 'method' : 'methods'}
-              </Text>
+              <Row gap={6}>
+                <Text variant="subhead" style={{ color: colors.heroMuted }}>
+                  {first.g.kind === 'cash' ? 'Total balance' : first.g.name}
+                </Text>
+                <Pressable
+                  onPress={() => setHidden((v) => !v)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={hidden ? 'Show amounts' : 'Hide amounts'}
+                >
+                  <Icon
+                    name={hidden ? 'eye-off-outline' : 'eye-outline'}
+                    size={16}
+                    color={colors.heroMuted}
+                  />
+                </Pressable>
+              </Row>
+              {kept !== null ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 3,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.income,
+                  }}
+                  accessibilityLabel={`Kept ${kept} percent of this month's income`}
+                >
+                  <Icon name="arrow-up" size={12} color={colors.heroText} />
+                  <Text variant="caption" style={{ color: colors.heroText, fontWeight: '700' }}>
+                    {kept}% saved
+                  </Text>
+                </View>
+              ) : null}
             </Row>
             <Text
-              style={[typography.display, { color: colors.heroText }]}
+              style={[typography.display, { color: colors.heroText, marginTop: 2 }]}
               numberOfLines={1}
               adjustsFontSizeToFit
             >
@@ -98,13 +142,13 @@ export function BalanceGroupsHero({
             {safe && first.g.kind === 'cash' ? (
               <View
                 style={{
-                  marginTop: spacing.md,
+                  marginTop: spacing.sm,
                   alignSelf: 'flex-start',
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 6,
                   paddingHorizontal: 12,
-                  paddingVertical: 7,
+                  paddingVertical: 6,
                   borderRadius: radius.pill,
                   backgroundColor: colors.heroTrack,
                 }}
@@ -120,6 +164,63 @@ export function BalanceGroupsHero({
                     : `Safe to spend ${money(safe.amount)}${safe.perDay !== null ? ` · ${money(safe.perDay)}/day` : ''} until ${safe.until}`}
                 </Text>
               </View>
+            ) : null}
+            {month ? (
+              <Row gap={spacing.sm} style={{ marginTop: spacing.lg }}>
+                {(
+                  [
+                    ['Income', month.income, month.prevIncome, true],
+                    ['Expenses', month.expense, month.prevExpense, false],
+                    [
+                      'Savings',
+                      Math.max(month.income - month.expense, 0),
+                      Math.max(month.prevIncome - month.prevExpense, 0),
+                      true,
+                    ],
+                  ] as const
+                ).map(([label, now, before, upIsGood]) => {
+                  const c = change(now, before);
+                  const good = c !== null && (upIsGood ? c >= 0 : c <= 0);
+                  return (
+                    <View
+                      key={label}
+                      style={{
+                        flex: 1,
+                        padding: spacing.md,
+                        borderRadius: radius.lg,
+                        ...continuous,
+                        backgroundColor: colors.heroTrack,
+                        gap: 2,
+                      }}
+                    >
+                      <Text variant="caption" style={{ color: colors.heroMuted }}>
+                        {label}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        style={[typography.bodyStrong, { color: colors.heroText, fontSize: 15 }]}
+                      >
+                        {money(now)}
+                      </Text>
+                      <Text
+                        variant="caption"
+                        style={{
+                          color: c === null ? colors.heroMuted : good ? colors.heroUp : colors.heroDown,
+                          fontWeight: '700',
+                        }}
+                        accessibilityLabel={
+                          c === null
+                            ? 'No comparison yet'
+                            : `${Math.abs(c)} percent ${c >= 0 ? 'more' : 'less'} than by this day last month`
+                        }
+                      >
+                        {c === null ? '—' : `${c >= 0 ? '↑' : '↓'} ${Math.abs(c)}%`}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </Row>
             ) : null}
           </View>
         </Pressable>
@@ -162,16 +263,17 @@ export function BalanceGroupsHero({
 }
 
 type Tint = 'expense' | 'brand' | 'violet' | 'warm';
-const ACTIONS: { icon: string; label: string; tint: Tint; go: () => void }[] = [
+const ACTIONS: { icon: string; label: string; tint: Tint; solid?: boolean; go: () => void }[] = [
   {
-    icon: 'remove',
-    label: 'Expense',
+    icon: 'add',
+    label: 'Add Expense',
     tint: 'expense',
+    solid: true,
     go: () => router.push({ pathname: '/transaction/new', params: { type: 'expense' } }),
   },
   {
-    icon: 'add',
-    label: 'Money in',
+    icon: 'arrow-down',
+    label: 'Money In',
     tint: 'brand',
     go: () => router.push({ pathname: '/transaction/new', params: { type: 'income' } }),
   },
@@ -181,9 +283,10 @@ const ACTIONS: { icon: string; label: string; tint: Tint; go: () => void }[] = [
     tint: 'violet',
     go: () => router.push({ pathname: '/transaction/new', params: { type: 'transfer' } }),
   },
-  { icon: 'git-branch', label: 'Split', tint: 'warm', go: () => router.push('/split/new') },
+  { icon: 'people', label: 'Split Bill', tint: 'warm', go: () => router.push('/split/new') },
 ];
 
+/** Four white tiles, icon and label inside, like the reference. */
 export function QuickActions() {
   const { colors, elevation } = useTheme();
   const tintOf = (t: Tint) =>
@@ -195,53 +298,47 @@ export function QuickActions() {
           ? colors.heroGradient[2]
           : colors.warm;
   return (
-    <Row justify="space-between" style={{ marginBottom: spacing.xxl, paddingHorizontal: spacing.xs }}>
-      {ACTIONS.map((a) => (
-        <Pressable
-          key={a.label}
-          onPress={a.go}
-          accessibilityRole="button"
-          accessibilityLabel={a.label}
-          style={({ pressed }) => ({
-            alignItems: 'center',
-            gap: spacing.xs,
-            width: 72,
-            transform: [{ scale: pressed ? 0.92 : 1 }],
-          })}
-        >
-          {/* A white tile with the action's colour in a tinted circle, like the reference. */}
-          <View
-            style={[
+    <Row gap={spacing.sm} style={{ marginBottom: spacing.xxl }}>
+      {ACTIONS.map((a) => {
+        const tint = tintOf(a.tint);
+        return (
+          <Pressable
+            key={a.label}
+            onPress={a.go}
+            accessibilityRole="button"
+            accessibilityLabel={a.label}
+            style={({ pressed }) => [
               {
-                width: 60,
-                height: 60,
+                flex: 1,
+                alignItems: 'center',
+                gap: spacing.sm,
+                paddingVertical: spacing.md,
                 borderRadius: radius.lg,
                 ...continuous,
-                alignItems: 'center',
-                justifyContent: 'center',
                 backgroundColor: colors.surface,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
               },
               elevation.card,
             ]}
           >
             <View
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
+                width: 38,
+                height: 38,
+                borderRadius: 19,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: `${tintOf(a.tint)}1F`,
+                backgroundColor: a.solid ? tint : `${tint}1F`,
               }}
             >
-              <Icon name={a.icon} size={20} color={tintOf(a.tint)} />
+              <Icon name={a.icon} size={20} color={a.solid ? colors.heroText : tint} />
             </View>
-          </View>
-          <Text variant="caption" tone="secondary">
-            {a.label}
-          </Text>
-        </Pressable>
-      ))}
+            <Text variant="caption" numberOfLines={1} adjustsFontSizeToFit style={{ fontWeight: '600' }}>
+              {a.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </Row>
   );
 }

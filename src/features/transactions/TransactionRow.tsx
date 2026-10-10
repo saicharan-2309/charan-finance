@@ -50,14 +50,11 @@ export const TransactionRow = memo(function TransactionRow({
       : t.type === 'adjustment'
         ? [t.accountName]
         : [t.subcategoryName ? `${t.categoryName} › ${t.subcategoryName}` : t.categoryName, t.accountName];
-  const subtitle = [
-    ...subtitleParts,
-    showDate
-      ? new Date(t.occurredAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-      : formatTime(t.occurredAt),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  // Like the reference: the category under the name, the time under the amount.
+  const subtitle = subtitleParts.filter(Boolean).join(' · ');
+  const when = showDate
+    ? new Date(t.occurredAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    : formatTime(t.occurredAt);
 
   const icon = t.type === 'transfer' || t.type === 'adjustment' ? FLOW_ICONS[flow] : t.categoryIcon;
   const color = t.type === 'transfer' || t.type === 'adjustment' ? colors.transfer : t.categoryColor;
@@ -69,7 +66,7 @@ export const TransactionRow = memo(function TransactionRow({
       onPress={onPress ?? (() => router.push({ pathname: '/transaction/[id]', params: { id: t.id } }))}
       disabled={t.pending}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${subtitle}`}
+      accessibilityLabel={`${title}, ${subtitle}, ${when}`}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
@@ -80,7 +77,7 @@ export const TransactionRow = memo(function TransactionRow({
         opacity: t.pending ? 0.7 : 1,
       })}
     >
-      <CategoryAvatar icon={icon} color={color} size={42} animateOnMount />
+      <CategoryAvatar icon={icon} color={color} size={44} animateOnMount />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
@@ -106,8 +103,13 @@ export const TransactionRow = memo(function TransactionRow({
           minor={amount}
           currency={t.currency}
           tone={tone}
-          options={{ signed: t.type === 'income', decimals: 'auto' }}
+          options={{ signed: t.type === 'income' || t.type === 'expense', decimals: 'auto' }}
         />
+        {t.pending ? null : (
+          <Text variant="caption" tone="tertiary">
+            {when}
+          </Text>
+        )}
         {t.pending ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Icon name="cloud-upload-outline" size={12} tone="warning" />

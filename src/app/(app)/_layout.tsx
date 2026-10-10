@@ -48,7 +48,7 @@ export default function AppLayout() {
       <Stack.Screen name="subscriptions" options={{ title: 'Subscriptions' }} />
       <Stack.Screen name="calendar" options={{ title: 'Calendar' }} />
       <Stack.Screen name="net-worth" options={{ title: 'Net worth' }} />
-      <Stack.Screen name="insights" options={{ title: 'Insights' }} />
+      <Stack.Screen name="insights" options={{ title: 'Highlights' }} />
       <Stack.Screen name="report-detail" options={{ title: 'Details' }} />
       <Stack.Screen name="import" options={{ title: 'Import CSV' }} />
       <Stack.Screen name="export" options={{ title: 'Export data' }} />

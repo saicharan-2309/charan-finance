@@ -71,6 +71,9 @@ export interface Palette {
   heroText: string;
   heroMuted: string;
   heroTrack: string;
+  /** Up / down figures on the hero card (light tints that read on blue). */
+  heroUp: string;
+  heroDown: string;
   /** A card with no colour chosen is drawn in ink. */
   cardGradient: readonly [string, string];
   /** Progress against a limit: the logo ribbon, peach → coral. Over the limit turns `negative`. */
@@ -190,6 +193,8 @@ export const lightPalette: Palette = {
   heroText: '#FFFFFF',
   heroMuted: 'rgba(255, 255, 255, 0.84)',
   heroTrack: 'rgba(255, 255, 255, 0.18)',
+  heroUp: '#A7F3D0',
+  heroDown: '#FECACA',
   cardGradient: ['#22305E', '#071645'],
   gaugeGradient: ['#FE9D72', '#E5445D'],
   income: '#059669',
@@ -245,6 +250,8 @@ export const darkPalette: Palette = {
   heroText: '#FFFFFF',
   heroMuted: 'rgba(255, 255, 255, 0.84)',
   heroTrack: 'rgba(255, 255, 255, 0.16)',
+  heroUp: '#A7F3D0',
+  heroDown: '#FECACA',
   cardGradient: ['#253262', '#0E1838'],
   gaugeGradient: ['#FEB088', '#FF6B7A'],
   income: '#34D399',

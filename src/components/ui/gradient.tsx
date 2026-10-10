@@ -10,7 +10,7 @@
  */
 import { useId, useState, type ReactNode } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /** SVG ids are document-global on web, so each fill needs its own. */
@@ -181,6 +181,28 @@ export function Backdrop({ children }: { children: ReactNode }) {
     <View style={{ flex: 1 }}>
       <AuroraBackground />
       {children}
+    </View>
+  );
+}
+
+/**
+ * The soft wave across a balance card, like the reference: two translucent
+ * white swells through the lower part of the card.
+ */
+export function CardWave({ at = 0.52 }: { at?: number }) {
+  const [box, onLayout] = useBox();
+  const { w, h } = box;
+  const y = h * at;
+  const wave = (dy: number, amp: number) =>
+    `M0 ${y + dy} C ${w * 0.25} ${y + dy - amp}, ${w * 0.45} ${y + dy + amp}, ${w * 0.7} ${y + dy - amp * 0.4} S ${w} ${y + dy - amp}, ${w} ${y + dy - amp} L ${w} ${h} L 0 ${h} Z`;
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={onLayout}>
+      {w > 0 ? (
+        <Svg width={w} height={h}>
+          <Path d={wave(0, 18)} fill="#FFFFFF" fillOpacity={0.1} />
+          <Path d={wave(14, 12)} fill="#FFFFFF" fillOpacity={0.08} />
+        </Svg>
+      ) : null}
     </View>
   );
 }

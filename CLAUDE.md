@@ -79,9 +79,13 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
 - Shape: continuous corners via `continuous`; radius hierarchy (hero 30, cards 22, controls 14).
 - **Glass** (`components/ui/glass.tsx`): real Liquid Glass on iOS 26 (in Expo Go), blur on older
   iOS, CSS blur on web — for chrome and controls only, never content cards.
-- **Tab bar** (iOS 26 style): a floating glass capsule with Home · Activity · Friends · Reports and
-  a lens that springs to the selected tab, plus Add as its own round gradient button to the right,
-  the capsule's height. (Centred-in-5-slots read as off-centre; don't go back.)
+- **Reference design (Oct 10)**: Charan supplied a five-screen mock-up (Home, Transactions,
+  Insights, Budgets, Goals) and wants the app to look like it. Shared pieces: `components/ui/ref.tsx`
+  (PageHeader with centred title, Pill — navy when selected, RoundButton), `features/reports/reference.tsx`
+  (TotalCard with month bars, CategoryBars with Amount / % share, SquareIcon). Keep new screens in this style.
+- **Tab bar** (as in the mock-up): white glass capsule, five equal slots — Home · Transactions · [+] ·
+  Insights (the Reports tab) · More — with + as a raised blue-violet circle in the centre slot; a lens
+  springs to the selected tab. Friends and Goals are still tabs, reached from Home and More.
 - Gradients come from `components/ui/gradient.tsx`, which measures its box — never size an SVG
   canvas with "100%" (it clipped the hero on iOS). Headless-Chrome screenshots show a thin strip
   on the hero's right edge (it measures before hiding its scrollbar) — not a real-device bug.
@@ -89,10 +93,11 @@ returns scheme-aware `elevation`). Never hard-code a colour, size or font.
   memo dependency and crashes when `obj` is null. Guard instead.
 - Colour never carries meaning alone; every screen works in light and dark; sentence case;
   Indian number format.
-- Home top bar is **pinned** (`Screen topBar`): logo · insights | "BUD" wordmark centred | BUD AI ·
-  avatar. Home order below it: → balance groups (first on the gradient, with safe
-  to spend until payday) → quick actions → payment-method cards → bank-sync card → top insight →
-  friends summary → this week → recent → expenses tiles → monthly budget → upcoming → goals.
+- Home (mock-up order): pinned bar (BUD wordmark · BUD AI · notifications · avatar) → greeting →
+  Total balance card (first balance group, eye to hide amounts, % saved pill, safe to spend, Income /
+  Expenses / Savings tiles vs the same day last month) → other balance groups → quick-action tiles →
+  Accounts carousel → bank-sync card → insight → friends → this week → Recent transactions → expense tiles
+  → monthly budget → upcoming → goals. The text-insights screen is titled "Highlights".
 
 ## Product rules that must not regress
 

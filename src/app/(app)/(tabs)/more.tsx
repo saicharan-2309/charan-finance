@@ -29,6 +29,14 @@ export default function MoreScreen() {
 
   const groups: { title: string; items: Item[] }[] = [
     {
+      title: 'People and help',
+      items: [
+        { title: 'Friends and shared bills', icon: 'people-outline', href: '/friends', color: SW.Blue },
+        { title: 'BUD AI', icon: 'sparkles-outline', href: '/assistant', color: SW.Peach },
+        { title: 'Highlights', icon: 'bulb-outline', href: '/insights', color: SW.Gold },
+      ],
+    },
+    {
       title: 'Automatic',
       items: [
         { title: 'Bank sync', icon: 'flash-outline', href: '/bank-sync', color: SW.Gold },

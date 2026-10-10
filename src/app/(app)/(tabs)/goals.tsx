@@ -1,44 +1,58 @@
+/**
+ * Goals, in the reference design: centred header with "+", filter pills, then
+ * one card per goal — a big coloured tile with its icon, the name, saved /
+ * target, a coloured progress bar with the percentage, and the pace hint.
+ * The pills filter by what goals have: in progress, reached, archived.
+ */
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { HeaderButton } from '@/components/ui/controls';
-import { EmptyState, ProgressRing, QueryState } from '@/components/ui/feedback';
-import { Screen, Section } from '@/components/ui/layout';
-import { Card, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
+import { EmptyState, QueryState } from '@/components/ui/feedback';
+import { GradientFill } from '@/components/ui/gradient';
+import { Screen } from '@/components/ui/layout';
+import { Icon, Row, Text } from '@/components/ui/primitives';
+import { PageHeader, Pill, RoundButton } from '@/components/ui/ref';
 import { useGoalProgressMap } from '@/features/goals/useGoalProgress';
 import { useCurrency, useGoals } from '@/hooks/data';
 import { formatShortDate } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import { invalidateFinancialData } from '@/lib/query';
 import { useTheme } from '@/theme/ThemeProvider';
-import { spacing } from '@/theme/tokens';
+import { cardGradientFor, continuous, radius, spacing } from '@/theme/tokens';
+
+type Filter = 'all' | 'active' | 'reached' | 'archived';
 
 export default function GoalsScreen() {
-  const { colors } = useTheme();
+  const { colors, elevation, scheme } = useTheme();
   const currency = useCurrency();
   const goals = useGoals();
   const progress = useGoalProgressMap(goals.data);
   const [refreshing, setRefreshing] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
 
   return (
     <Screen
       safeTop
       tabBarInset
-      title="Goals"
       refreshing={refreshing}
       onRefresh={async () => {
         setRefreshing(true);
         await invalidateFinancialData();
         setRefreshing(false);
       }}
-      headerRight={<HeaderButton icon="add" label="New goal" onPress={() => router.push('/goals/edit')} />}
     >
+      <PageHeader
+        title="Goals"
+        left={
+          router.canGoBack() ? (
+            <RoundButton icon="chevron-back" label="Back" onPress={() => router.back()} />
+          ) : undefined
+        }
+        right={<RoundButton icon="add" label="New goal" onPress={() => router.push('/goals/edit')} />}
+      />
       <QueryState query={goals}>
         {(list) => {
-          const active = list.filter((g) => !g.isArchived);
-          const archived = list.filter((g) => g.isArchived);
           if (list.length === 0) {
             return (
               <EmptyState
@@ -50,6 +64,19 @@ export default function GoalsScreen() {
               />
             );
           }
+          const active = list.filter((g) => !g.isArchived);
+          const reached = (id: string) => !!progress.get(id)?.isComplete;
+          const shown = list.filter((g) =>
+            filter === 'archived'
+              ? g.isArchived
+              : g.isArchived
+                ? false
+                : filter === 'reached'
+                  ? reached(g.id)
+                  : filter === 'active'
+                    ? !reached(g.id)
+                    : true,
+          );
           const saved = active
             .filter((g) => g.currency === currency)
             .reduce((s, g) => s + g.currentAmount, 0);
@@ -58,101 +85,127 @@ export default function GoalsScreen() {
             .reduce((s, g) => s + g.targetAmount, 0);
           return (
             <>
-              <Card variant="elevated" style={{ padding: spacing.xl, marginBottom: spacing.xxl }}>
-                <Row gap={spacing.xl}>
-                  <ProgressRing
-                    progress={target ? saved / target : 0}
-                    size={84}
-                    stroke={9}
-                    color={colors.positive}
-                  >
-                    <Text variant="subhead">{target ? Math.round((saved / target) * 100) : 0}%</Text>
-                  </ProgressRing>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text variant="caption" tone="secondary">
-                      Saved across {active.length} {active.length === 1 ? 'goal' : 'goals'}
-                    </Text>
-                    <MoneyText
-                      minor={saved}
-                      currency={currency}
-                      variant="amountLarge"
-                      options={{ decimals: 'never' }}
-                    />
-                    <Text variant="footnote" tone="secondary">
-                      of {formatMoney(target, currency, { decimals: 'never' })}
-                    </Text>
-                  </View>
-                </Row>
-              </Card>
+              <Row gap={spacing.sm} style={{ marginBottom: spacing.md }}>
+                <Pill label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
+                <Pill
+                  label="In progress"
+                  selected={filter === 'active'}
+                  onPress={() => setFilter('active')}
+                />
+                <Pill label="Reached" selected={filter === 'reached'} onPress={() => setFilter('reached')} />
+                {list.some((g) => g.isArchived) ? (
+                  <Pill
+                    label="Archived"
+                    selected={filter === 'archived'}
+                    onPress={() => setFilter('archived')}
+                  />
+                ) : null}
+              </Row>
+              <Text variant="footnote" tone="secondary" style={{ marginBottom: spacing.lg }}>
+                Saved {formatMoney(saved, currency, { decimals: 'never' })} of{' '}
+                {formatMoney(target, currency, { decimals: 'never' })} across {active.length}{' '}
+                {active.length === 1 ? 'goal' : 'goals'}
+              </Text>
 
-              {active.map((g) => {
+              {shown.length === 0 ? (
+                <Text variant="callout" tone="secondary" align="center" style={{ marginTop: spacing.xl }}>
+                  No goals here.
+                </Text>
+              ) : null}
+
+              {shown.map((g) => {
                 const p = progress.get(g.id);
+                const pct = p ? Math.round(p.percent) : 0;
+                const color = g.color ?? colors.brand;
                 return (
-                  <Card
+                  <Pressable
                     key={g.id}
-                    style={{ marginBottom: spacing.md }}
                     onPress={() => router.push({ pathname: '/goals/[id]', params: { id: g.id } })}
-                    accessibilityLabel={`${g.name}, ${p ? Math.round(p.percent) : 0} percent`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${g.name}, ${pct} percent`}
+                    style={({ pressed }) => [
+                      {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.lg,
+                        padding: spacing.lg,
+                        marginBottom: spacing.md,
+                        borderRadius: radius.xl,
+                        ...continuous,
+                        backgroundColor: colors.surface,
+                        opacity: g.isArchived ? 0.7 : pressed ? 0.85 : 1,
+                      },
+                      scheme === 'light' ? elevation.card : null,
+                    ]}
                   >
-                    <Row gap={spacing.lg}>
-                      <ProgressRing
-                        progress={p ? p.percent / 100 : 0}
-                        size={60}
-                        stroke={6}
-                        color={g.color ?? colors.positive}
-                      >
-                        <IconBadge icon={g.icon ?? 'flag-outline'} color={g.color} size={34} />
-                      </ProgressRing>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text variant="bodyStrong">{g.name}</Text>
-                        <Text variant="footnote" tone="secondary">
-                          {formatMoney(g.currentAmount, g.currency, { decimals: 'never' })} of{' '}
-                          {formatMoney(g.targetAmount, g.currency, { decimals: 'never' })}
+                    {/* The goal's tile, in its colour */}
+                    <View
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: radius.lg,
+                        ...continuous,
+                        overflow: 'hidden',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <GradientFill colors={cardGradientFor(color, colors.cardGradient)} sheen />
+                      <Icon name={g.icon ?? 'flag'} size={30} color={colors.heroText} />
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text variant="bodyStrong" numberOfLines={1} style={{ fontSize: 15 }}>
+                        {g.name}
+                      </Text>
+                      <Text variant="footnote" tone="secondary" numberOfLines={1}>
+                        <Text variant="footnote" style={{ fontWeight: '700' }}>
+                          {formatMoney(g.currentAmount, g.currency, { decimals: 'never' })}
+                        </Text>{' '}
+                        / {formatMoney(g.targetAmount, g.currency, { decimals: 'never' })}
+                      </Text>
+                      <Row gap={spacing.md}>
+                        <View
+                          style={{
+                            flex: 1,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: colors.fill,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: `${Math.min(100, Math.max(2, pct))}%`,
+                              height: 6,
+                              borderRadius: 3,
+                              backgroundColor: p?.isComplete ? colors.positive : color,
+                            }}
+                          />
+                        </View>
+                        <Text variant="caption" tone="secondary" style={{ minWidth: 32, textAlign: 'right' }}>
+                          {pct}%
                         </Text>
-                        {p ? (
-                          <Text
-                            variant="caption"
-                            tone={p.isComplete ? 'positive' : p.onTrack === false ? 'warning' : 'secondary'}
-                          >
-                            {p.isComplete
-                              ? 'Goal reached'
-                              : p.requiredMonthly !== null && g.targetDate
-                                ? `${formatMoney(p.requiredMonthly, g.currency, { decimals: 'never' })}/month to reach by ${formatShortDate(g.targetDate)}`
-                                : p.projectedCompletion
-                                  ? `At your pace: ${formatShortDate(p.projectedCompletion)}`
-                                  : `${formatMoney(p.remaining, g.currency, { decimals: 'never' })} to go`}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <Text variant="headline">{p ? Math.round(p.percent) : 0}%</Text>
-                    </Row>
-                  </Card>
+                      </Row>
+                      {p && !g.isArchived ? (
+                        <Text
+                          variant="caption"
+                          tone={p.isComplete ? 'positive' : p.onTrack === false ? 'warning' : 'tertiary'}
+                          numberOfLines={1}
+                        >
+                          {p.isComplete
+                            ? 'Goal reached'
+                            : p.requiredMonthly !== null && g.targetDate
+                              ? `${formatMoney(p.requiredMonthly, g.currency, { decimals: 'never' })}/month to reach by ${formatShortDate(g.targetDate)}`
+                              : p.projectedCompletion
+                                ? `At your pace: ${formatShortDate(p.projectedCompletion)}`
+                                : `${formatMoney(p.remaining, g.currency, { decimals: 'never' })} to go`}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Icon name="chevron-forward" size={18} tone="tertiary" />
+                  </Pressable>
                 );
               })}
-
-              {archived.length ? (
-                <Section style={{ marginTop: spacing.xl }}>
-                  <Pressable onPress={() => setShowArchived((v) => !v)} accessibilityRole="button">
-                    <Text variant="subhead" tone="brand">
-                      {showArchived ? 'Hide' : 'Show'} archived ({archived.length})
-                    </Text>
-                  </Pressable>
-                  {showArchived
-                    ? archived.map((g) => (
-                        <Card
-                          key={g.id}
-                          style={{ marginTop: spacing.md, opacity: 0.7 }}
-                          onPress={() => router.push({ pathname: '/goals/[id]', params: { id: g.id } })}
-                        >
-                          <Text variant="bodyStrong">{g.name}</Text>
-                          <Text variant="footnote" tone="secondary">
-                            {formatMoney(g.currentAmount, g.currency, { decimals: 'never' })} saved
-                          </Text>
-                        </Card>
-                      ))
-                    : null}
-                </Section>
-              ) : null}
             </>
           );
         }}

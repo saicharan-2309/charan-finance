@@ -12,14 +12,17 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { BrandMark, BrandWordmark } from '@/components/BrandMark';
-import { HeaderButton } from '@/components/ui/controls';
+import { BrandWordmark } from '@/components/BrandMark';
 import { EmptyState, ErrorState, ProgressBar, Skeleton } from '@/components/ui/feedback';
 import { GradientFill } from '@/components/ui/gradient';
 import { Screen, Section } from '@/components/ui/layout';
 import { Card, Divider, Icon, IconBadge, MoneyText, Row, Text } from '@/components/ui/primitives';
+import { RoundButton } from '@/components/ui/ref';
+import { TransactionRow } from '@/features/transactions/TransactionRow';
+import { useQuery } from '@tanstack/react-query';
+import { fetchSummary } from '@/services/reports';
 import { BankSyncCard } from '@/features/bank-sync/BankSyncCard';
-import { AccountCarousel, ExpenseTiles, TransactionCards, WeekChart } from '@/features/dashboard/home-cards';
+import { AccountCarousel, ExpenseTiles, WeekChart } from '@/features/dashboard/home-cards';
 import {
   BalanceGroupsHero,
   FriendsSummaryCard,
@@ -38,6 +41,7 @@ import {
   useDashboard,
   useFriendsTotals,
   useGoals,
+  useNotifications,
   useProfile,
   useRecentTransactions,
   useRecurring,
@@ -46,13 +50,13 @@ import {
 } from '@/hooks/data';
 import { creditCardDues, isLiquid, liquidBalance } from '@/lib/accounts';
 import { availableBalance, upcomingItems } from '@/lib/cashflow';
-import { addDaysISO, daysLeft, fromISODate, todayISO } from '@/lib/dates';
+import { addDaysISO, cycleRange, daysLeft, elapsedDays, fromISODate, todayISO } from '@/lib/dates';
 import { formatMoney, type Minor } from '@/lib/money';
 import { cardDates, cardStanding } from '@/lib/payment-methods';
 import { notifyBudgetThresholds } from '@/lib/notifications';
-import { invalidateFinancialData } from '@/lib/query';
+import { invalidateFinancialData, qk } from '@/lib/query';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, spacing } from '@/theme/tokens';
+import { radius, spacing, typography } from '@/theme/tokens';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -69,10 +73,20 @@ export default function HomeScreen() {
   const insights = useInsights();
   const settings = useSettings();
   const { index: cats } = useCategoryIndex();
+  const notifications = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
 
   const today = todayISO();
   const month = useCycle();
+  // Last month up to the same day, so the tiles compare like with like.
+  const startDay = settings.data?.cycleStartDay ?? 1;
+  const elapsed = Math.max(elapsedDays(month, today), 1);
+  const prevStart = cycleRange(fromISODate(addDaysISO(month.start, -1)), startDay).start;
+  const prevEnd = addDaysISO(prevStart, elapsed - 1);
+  const prevSoFar = useQuery({
+    queryKey: qk.report('summary', prevStart, prevEnd),
+    queryFn: () => fetchSummary(prevStart, prevEnd),
+  });
   const d = dashboard.data;
   const currency = d?.currency ?? profile.data?.defaultCurrency ?? 'INR';
 
@@ -167,58 +181,73 @@ export default function HomeScreen() {
   const perDay = derived && derived.available > 0 && left > 0 ? derived.available / left : null;
   const endLabel = fromISODate(month.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
+  const unread = (notifications.data ?? []).filter((n) => !n.readAt).length;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   // Pinned to the top: stays put while the page scrolls.
   const topBar = (
-    <View style={{ height: 44, justifyContent: 'center' }}>
-      <Row justify="space-between">
-        <Row gap={spacing.sm}>
-          <BrandMark size={40} />
-          <HeaderButton icon="bulb-outline" label="Insights" onPress={() => router.push('/insights')} />
-        </Row>
-        <Row gap={spacing.sm}>
-          <HeaderButton
-            icon="sparkles"
-            label="BUD AI"
-            color={colors.warm}
-            onPress={() => router.push('/assistant')}
-          />
-          <Pressable
-            onPress={() => router.push('/more')}
-            accessibilityRole="button"
-            accessibilityLabel="Your account and settings"
-            hitSlop={8}
-            style={({ pressed }) => ({
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              overflow: 'hidden',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ scale: pressed ? 0.92 : 1 }],
-            })}
-          >
-            <GradientFill colors={colors.heroGradient} sheen />
-            <Text variant="bodyStrong" style={{ color: colors.heroText }}>
-              {(name || '?').charAt(0).toUpperCase()}
-            </Text>
-          </Pressable>
-        </Row>
-      </Row>
-      {/* The wordmark from the logo, centred on the screen */}
-      <View
-        pointerEvents="none"
-        accessible
-        accessibilityRole="header"
-        accessibilityLabel="BUD, Home"
-        style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }}
-      >
-        <BrandWordmark height={24} />
+    <Row justify="space-between" style={{ height: 44 }}>
+      <View accessible accessibilityRole="header" accessibilityLabel="BUD, Home">
+        <BrandWordmark height={28} />
       </View>
-    </View>
+      <Row gap={spacing.sm}>
+        <RoundButton
+          icon="sparkles"
+          label="BUD AI"
+          color={colors.warm}
+          onPress={() => router.push('/assistant')}
+        />
+        <RoundButton
+          icon="notifications-outline"
+          label="Notifications"
+          badge={unread > 0 ? true : undefined}
+          onPress={() => router.push('/notifications')}
+        />
+        <Pressable
+          onPress={() => router.push('/more')}
+          accessibilityRole="button"
+          accessibilityLabel="Your account and settings"
+          hitSlop={8}
+          style={({ pressed }) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [{ scale: pressed ? 0.92 : 1 }],
+          })}
+        >
+          <GradientFill colors={colors.heroGradient} sheen />
+          <Text variant="bodyStrong" style={{ color: colors.heroText }}>
+            {(name || '?').charAt(0).toUpperCase()}
+          </Text>
+        </Pressable>
+      </Row>
+    </Row>
   );
 
   return (
     <Screen safeTop tabBarInset refreshing={refreshing} onRefresh={refresh} topBar={topBar}>
+      {/* Greeting, like the reference */}
+      <View style={{ marginBottom: spacing.lg, gap: 2 }}>
+        <Text variant="subhead" tone="secondary">
+          {greeting}
+        </Text>
+        {name ? (
+          <Text style={[typography.largeTitle, { fontSize: 30, lineHeight: 36 }]} numberOfLines={1}>
+            {name}
+          </Text>
+        ) : null}
+        <Row gap={6}>
+          <Text variant="footnote" tone="secondary">
+            Stay on track with your money
+          </Text>
+          <Icon name="trending-up" size={14} tone="positive" />
+        </Row>
+      </View>
+
       <SyncBanner />
 
       {dashboard.error && !d ? (
@@ -239,15 +268,25 @@ export default function HomeScreen() {
               }
             : null
         }
+        month={
+          d && prevSoFar.data
+            ? {
+                income: d.current.income,
+                expense: d.current.expense,
+                prevIncome: prevSoFar.data.income,
+                prevExpense: prevSoFar.data.expense,
+              }
+            : null
+        }
       />
 
       <QuickActions />
 
-      {/* Cards */}
+      {/* Accounts */}
       {accounts.data?.length ? (
-        <View style={{ marginBottom: spacing.xxl }}>
+        <Section title="Accounts" action="See all" onAction={() => router.push('/accounts')}>
           <AccountCarousel accounts={accounts.data} />
-        </View>
+        </Section>
       ) : noAccounts ? (
         <Card style={{ marginBottom: spacing.xxl }}>
           <EmptyState
@@ -272,7 +311,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Recent transactions, one card each */}
-      <Section title="Recent" action="See all" onAction={() => router.push('/transactions')}>
+      <Section title="Recent transactions" action="See all" onAction={() => router.push('/transactions')}>
         <PendingTransactions />
         {recent.data === undefined ? (
           <Skeleton height={160} rounded={radius.xl} />
@@ -286,7 +325,14 @@ export default function HomeScreen() {
             />
           </Card>
         ) : (
-          <TransactionCards transactions={recent.data} />
+          <Card padded={false} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.xs }}>
+            {recent.data.slice(0, 5).map((t, i) => (
+              <View key={t.id}>
+                {i > 0 ? <Divider inset={56} /> : null}
+                <TransactionRow t={t} showDate />
+              </View>
+            ))}
+          </Card>
         )}
       </Section>
 
